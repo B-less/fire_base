@@ -6,24 +6,54 @@ import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
 import { ChatInput } from './chat-input';
 import { SmartReplySuggestions } from './smart-reply-suggestions';
+import { generateImage } from '@/ai/flows/image-generation-flow';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatPanelProps {
   contact: Contact;
-  onSendMessage: (content: string, image?: string) => void;
+  onSendMessage: (content: string, image?: string, isGenerating?: boolean) => void;
+  onUpdateMessage: (messageId: number, content: string, image?: string, isGenerating?: boolean) => void;
   onBack?: () => void;
   smartReplies: string[];
   setSmartReplies: (replies: string[]) => void;
 }
 
-export function ChatPanel({ contact, onSendMessage, onBack, smartReplies, setSmartReplies }: ChatPanelProps) {
+export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, smartReplies, setSmartReplies }: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
+  const { toast } = useToast();
+
+  const handleImagine = async (prompt: string, baseImage?: string) => {
+    const tempMessageId = Date.now();
+    onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+    setSmartReplies([]);
+    
+    try {
+      const result = await generateImage({ prompt, baseImage });
+      onUpdateMessage(tempMessageId, prompt, result.imageUrl, false);
+    } catch (error) {
+      console.error("Error generating image:", error);
+      onUpdateMessage(tempMessageId, `Failed to generate image: "${prompt}"`, undefined, false);
+      toast({
+        title: "Image Generation Failed",
+        description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
+        variant: "destructive",
+      });
+    }
+  }
 
   const handleSend = () => {
-    if (inputText.trim()) {
-      onSendMessage(inputText.trim());
+    if (!inputText.trim()) return;
+
+    if (inputText.trim().startsWith('/imagine ')) {
+      const prompt = inputText.trim().substring(9);
+      handleImagine(prompt);
       setInputText('');
-      setSmartReplies([]);
+      return;
     }
+
+    onSendMessage(inputText.trim());
+    setInputText('');
+    setSmartReplies([]);
   };
 
   const handleSelectReply = (reply: string) => {
@@ -35,7 +65,7 @@ export function ChatPanel({ contact, onSendMessage, onBack, smartReplies, setSma
   return (
     <div className="flex h-full flex-col bg-muted/30">
       <ChatHeader contact={contact} onBack={onBack} />
-      <MessageList messages={contact.messages} contactAvatar={contact.avatar} />
+      <MessageList messages={contact.messages} contactAvatar={contact.avatar} onImagine={handleImagine} />
       <div className="p-4 pt-2">
         <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />
         <ChatInput

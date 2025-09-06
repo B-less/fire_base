@@ -1,4 +1,4 @@
-import { Paperclip, SendHorizontal } from 'lucide-react';
+import { Paperclip, SendHorizontal, Sparkles } from 'lucide-react';
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,10 +54,12 @@ export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputPro
     }
   };
 
+  const isImagineCommand = value.trim().startsWith('/imagine ');
+
   return (
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
       <Textarea
-        placeholder="Type a message..."
+        placeholder="Type a message or use /imagine to generate an image..."
         className="min-h-[48px] resize-none border-0 bg-transparent p-2 pr-20 shadow-none focus-visible:ring-0"
         value={value}
         onChange={onChange}
@@ -75,7 +77,7 @@ export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputPro
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isImagineCommand}>
                 {isUploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
@@ -94,7 +96,7 @@ export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputPro
           onClick={onSend}
           disabled={!value.trim()}
         >
-          <SendHorizontal className="h-4 w-4" />
+          {isImagineCommand ? <Sparkles className="h-4 w-4" /> : <SendHorizontal className="h-4 w-4" />}
         </Button>
       </div>
     </div>

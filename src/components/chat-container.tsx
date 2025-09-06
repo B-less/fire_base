@@ -49,9 +49,10 @@ export function ChatContainer() {
   const getSmartReplies = useCallback(async (contact: Contact) => {
     if (!contact.messages.length) return;
     const lastMessage = contact.messages[contact.messages.length - 1];
-    if (lastMessage.sender === 'me') return;
+    if (lastMessage.sender === 'me' || lastMessage.isGenerating) return;
 
     const conversationHistory = contact.messages
+      .filter(m => !m.isGenerating)
       .map((m) => `${m.sender === 'me' ? 'User' : contact.name}: ${m.content}`)
       .join('\n');
 
@@ -67,7 +68,7 @@ export function ChatContainer() {
     }
   }, []);
 
-  const handleSendMessage = (content: string, image?: string) => {
+  const handleSendMessage = (content: string, image?: string, isGenerating?: boolean) => {
     if (!activeContactId) return;
 
     const newMessage: Message = {
@@ -77,6 +78,7 @@ export function ChatContainer() {
       sender: 'me',
       timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
       status: 'sent',
+      isGenerating: isGenerating,
     };
 
     setContacts((prevContacts) =>
@@ -93,6 +95,26 @@ export function ChatContainer() {
     );
      setSmartReplies([]);
   };
+
+  const handleUpdateMessage = (messageId: number, content: string, image?: string, isGenerating?: boolean) => {
+    if (!activeContactId) return;
+
+     setContacts((prevContacts) =>
+      prevContacts.map((contact) =>
+        contact.id === activeContactId
+          ? {
+              ...contact,
+              messages: contact.messages.map(msg => 
+                msg.id === messageId 
+                  ? { ...msg, content, image, isGenerating } 
+                  : msg
+              ),
+              lastMessage: content || 'Image',
+            }
+          : contact
+      )
+    );
+  }
   
   useEffect(() => {
     if (activeContact) {
@@ -143,6 +165,7 @@ export function ChatContainer() {
           <ChatPanel
             contact={activeContact}
             onSendMessage={handleSendMessage}
+            onUpdateMessage={handleUpdateMessage}
             onBack={isMobile ? handleBackToContacts : undefined}
             smartReplies={smartReplies}
             setSmartReplies={setSmartReplies}

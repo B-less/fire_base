@@ -8,9 +8,10 @@ import { MessageBubble } from './message-bubble';
 interface MessageListProps {
   messages: Message[];
   contactAvatar: string;
+  onImagine: (prompt: string, baseImage: string) => void;
 }
 
-export function MessageList({ messages, contactAvatar }: MessageListProps) {
+export function MessageList({ messages, contactAvatar, onImagine }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export function MessageList({ messages, contactAvatar }: MessageListProps) {
             message={message}
             contactAvatar={contactAvatar}
             isFirstInGroup={index === 0 || messages[index - 1].sender !== message.sender}
+            onImagine={onImagine}
           />
         ))}
       </div>

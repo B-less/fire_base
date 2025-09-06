@@ -5,6 +5,7 @@ export type Message = {
   sender: 'me' | 'other';
   status: 'sent' | 'delivered' | 'read';
   image?: string;
+  isGenerating?: boolean;
 };
 
 export type Contact = {
