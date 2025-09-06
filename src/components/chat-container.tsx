@@ -11,7 +11,7 @@ import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push, get, child, remove } from 'firebase/database';
+import { ref, onValue, set, push, get, child, remove, query, limitToLast, off } from 'firebase/database';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -23,11 +23,14 @@ const getConversationKey = (user1: string, user2: string) => {
 export function ChatContainer() {
   const { user: currentUser } = useAuth();
   const [allUsers, setAllUsers] = useState<Record<string, User>>({});
-  const [allMessages, setAllMessages] = useState<Record<string, Record<string, Message>>>({});
+  const [lastMessages, setLastMessages] = useState<Record<string, Message>>({});
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [activeContactId, setActiveContactId] = useState<string | null>(null);
-  const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [activeContactFullMessages, setActiveContactFullMessages] = useState<Record<string, Message>>({});
+
 
   // Fetch all users once
   useEffect(() => {
@@ -40,24 +43,29 @@ export function ChatContainer() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Listen to all messages for conversations involving the current user
+  // Listen for the LAST message in each conversation for the contact list preview
   useEffect(() => {
     if (!currentUser || !Object.keys(allUsers).length) return;
 
     const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
     const conversationKeys = currentUserContacts.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
-    
-    const unsubscribers = conversationKeys.map(key => {
-        const messagesRef = ref(db, `messages/${key}`);
-        return onValue(messagesRef, (snapshot) => {
-            const messagesData = snapshot.val() || {};
-            setAllMessages(prev => ({ ...prev, [key]: messagesData }));
-        });
+
+    const listeners = conversationKeys.map(key => {
+      const messagesRef = query(ref(db, `messages/${key}`), limitToLast(1));
+      const listener = onValue(messagesRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const messageData = snapshot.val();
+          const lastMessageKey = Object.keys(messageData)[0];
+          const lastMessage = messageData[lastMessageKey];
+          setLastMessages(prev => ({ ...prev, [key]: lastMessage }));
+        }
+      });
+      return { ref: messagesRef, listener };
     });
 
-    // When the component unmounts, unsubscribe from all listeners
-    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
-
+    return () => {
+      listeners.forEach(({ ref, listener }) => off(ref, 'value', listener));
+    };
   }, [currentUser, allUsers]);
 
   // Process data and build contacts list
@@ -66,73 +74,69 @@ export function ChatContainer() {
       setIsLoading(true);
       return;
     }
-  
+
     const currentUserData = allUsers[currentUser.phoneNumber];
-    if (!currentUserData || !currentUserData.contacts) {
-      setContacts([]);
+    if (!currentUserData) {
       setIsLoading(false);
       return;
     }
-  
-    const contactList = currentUserData.contacts
+
+    const contactList = (currentUserData.contacts || [])
       .map((contactId: string) => {
         const contactUser = allUsers[contactId];
         if (!contactUser) return null;
-  
+
         const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-        const conversationMessages = allMessages[conversationKey] ? Object.values(allMessages[conversationKey]) : [];
-        conversationMessages.sort((a, b) => a.id - b.id);
-        
-        const lastMessage = conversationMessages.length > 0 ? conversationMessages[conversationMessages.length - 1] : null;
-  
+        const lastMessage = lastMessages[conversationKey];
+
         return {
           id: contactUser.phoneNumber,
           name: contactUser.name,
           avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
-          online: false, // Online status can be implemented separately if needed
+          online: false,
           lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
           lastMessageTime: lastMessage ? lastMessage.timestamp : '',
-          unreadCount: 0, // Unread count can be implemented separately
-          messages: conversationMessages,
+          unreadCount: 0,
+          messages: lastMessage ? [lastMessage] : [],
         };
       })
       .filter((c): c is Contact => c !== null);
-      
-    // Add AI contact if it was previously there or started
-    const hasAIChat = contacts.some(c => c.id === AI_CONTACT_ID);
-    if(hasAIChat && !contactList.some(c => c.id === AI_CONTACT_ID)) {
-       const aiContact = contacts.find(c => c.id === AI_CONTACT_ID);
-       if(aiContact) contactList.unshift(aiContact);
-    }
-    
+
     setContacts(contactList);
     setIsLoading(false);
 
-  }, [currentUser, allUsers, allMessages]);
-  
-  const activeContact = useMemo(() => {
-      const contact = contacts.find((c) => c.id === activeContactId);
-      if (contact) {
-          const conversationKey = contact.id !== AI_CONTACT_ID && currentUser ? getConversationKey(currentUser.phoneNumber, contact.id) : null;
-          const messages = conversationKey && allMessages[conversationKey] 
-              ? Object.values(allMessages[conversationKey]).sort((a,b) => a.id - b.id) 
-              : contact.messages;
-          return { ...contact, messages };
-      }
-      return undefined;
-  }, [contacts, activeContactId, currentUser, allMessages]);
+  }, [currentUser, allUsers, lastMessages]);
 
+  useEffect(() => {
+      if (activeContact?.id && activeContact.id !== AI_CONTACT_ID) {
+          setIsMessagesLoading(true);
+          const conversationKey = getConversationKey(currentUser!.phoneNumber, activeContact.id);
+          const messagesRef = ref(db, `messages/${conversationKey}`);
+          
+          const unsubscribe = onValue(messagesRef, (snapshot) => {
+              const messagesData = snapshot.val() || {};
+              setActiveContactFullMessages(messagesData);
+              setIsMessagesLoading(false);
+          });
+          
+          return () => unsubscribe();
+      } else {
+        // Clear messages if no active contact or AI chat
+        setActiveContactFullMessages({});
+      }
+  }, [activeContact?.id, currentUser]);
 
   const handleSelectContact = (contactId: string) => {
-    setActiveContactId(contactId);
+    const contact = contacts.find(c => c.id === contactId);
+    setActiveContact(contact || null);
     setSmartReplies([]);
   };
-  
+
   const handleAddContact = async (user: User) => {
     if (!currentUser) return;
     
     if(contacts.some(c => c.id === user.phoneNumber)) {
-        setActiveContactId(user.phoneNumber);
+        handleSelectContact(user.phoneNumber);
         return;
     }
     
@@ -152,12 +156,11 @@ export function ChatContainer() {
         await set(newContactContactsRef, [...newContactCurrentContacts, currentUser.phoneNumber]);
     }
     
-    // The onValue listeners will automatically update the UI
     handleSelectContact(user.phoneNumber);
   };
   
   const handleStartAIChat = () => {
-    if (!contacts.some(c => c.id === AI_CONTACT_ID)) {
+     if (!contacts.some(c => c.id === AI_CONTACT_ID)) {
       const aiContact: Contact = {
         id: AI_CONTACT_ID,
         name: 'AI Assistant',
@@ -168,21 +171,23 @@ export function ChatContainer() {
         unreadCount: 0,
         messages: [],
       };
-      setContacts(prev => [aiContact, ...prev]);
+       setContacts(prev => [aiContact, ...prev]);
+       setActiveContact(aiContact);
+    } else {
+      handleSelectContact(AI_CONTACT_ID);
     }
-    handleSelectContact(AI_CONTACT_ID);
   };
 
   const handleBackToContacts = () => {
-    setActiveContactId(null);
+    setActiveContact(null);
   };
 
-  const getSmartReplies = useCallback(async (contact: Contact) => {
-    if (!contact.messages.length || !currentUser || contact.id === AI_CONTACT_ID) return;
-    const lastMessage = contact.messages[contact.messages.length - 1];
+  const getSmartReplies = useCallback(async (contact: Contact, fullMessages: Message[]) => {
+    if (!fullMessages.length || !currentUser || contact.id === AI_CONTACT_ID) return;
+    const lastMessage = fullMessages[fullMessages.length - 1];
     if (lastMessage.sender === currentUser.phoneNumber || lastMessage.isGenerating) return;
 
-    const conversationHistory = contact.messages
+    const conversationHistory = fullMessages
       .filter(m => !m.isGenerating)
       .map((m) => `${m.sender === currentUser.phoneNumber ? 'User' : contact.name}: ${m.content}`)
       .join('\n');
@@ -199,15 +204,15 @@ export function ChatContainer() {
     }
   }, [currentUser]);
   
-  const getAIResponse = useCallback(async (contact: Contact) => {
-    if (!currentUser || contact.id !== AI_CONTACT_ID) return;
+  const getAIResponse = useCallback(async () => {
+    if (!currentUser || activeContact?.id !== AI_CONTACT_ID) return;
     
-    const conversationHistory = contact.messages
+    const conversationHistory = activeContact.messages
       .filter(m => !m.isGenerating)
       .map(m => `${m.sender === currentUser.phoneNumber ? 'User' : 'AI'}: ${m.content}`)
       .join('\n');
 
-    const lastMessage = contact.messages[contact.messages.length - 1];
+    const lastMessage = activeContact.messages[activeContact.messages.length - 1];
     if (!lastMessage || lastMessage.sender !== currentUser.phoneNumber) return;
 
     try {
@@ -224,21 +229,21 @@ export function ChatContainer() {
         status: 'read',
       };
       
-      setContacts(prevContacts => prevContacts.map(c => {
-        if (c.id === AI_CONTACT_ID) {
-          const updatedMessages = [...c.messages, aiMessage];
-          return { ...c, messages: updatedMessages, lastMessage: response, lastMessageTime: aiMessage.timestamp };
-        }
-        return c;
-      }));
+      setActiveContact(prev => {
+        if (!prev) return null;
+        const updatedMessages = [...prev.messages, aiMessage];
+        const updatedContact = { ...prev, messages: updatedMessages, lastMessage: response, lastMessageTime: aiMessage.timestamp };
+        setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
+        return updatedContact;
+      });
 
     } catch (error) {
       console.error('Error getting AI response:', error);
     }
-  }, [currentUser]);
+  }, [currentUser, activeContact]);
 
   const handleSendMessage = (content: string, image?: string, isGenerating?: boolean) => {
-    if (!activeContactId || !currentUser) return;
+    if (!activeContact || !currentUser) return;
 
     const messageId = Date.now();
     const newMessage: Message = {
@@ -251,23 +256,16 @@ export function ChatContainer() {
       ...(isGenerating && { isGenerating }),
     };
     
-    if (activeContactId === AI_CONTACT_ID) {
-         setContacts((prevContacts) =>
-          prevContacts.map((contact) => {
-            if (contact.id === activeContactId) {
-              const updatedMessages = [...contact.messages, newMessage];
-              return {
-                ...contact,
-                messages: updatedMessages,
-                lastMessage: content || 'Image',
-                lastMessageTime: newMessage.timestamp,
-              };
-            }
-            return contact;
-          })
-        );
+    if (activeContact.id === AI_CONTACT_ID) {
+        setActiveContact(prev => {
+           if (!prev) return null;
+           const updatedMessages = [...prev.messages, newMessage];
+           const updatedContact = { ...prev, messages: updatedMessages, lastMessage: content || 'Image', lastMessageTime: newMessage.timestamp };
+           setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
+           return updatedContact;
+        });
     } else {
-        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
         const messagesRef = ref(db, `messages/${conversationKey}`);
         const newMessageRef = push(messagesRef);
         
@@ -278,7 +276,7 @@ export function ChatContainer() {
         set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
         
         sendPushNotification({ 
-            recipientId: activeContactId, 
+            recipientId: activeContact.id, 
             senderName: currentUser.name, 
             message: content || "Sent an image" 
         }).catch(err => console.error("Failed to send notification:", err));
@@ -289,40 +287,30 @@ export function ChatContainer() {
   };
 
   const handleUpdateMessage = (messageId: number, content: string, image?: string, isGenerating?: boolean) => {
-    if (!activeContactId || !currentUser) return;
+    if (!activeContact || !currentUser) return;
     
-    if (activeContactId === AI_CONTACT_ID) {
-         setContacts((prevContacts) =>
-          prevContacts.map((contact) => {
-            if (contact.id === activeContactId) {
-              const updatedMessages = contact.messages.map(msg => 
-                msg.id === messageId 
-                  ? { ...msg, content, image, isGenerating: isGenerating, sender: currentUser.phoneNumber }
-                  : msg
-              );
-              return {
-                  ...contact,
-                  messages: updatedMessages,
-                  lastMessage: content || 'Image',
-                };
-            }
-            return contact;
-          })
-        );
+    if (activeContact.id === AI_CONTACT_ID) {
+         setActiveContact(prev => {
+            if (!prev) return null;
+            const updatedMessages = prev.messages.map(msg => 
+              msg.id === messageId 
+                ? { ...msg, content, image, isGenerating: isGenerating, sender: currentUser.phoneNumber }
+                : msg
+            );
+            const updatedContact = { ...prev, messages: updatedMessages, lastMessage: content || 'Image' };
+            setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
+            return updatedContact;
+        });
     } else {
-        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
         
-        const messagesForConvo = allMessages[conversationKey] || {};
-        const messageKeyToUpdate = Object.keys(messagesForConvo).find(key => messagesForConvo[key].id === messageId);
+        const messageKeyToUpdate = Object.keys(activeContactFullMessages).find(key => activeContactFullMessages[key].id === messageId);
         
         if (messageKeyToUpdate) {
             const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
-            const dbMessage = messagesForConvo[messageKeyToUpdate];
+            const dbMessage = activeContactFullMessages[messageKeyToUpdate];
             
-            const updatedMessage: any = {
-                ...dbMessage,
-                content: content,
-            };
+            const updatedMessage: any = { ...dbMessage, content: content };
             
             if (image !== undefined) updatedMessage.image = image;
             if (isGenerating !== undefined) {
@@ -339,19 +327,20 @@ export function ChatContainer() {
   }
 
   const handleDeleteMessage = (messageId: number, dbKey?: string) => {
-    if (!activeContactId || !currentUser) return;
+    if (!activeContact || !currentUser) return;
     
-    if (activeContactId === AI_CONTACT_ID) {
-        setContacts(prev => prev.map(c => {
-            if (c.id === AI_CONTACT_ID) {
-                return { ...c, messages: c.messages.filter(m => m.id !== messageId) };
-            }
-            return c;
-        }));
+    if (activeContact.id === AI_CONTACT_ID) {
+        setActiveContact(prev => {
+            if (!prev) return null;
+            const updatedMessages = prev.messages.filter(m => m.id !== messageId);
+            const updatedContact = { ...prev, messages: updatedMessages };
+            setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
+            return updatedContact;
+        });
     } else {
-        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
         
-        const keyToDelete = dbKey || Object.keys(allMessages[conversationKey] || {}).find(key => allMessages[conversationKey][key].id === messageId);
+        const keyToDelete = dbKey || Object.keys(activeContactFullMessages || {}).find(key => activeContactFullMessages[key].id === messageId);
 
         if (keyToDelete) {
             const messageRef = ref(db, `messages/${conversationKey}/${keyToDelete}`);
@@ -362,15 +351,24 @@ export function ChatContainer() {
     }
   }
   
+  const currentChatMessages = useMemo(() => {
+    if (!activeContact) return [];
+    if (activeContact.id === AI_CONTACT_ID) {
+        return activeContact.messages;
+    }
+    return Object.values(activeContactFullMessages).sort((a,b) => a.id - b.id);
+  }, [activeContact, activeContactFullMessages]);
+
   useEffect(() => {
-    if (activeContact) {
+    if (activeContact && currentChatMessages.length > 0) {
       if (activeContact.id === AI_CONTACT_ID) {
-        getAIResponse(activeContact);
+        getAIResponse();
       } else {
-        getSmartReplies(activeContact);
+        getSmartReplies(activeContact, currentChatMessages);
       }
     }
-  }, [activeContact, getSmartReplies, getAIResponse]);
+  }, [activeContact, currentChatMessages, getSmartReplies, getAIResponse]);
+
 
   const NoContactsView = () => (
     <div className="hidden h-full flex-col items-center justify-center bg-muted/50 md:flex">
@@ -387,12 +385,12 @@ export function ChatContainer() {
     <div className="flex h-full w-full">
       <aside
         className={`h-full w-full flex-shrink-0 md:w-2/5 md:flex-shrink-0 lg:w-1/3 xl:w-1/4 ${
-          activeContactId ? 'hidden md:flex' : 'flex'
+          activeContact ? 'hidden md:flex' : 'flex'
         } flex-col`}
       >
         <ContactList
           contacts={contacts}
-          activeContactId={activeContactId}
+          activeContactId={activeContact?.id || null}
           onSelectContact={handleSelectContact}
           onAddContact={handleAddContact}
           onStartAIChat={handleStartAIChat}
@@ -401,20 +399,20 @@ export function ChatContainer() {
       </aside>
       <section
         className={`h-full flex-1 ${
-          activeContactId ? 'flex' : 'hidden md:flex'
+          activeContact ? 'flex' : 'hidden md:flex'
         } flex-col`}
       >
         {activeContact ? (
           <ChatPanel
             key={activeContact.id} // Add key to force re-mount on contact change
-            contact={activeContact}
+            contact={{...activeContact, messages: currentChatMessages}}
             onSendMessage={handleSendMessage}
             onUpdateMessage={handleUpdateMessage}
             onDeleteMessage={handleDeleteMessage}
             onBack={handleBackToContacts}
             smartReplies={smartReplies}
             setSmartReplies={setSmartReplies}
-            isLoading={false} // Loading is handled at the contact list level
+            isLoading={isMessagesLoading}
           />
         ) : (
            <NoContactsView />
@@ -423,5 +421,3 @@ export function ChatContainer() {
     </div>
   );
 }
-
-    
