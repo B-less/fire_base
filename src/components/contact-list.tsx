@@ -27,25 +27,68 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
+import { countries } from '@/lib/countries';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 interface ContactListProps {
   contacts: Contact[];
   activeContactId: string | null;
   onSelectContact: (id: string) => void;
-  onAddContact: (name: string) => void;
+  onAddContact: (user: { name: string; phoneNumber: string }) => void;
 }
 
-function AddContactDialog({ onAddContact, children }: { onAddContact: (name: string) => void, children: React.ReactNode }) {
+function AddContactDialog({ onAddContact, children }: { onAddContact: (user: { name: string; phoneNumber: string }) => void, children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
+  const { toast } = useToast();
+  const { user: currentUser } = useAuth();
+
+  const handleCountryChange = (value: string) => {
+    const selectedCountry = countries.find(c => c.code === value);
+    if (selectedCountry) {
+      setCountry(selectedCountry);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      onAddContact(name.trim());
-      setName('');
-      setOpen(false);
+    if (!phoneNumber.trim()) return;
+
+    const fullPhoneNumber = `${country.dial_code}${phoneNumber}`;
+
+    if (fullPhoneNumber === currentUser) {
+        toast({
+            title: "Cannot Add Yourself",
+            description: "You cannot start a chat with your own phone number.",
+            variant: "destructive"
+        });
+        return;
+    }
+
+    try {
+        const users = JSON.parse(localStorage.getItem('chirpchat_users') || '[]');
+        const targetUser = users.find((u: any) => u.phoneNumber === fullPhoneNumber.trim());
+
+        if (targetUser) {
+            onAddContact(targetUser);
+            setPhoneNumber('');
+            setOpen(false);
+        } else {
+            toast({
+                title: "User Not Found",
+                description: "No user is registered with this phone number.",
+                variant: "destructive"
+            });
+        }
+    } catch (error) {
+        toast({
+            title: "Error",
+            description: "An error occurred while searching for the user.",
+            variant: "destructive"
+        });
     }
   };
 
@@ -57,25 +100,47 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (name: str
           <DialogHeader>
             <DialogTitle>New Chat</DialogTitle>
             <DialogDescription>
-              Enter the name of the person you want to chat with.
+              Enter the phone number of the person you want to chat with.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="col-span-3"
-                autoComplete="off"
-              />
+             <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <div className="flex gap-2">
+                 <Select value={country.code} onValueChange={handleCountryChange}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue>
+                        <span className="flex items-center gap-2">
+                          <span>{country.flag}</span>
+                          <span>{country.dial_code}</span>
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{c.flag}</span>
+                            <span>{c.name} ({c.dial_code})</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Enter a number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="flex-1"
+                  autoComplete="off"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={!name.trim()}>Start Chat</Button>
+            <Button type="submit" disabled={!phoneNumber.trim()}>Start Chat</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -83,7 +148,7 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (name: str
   )
 }
 
-function EmptyContactList({ onAddContact }: { onAddContact: (name: string) => void }) {
+function EmptyContactList({ onAddContact }: { onAddContact: (user: { name: string; phoneNumber: string }) => void }) {
   return (
     <div className='flex flex-col h-full items-center justify-center p-4 text-center'>
       <div className='flex flex-col items-center gap-4'>
@@ -92,7 +157,7 @@ function EmptyContactList({ onAddContact }: { onAddContact: (name: string) => vo
             <Plus className='w-12 h-12 text-muted-foreground/40 group-hover:text-primary/60 transition-colors' />
           </button>
         </AddContactDialog>
-        <p className="text-muted-foreground max-w-xs">No chats yet. Click the plus to add a new contact and start messaging!</p>
+        <p className="text-muted-foreground max-w-xs">No chats yet. Click the plus to find someone and start messaging!</p>
       </div>
     </div>
   )

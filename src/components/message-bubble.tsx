@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Input } from './ui/input';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
 
 
 interface MessageBubbleProps {
@@ -35,7 +36,8 @@ const ReadStatusIcon = ({ status }: { status: Message['status'] }) => {
 };
 
 export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagine }: MessageBubbleProps) {
-  const isMyMessage = message.sender === 'me';
+  const { user: currentUser } = useAuth();
+  const isMyMessage = message.sender === currentUser;
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
 
@@ -87,7 +89,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                 className={cn("rounded-md mb-2 object-cover", message.isGenerating && "opacity-50")}
                 data-ai-hint="abstract landscape"
               />
-              {!message.isGenerating && message.sender === 'me' && (
+              {!message.isGenerating && isMyMessage && (
                 <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

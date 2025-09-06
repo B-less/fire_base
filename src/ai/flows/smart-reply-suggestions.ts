@@ -36,11 +36,13 @@ const prompt = ai.definePrompt({
   name: 'smartReplyPrompt',
   input: {schema: SmartReplyInputSchema},
   output: {schema: SmartReplyOutputSchema},
-  prompt: `You are a smart reply suggestion generator. Given the incoming message and the conversation history, generate an array of smart reply suggestions.
+  prompt: `You are a smart reply suggestion generator. Given the incoming message and the conversation history, generate an array of 3 concise, natural-sounding smart reply suggestions.
 
-Conversation History: {{{conversationHistory}}}
+Conversation History:
+{{{conversationHistory}}}
 
-Incoming Message: {{{message}}}
+Incoming Message:
+"{{{message}}}"
 
 Suggestions:`,
 });
