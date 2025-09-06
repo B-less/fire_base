@@ -1,0 +1,85 @@
+import type { Contact } from './types';
+
+export const CONTACTS: Contact[] = [
+  {
+    id: '1',
+    name: 'Alice',
+    avatar: 'https://picsum.photos/100/100?random=1',
+    online: true,
+    lastMessage: 'Sounds good! See you then.',
+    lastMessageTime: '3:45 PM',
+    unreadCount: 0,
+    messages: [
+      { id: 1, content: 'Hey, are we still on for lunch tomorrow?', sender: 'other', timestamp: '3:40 PM', status: 'read' },
+      { id: 2, content: 'Yes, absolutely! I was thinking about that new cafe downtown.', sender: 'me', timestamp: '3:42 PM', status: 'read' },
+      { id: 3, content: 'Perfect! I\'ve heard great things. How about 1 PM?', sender: 'other', timestamp: '3:43 PM', status: 'read' },
+      { id: 4, content: 'Sounds good! See you then.', sender: 'me', timestamp: '3:45 PM', status: 'read' },
+    ],
+  },
+  {
+    id: '2',
+    name: 'Bob',
+    avatar: 'https://picsum.photos/100/100?random=2',
+    online: false,
+    lastMessage: 'Can you send me the report?',
+    lastMessageTime: '1:20 PM',
+    unreadCount: 1,
+    messages: [
+      { id: 1, content: 'Did you finish the quarterly presentation?', sender: 'me', timestamp: '1:15 PM', status: 'read' },
+      { id: 2, content: 'Almost. Just need to add the final charts.', sender: 'other', timestamp: '1:18 PM', status: 'read' },
+      { id: 3, content: 'Great. Can you send me the report when you\'re done?', sender: 'me', timestamp: '1:19 PM', status: 'read' },
+      { id: 4, content: 'Can you send me the report?', sender: 'other', timestamp: '1:20 PM', status: 'delivered' },
+    ],
+  },
+  {
+    id: '3',
+    name: 'Charlie',
+    avatar: 'https://picsum.photos/100/100?random=3',
+    online: true,
+    lastMessage: 'Haha, that\'s hilarious!',
+    lastMessageTime: 'Yesterday',
+    unreadCount: 0,
+    messages: [
+      { id: 1, content: 'You won\'t believe what happened today.', sender: 'other', timestamp: 'Yesterday', status: 'read' },
+      { id: 2, content: 'Haha, that\'s hilarious!', sender: 'me', timestamp: 'Yesterday', status: 'read' },
+    ],
+  },
+  {
+    id: '4',
+    name: 'Design Team',
+    avatar: 'https://picsum.photos/100/100?random=4',
+    online: true,
+    lastMessage: 'Here is the new mockup.',
+    lastMessageTime: 'Yesterday',
+    unreadCount: 0,
+    messages: [
+      { id: 1, content: 'Here is the new mockup.', sender: 'other', timestamp: 'Yesterday', status: 'read', image: 'https://picsum.photos/600/400?random=10' },
+    ],
+  },
+  {
+    id: '5',
+    name: 'Emily',
+    avatar: 'https://picsum.photos/100/100?random=5',
+    online: false,
+    lastMessage: 'Happy birthday!! 🎉',
+    lastMessageTime: '2 days ago',
+    unreadCount: 0,
+    messages: [
+      { id: 1, content: 'Happy birthday!! 🎉', sender: 'other', timestamp: '2 days ago', status: 'read' },
+    ],
+  },
+  {
+    id: '6',
+    name: 'Frank',
+    avatar: 'https://picsum.photos/100/100?random=6',
+    online: true,
+    lastMessage: 'Let\'s catch up next week.',
+    lastMessageTime: '2 days ago',
+    unreadCount: 0,
+    messages: [
+      { id: 1, content: 'Hey, it\'s been a while!', sender: 'me', timestamp: '2 days ago', status: 'read' },
+      { id: 2, content: 'For sure! How have you been?', sender: 'other', timestamp: '2 days ago', status: 'read' },
+      { id: 3, content: 'Let\'s catch up next week.', sender: 'me', timestamp: '2 days ago', status: 'read' },
+    ],
+  },
+];
