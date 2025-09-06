@@ -25,15 +25,9 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, sma
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
     const tempMessageId = Date.now();
-    // In a real DB scenario, we first send the temp message, then update it.
-    // For AI chat, local state update is fine.
-    if (contact.id === 'ai-assistant') {
-      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
-    } else {
-      // For real users, we add a temporary message to the db which will be updated.
-      // This is optimistic UI.
-      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
-    }
+    // For both AI and real users, we add a temporary message which will be updated.
+    // This provides optimistic UI.
+    onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
     
     setInputText('');
     setSmartReplies([]);
@@ -73,6 +67,18 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, sma
     setSmartReplies([]);
   };
 
+  const handleSendImage = (url: string) => {
+    // Check if the current input is an imagine command
+    if (inputText.trim().startsWith('/imagine ')) {
+       const prompt = inputText.trim().substring(9);
+       handleImagine(prompt, url);
+       setInputText('');
+    } else {
+      // Otherwise, send as a normal image message
+      onSendMessage('', url);
+    }
+  }
+
   return (
     <div className="flex h-full flex-col bg-muted/30">
       <ChatHeader contact={contact} onBack={onBack} />
@@ -83,7 +89,7 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, sma
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onSend={handleSend}
-          onImageSend={(url) => onSendMessage('', url)}
+          onImageSend={handleSendImage}
           isAIChat={isAIChat}
         />
       </div>

@@ -72,7 +72,7 @@ export function ChatContainer() {
         }
       });
   
-      Promise.all(contactsPromises).then(resolvedContacts => {
+      Promise.all(resolvedContacts).then(resolvedContacts => {
         const validContacts = resolvedContacts.filter((c): c is Contact => c !== null);
         
          setContacts(prevContacts => {
@@ -175,7 +175,7 @@ export function ChatContainer() {
       const aiContact: Contact = {
         id: AI_CONTACT_ID,
         name: 'AI Assistant',
-        avatar: 'https://picsum.photos/seed/ai-assistant-avatar/100/100',
+        avatar: 'https://picsum.photos/seed/ai-robot-abstract/100/100',
         online: true,
         lastMessage: 'Ask me anything!',
         lastMessageTime: '',
@@ -254,17 +254,26 @@ export function ChatContainer() {
 
   const handleSendMessage = (content: string, image?: string, isGenerating?: boolean) => {
     if (!activeContactId || !currentUser) return;
-    
+
     const messageId = Date.now();
     const newMessage: Message = {
       id: messageId,
       content,
-      image,
       sender: currentUser.phoneNumber,
       timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
       status: 'sent',
-      isGenerating: isGenerating,
     };
+    
+    const dbMessage: any = { ...newMessage };
+
+    if (image) {
+      dbMessage.image = image;
+      newMessage.image = image;
+    }
+    if (isGenerating) {
+      dbMessage.isGenerating = isGenerating;
+      newMessage.isGenerating = isGenerating;
+    }
     
     if (activeContactId === AI_CONTACT_ID) {
          setContacts((prevContacts) =>
@@ -285,8 +294,7 @@ export function ChatContainer() {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
         const messagesRef = ref(db, `messages/${conversationKey}`);
         const newMessageRef = push(messagesRef);
-        // We set a temporary key on the message for the DB, but use the messageId for local state
-        set(newMessageRef, { ...newMessage, db_key: newMessageRef.key });
+        set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
     }
 
     setSmartReplies([]);
@@ -332,12 +340,21 @@ export function ChatContainer() {
                 
                 if (messageKeyToUpdate) {
                     const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
-                    set(messageToUpdateRef, {
+                    const updatedMessage: any = {
                         ...messagesData[messageKeyToUpdate],
                         content: content,
-                        image: image,
-                        isGenerating: isGenerating,
-                    });
+                    };
+                    
+                    if (image) {
+                        updatedMessage.image = image;
+                    }
+                    if (isGenerating !== undefined) {
+                        updatedMessage.isGenerating = isGenerating;
+                    } else {
+                       delete updatedMessage.isGenerating;
+                    }
+
+                    set(messageToUpdateRef, updatedMessage);
                 } else {
                     // Fallback to sending new message if couldn't find the one to update
                      handleSendMessage(content, image, isGenerating);
