@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Save the token to the user's profile in the database
         const tokenRef = ref(db, `users/${user.phoneNumber}/fcmToken`);
         await set(tokenRef, token);
+        console.log('FCM token saved to database for user:', user.phoneNumber);
       }
     } catch (error) {
       console.error('Could not set up notifications:', error);
@@ -81,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user?.phoneNumber) {
          const tokenRef = ref(db, `users/${user.phoneNumber}/fcmToken`);
          set(tokenRef, null); // Clear token on logout
+         console.log('FCM token removed from database for user:', user.phoneNumber);
       }
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);

@@ -384,7 +384,7 @@ export function ChatContainer() {
   return (
     <div className="flex h-full w-full">
       <aside
-        className={`h-full w-full flex-shrink-0 md:w-2/5 md:flex-shrink-0 lg:w-1/3 xl:w-1/4 ${
+        className={`h-full w-full flex-shrink-0 transition-all duration-300 md:w-2/5 md:flex-shrink-0 lg:w-1/3 xl:w-1/4 ${
           activeContact ? 'hidden md:flex' : 'flex'
         } flex-col`}
       >
@@ -398,7 +398,7 @@ export function ChatContainer() {
         />
       </aside>
       <section
-        className={`h-full flex-1 ${
+        className={`h-full flex-1 transition-all duration-300 ${
           activeContact ? 'flex' : 'hidden md:flex'
         } flex-col`}
       >

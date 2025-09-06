@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import './globals.css';
 import { AuthProvider } from '@/context/auth-context';
 import { NotificationHandler } from '@/components/notification-handler';
-import Head from 'next/head';
 
 export const metadata: Metadata = {
   title: 'ChirpChat',
@@ -33,4 +32,3 @@ export default function RootLayout({
       </body>
     </html>
   );
-}

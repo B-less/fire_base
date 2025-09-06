@@ -17,8 +17,8 @@ export function NotificationHandler() {
                 });
             });
             return () => {
-                // Not a real unsubscribe, but fulfills the need for a cleanup function.
-                // The listener itself is a one-time promise resolver.
+                // This is a simplified cleanup. In a real app, you might manage this listener differently.
+                // The listener itself is a one-time promise resolver, so a new one is created on re-render if needed.
             };
         }
     }, [toast]);

@@ -27,7 +27,7 @@ const getFCMToken = async () => {
             const messaging = getMessaging(app);
             const permission = await Notification.requestPermission();
             if (permission === 'granted') {
-                const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY });
+                const token = await getToken(messaging, { vapidKey: "BM2jc26u4cps59zJPnXqUeHApp7e0EuMT3na9c1uY2nmq3QI3SSs8HTDXJ_EKxEn6daDDhjT9IJjeYgAo0AD1Us" });
                 console.log('FCM Token:', token);
                 return token;
             } else {
