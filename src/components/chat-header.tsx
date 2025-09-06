@@ -1,3 +1,4 @@
+
 import { ArrowLeft, MoreVertical } from 'lucide-react';
 import type { Contact } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -19,7 +20,7 @@ export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
         )}
         <Avatar className="h-10 w-10">
           <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
-          <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+          <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div>
           <h2 className="font-semibold text-foreground">{contact.name}</h2>

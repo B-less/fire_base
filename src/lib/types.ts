@@ -1,3 +1,4 @@
+
 export type Message = {
   id: number;
   content: string;
@@ -23,4 +24,5 @@ export type Contact = {
 export type User = {
     phoneNumber: string;
     name: string;
+    profilePicture?: string;
 }

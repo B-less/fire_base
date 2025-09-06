@@ -66,7 +66,7 @@ export function ChatContainer() {
           return {
             id: userData.phoneNumber,
             name: userData.name,
-            avatar: `https://picsum.photos/seed/${id}/100/100`,
+            avatar: userData.profilePicture || `https://picsum.photos/seed/${id}/100/100`,
             online: false, 
             lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
             lastMessageTime: lastMessage ? lastMessage.timestamp : '',
@@ -133,7 +133,7 @@ export function ChatContainer() {
     });
 
     return () => unsubscribe();
-  }, [currentUser, activeContactId]);
+  }, [currentUser, activeContactId, isMessagesLoading]);
 
 
   const handleSelectContact = (contactId: string) => {
@@ -185,7 +185,7 @@ export function ChatContainer() {
         const newContact: Contact = {
           id: user.phoneNumber,
           name: user.name,
-          avatar: `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
+          avatar: user.profilePicture || `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
           online: false,
           lastMessage: 'No messages yet',
           lastMessageTime: '',

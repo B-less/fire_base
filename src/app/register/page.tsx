@@ -1,27 +1,42 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Flame, Loader2 } from 'lucide-react';
+import { Loader2, User as UserIcon } from 'lucide-react';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { ref, set, get, child } from "firebase/database";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
   const [isLoading, setIsLoading] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicture(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,10 +80,16 @@ export default function RegisterPage() {
         return;
       }
       
-      await set(ref(db, 'users/' + fullPhoneNumber), {
+      const userData: any = {
         name: trimmedName,
         phoneNumber: fullPhoneNumber,
-      });
+      };
+
+      if (profilePicture) {
+        userData.profilePicture = profilePicture;
+      }
+
+      await set(ref(db, 'users/' + fullPhoneNumber), userData);
 
       toast({
         title: "Registration Successful",
@@ -100,10 +121,25 @@ export default function RegisterPage() {
     <main className="flex h-screen w-full items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mb-4 flex justify-center">
-             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-                <Flame className="h-8 w-8 text-primary-foreground" />
-             </div>
+           <div className="mb-4 flex justify-center">
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="group relative">
+                <Avatar className="h-24 w-24 text-4xl">
+                    <AvatarImage src={profilePicture ?? undefined} alt="Profile Picture" />
+                    <AvatarFallback>
+                        <UserIcon className="h-10 w-10 text-muted-foreground" />
+                    </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-xs font-semibold">Change</span>
+                </div>
+            </button>
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleProfilePictureChange}
+                className="hidden"
+                accept="image/*"
+            />
           </div>
           <CardTitle className="text-2xl">Create an Account</CardTitle>
           <CardDescription>Join ChirpChat to connect with your friends.</CardDescription>
