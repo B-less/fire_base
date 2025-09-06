@@ -112,7 +112,7 @@ export function ChatContainer() {
       const aiContact: Contact = {
         id: AI_CONTACT_ID,
         name: 'AI Assistant',
-        avatar: '/ai-avatar.png',
+        avatar: 'https://picsum.photos/seed/ai-avatar/100/100',
         online: true,
         lastMessage: 'Ask me anything!',
         lastMessageTime: '',
