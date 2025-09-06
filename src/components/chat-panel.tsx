@@ -11,11 +11,12 @@ import { generateImage } from '@/ai/flows/image-generation-flow';
 import { generateVideo } from '@/ai/flows/video-generation-flow';
 import { useToast } from '@/hooks/use-toast';
 import { MediaStudio } from './media-studio';
+import type { ThenableReference } from 'firebase/database';
 
 interface ChatPanelProps {
   contact: Contact;
-  onSendMessage: (content: string, image?: string, isGenerating?: boolean) => void;
-  onUpdateMessage: (messageId: number, content: string, image?: string, isGenerating?: boolean) => void;
+  onSendMessage: (content: string, image?: string, isGenerating?: boolean) => ThenableReference | undefined;
+  onUpdateMessage: (dbKey: string, content: string, image?: string, isGenerating?: boolean) => void;
   onDeleteMessage: (messageId: number, dbKey?: string) => void;
   onBack: () => void;
   smartReplies: string[];
@@ -30,24 +31,30 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
   const isAIChat = contact.id === 'ai-assistant';
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
-    const tempMessageId = Date.now();
-    // For AI chat, we need a different mechanism to show pending messages.
-    // For now, just send a text message first.
-    if(contact.id === 'ai-assistant') {
-      onSendMessage(`/imagine ${prompt}`, baseImage, true);
-    } else {
-      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
-    }
-    
     setInputText('');
     setSmartReplies([]);
     
+    // First, send a message to the database that is in a "generating" state.
+    // This returns a reference with the key of the new message.
+    const messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+    if (!messageRef || !messageRef.key) {
+        toast({
+            title: "Error",
+            description: "Could not send message. Please try again.",
+            variant: "destructive",
+        });
+        return;
+    }
+    const messageDbKey = messageRef.key;
+    
     try {
       const result = await generateImage({ prompt, baseImage });
-       onUpdateMessage(tempMessageId, prompt, result.imageUrl, false);
+      // Now, update the message in the database with the generated image.
+      onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
     } catch (error) {
       console.error("Error generating image:", error);
-      onUpdateMessage(tempMessageId, `Failed to generate image: "${prompt}"`, undefined, false);
+      // Update the message to show the error.
+      onUpdateMessage(messageDbKey, `Failed to generate image: "${prompt}"`, undefined, false);
       toast({
         title: "Image Generation Failed",
         description: "Sorry, I couldn't create an image for that prompt. Please try another one.",

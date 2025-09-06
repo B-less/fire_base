@@ -11,7 +11,7 @@ import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push, get, child, remove, query, limitToLast, off } from 'firebase/database';
+import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, ThenableReference } from 'firebase/database';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -242,7 +242,7 @@ export function ChatContainer() {
     }
   }, [currentUser, activeContact]);
 
-  const handleSendMessage = (content: string, image?: string, isGenerating?: boolean) => {
+  const handleSendMessage = (content: string, image?: string, isGenerating?: boolean): ThenableReference | undefined => {
     if (!activeContact || !currentUser) return;
 
     const messageId = Date.now();
@@ -273,7 +273,7 @@ export function ChatContainer() {
         if (dbMessage.image === undefined) delete dbMessage.image;
         if (dbMessage.isGenerating === undefined) delete dbMessage.isGenerating;
         
-        set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
+        const setPromise = set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
         
         sendPushNotification({ 
             recipientId: activeContact.id, 
@@ -281,48 +281,39 @@ export function ChatContainer() {
             message: content || "Sent an image" 
         }).catch(err => console.error("Failed to send notification:", err));
 
+        setSmartReplies([]);
+        return newMessageRef;
     }
-
-    setSmartReplies([]);
   };
 
-  const handleUpdateMessage = (messageId: number, content: string, image?: string, isGenerating?: boolean) => {
+  const handleUpdateMessage = (dbKey: string, content: string, image?: string, isGenerating?: boolean) => {
     if (!activeContact || !currentUser) return;
     
     if (activeContact.id === AI_CONTACT_ID) {
-         setActiveContact(prev => {
-            if (!prev) return null;
-            const updatedMessages = prev.messages.map(msg => 
-              msg.id === messageId 
-                ? { ...msg, content, image, isGenerating: isGenerating, sender: currentUser.phoneNumber }
-                : msg
-            );
-            const updatedContact = { ...prev, messages: updatedMessages, lastMessage: content || 'Image' };
-            setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
-            return updatedContact;
-        });
+        // This case might need adjustment if AI chat ever needs to update messages.
+        // For now, we only update DB messages.
     } else {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
+        const messageToUpdateRef = ref(db, `messages/${conversationKey}/${dbKey}`);
         
-        const messageKeyToUpdate = Object.keys(activeContactFullMessages).find(key => activeContactFullMessages[key].id === messageId);
-        
-        if (messageKeyToUpdate) {
-            const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
-            const dbMessage = activeContactFullMessages[messageKeyToUpdate];
-            
-            const updatedMessage: any = { ...dbMessage, content: content };
-            
-            if (image !== undefined) updatedMessage.image = image;
-            if (isGenerating !== undefined) {
-              updatedMessage.isGenerating = isGenerating;
-            } else if ('isGenerating' in updatedMessage) {
-              delete updatedMessage.isGenerating;
-            }
+        // Optimistic update might be good here, but for now we just set.
+        get(messageToUpdateRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                const dbMessage = snapshot.val();
+                
+                const updatedMessage: any = { ...dbMessage, content: content };
+                
+                if (image !== undefined) updatedMessage.image = image;
 
-            set(messageToUpdateRef, updatedMessage);
-        } else {
-            handleSendMessage(content, image, isGenerating);
-        }
+                if (isGenerating !== undefined) {
+                  updatedMessage.isGenerating = isGenerating;
+                } else if ('isGenerating' in updatedMessage) {
+                  delete updatedMessage.isGenerating;
+                }
+
+                set(messageToUpdateRef, updatedMessage);
+            }
+        });
     }
   }
 
@@ -367,7 +358,8 @@ export function ChatContainer() {
         getSmartReplies(activeContact, currentChatMessages);
       }
     }
-  }, [activeContact, currentChatMessages, getSmartReplies, getAIResponse]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeContact, currentChatMessages]);
 
 
   const NoContactsView = () => (
