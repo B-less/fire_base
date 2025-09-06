@@ -8,6 +8,7 @@ import { ChatPanel } from '@/components/chat-panel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
 import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
+import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
@@ -79,7 +80,12 @@ export function ChatContainer() {
             const aiContact = prevContacts.find(c => c.id === AI_CONTACT_ID);
             const existingContactIds = new Set(prevContacts.map(c => c.id));
             const newContacts = validContacts.filter(c => !existingContactIds.has(c.id));
-            return [...prevContacts, ...newContacts];
+            
+            const finalContacts = [...prevContacts.filter(c => validContacts.some(vc => vc.id === c.id)), ...newContacts];
+            if(aiContact && !finalContacts.some(c => c.id === AI_CONTACT_ID)) {
+                return [aiContact, ...finalContacts];
+            }
+            return finalContacts;
          });
       });
     });
@@ -296,12 +302,19 @@ export function ChatContainer() {
         const messagesRef = ref(db, `messages/${conversationKey}`);
         const newMessageRef = push(messagesRef);
         
-        // Create a DB-safe version of the message
         const dbMessage: any = { ...newMessage };
-        if (!dbMessage.image) delete dbMessage.image;
-        if (!dbMessage.isGenerating) delete dbMessage.isGenerating;
+        if (dbMessage.image === undefined) delete dbMessage.image;
+        if (dbMessage.isGenerating === undefined) delete dbMessage.isGenerating;
         
         set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
+        
+        // Trigger push notification
+        sendPushNotification({ 
+            recipientId: activeContactId, 
+            senderName: currentUser.name, 
+            message: content || "Sent an image" 
+        }).catch(err => console.error("Failed to send notification:", err));
+
     }
 
     setSmartReplies([]);
@@ -332,7 +345,6 @@ export function ChatContainer() {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
         const messagesRef = ref(db, `messages/${conversationKey}`);
 
-        // Find the message by its temporary ID to update it
         get(messagesRef).then(snapshot => {
             if(snapshot.exists()) {
                 const messagesData = snapshot.val();
@@ -352,7 +364,7 @@ export function ChatContainer() {
                         content: content,
                     };
                     
-                    if (image) {
+                    if (image !== undefined) {
                         updatedMessage.image = image;
                     }
                     if (isGenerating !== undefined) {
@@ -363,7 +375,6 @@ export function ChatContainer() {
 
                     set(messageToUpdateRef, updatedMessage);
                 } else {
-                    // Fallback to sending new message if couldn't find the one to update
                      handleSendMessage(content, image, isGenerating);
                 }
             }
@@ -385,7 +396,6 @@ export function ChatContainer() {
     if (!isMobile) {
       setShowChatPanel(true);
     } else {
-       // On mobile, only show the chat panel if a contact is selected.
        setShowChatPanel(activeContactId !== null);
     }
   }, [isMobile, activeContactId]);

@@ -4,6 +4,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@/lib/types';
+import { getFCMToken } from '@/lib/firebase';
+import { ref, set } from 'firebase/database';
+import { db } from '@/lib/firebase';
+
 
 interface AuthContextType {
   user: User | null;
@@ -29,22 +33,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(JSON.parse(storedUser));
         } catch (jsonError) {
           console.error("Failed to parse user from localStorage", jsonError);
-          // Clear corrupted data
           localStorage.removeItem(AUTH_STORAGE_KEY);
         }
       }
-    } catch (error) {
+    } catch (error)
+    {
       console.error("Could not access localStorage", error);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const setupNotifications = async (user: User) => {
+    try {
+      const token = await getFCMToken();
+      if (token && user?.phoneNumber) {
+        // Save the token to the user's profile in the database
+        const tokenRef = ref(db, `users/${user.phoneNumber}/fcmToken`);
+        await set(tokenRef, token);
+      }
+    } catch (error) {
+      console.error('Could not set up notifications:', error);
+    }
+  };
+  
+  useEffect(() => {
+    if (user) {
+      setupNotifications(user);
+    }
+  }, [user]);
+
+
   const login = (phoneNumber: string, name: string) => {
     try {
       const userData = { phoneNumber, name };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
       setUser(userData);
+      setupNotifications(userData); // Setup notifications on login
       router.push('/');
     } catch (error) {
       console.error("Could not set user in localStorage", error);
@@ -53,6 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     try {
+      if (user?.phoneNumber) {
+         const tokenRef = ref(db, `users/${user.phoneNumber}/fcmToken`);
+         set(tokenRef, null); // Clear token on logout
+      }
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
       router.push('/login');

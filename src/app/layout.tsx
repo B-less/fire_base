@@ -3,10 +3,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import './globals.css';
 import { AuthProvider } from '@/context/auth-context';
+import { NotificationHandler } from '@/components/notification-handler';
+import Head from 'next/head';
 
 export const metadata: Metadata = {
   title: 'ChirpChat',
   description: 'A modern chat application',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -23,6 +26,7 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased")}>
         <AuthProvider>
+          <NotificationHandler />
           {children}
           <Toaster />
         </AuthProvider>

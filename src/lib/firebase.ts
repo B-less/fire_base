@@ -1,9 +1,10 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -16,7 +17,39 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getDatabase(app);
+const auth = getAuth(app);
 
-export { db };
+const getFCMToken = async () => {
+    try {
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+            const messaging = getMessaging(app);
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY });
+                console.log('FCM Token:', token);
+                return token;
+            } else {
+                console.log('Notification permission not granted.');
+                return null;
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('An error occurred while retrieving token. ', error);
+        return null;
+    }
+};
+
+const onMessageListener = () =>
+  new Promise((resolve) => {
+     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        const messaging = getMessaging(app);
+        onMessage(messaging, (payload) => {
+            resolve(payload);
+        });
+     }
+  });
+
+export { db, auth, getFCMToken, onMessageListener };
