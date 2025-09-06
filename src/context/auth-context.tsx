@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedUser) {
+      if (storedUser && storedUser !== 'undefined' && storedUser !== 'null') {
         try {
           setUser(JSON.parse(storedUser));
         } catch (jsonError) {
