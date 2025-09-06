@@ -6,18 +6,16 @@ import { Button } from '@/components/ui/button';
 
 interface ChatHeaderProps {
   contact: Contact;
-  onBack?: () => void;
+  onBack: () => void;
 }
 
 export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
   return (
     <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
       <div className="flex items-center gap-3">
-        {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        )}
+        <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
         <Avatar className="h-10 w-10">
           <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
           <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
@@ -35,3 +33,5 @@ export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
     </div>
   );
 }
+
+    

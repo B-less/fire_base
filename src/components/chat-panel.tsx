@@ -17,7 +17,7 @@ interface ChatPanelProps {
   onSendMessage: (content: string, image?: string, isGenerating?: boolean) => void;
   onUpdateMessage: (messageId: number, content: string, image?: string, isGenerating?: boolean) => void;
   onDeleteMessage: (messageId: number, dbKey?: string) => void;
-  onBack?: () => void;
+  onBack: () => void;
   smartReplies: string[];
   setSmartReplies: (replies: string[]) => void;
   isLoading?: boolean;
@@ -114,3 +114,5 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     </div>
   );
 }
+
+    

@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Contact, Message, User } from '@/lib/types';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
 import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
 import { sendPushNotification } from '@/ai/flows/push-notification-flow';
@@ -25,11 +24,9 @@ export function ChatContainer() {
   const { user: currentUser } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
-  const [showChatPanel, setShowChatPanel] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [isContactsLoading, setIsContactsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
-  const isMobile = useIsMobile();
 
   const activeContact = contacts.find((c) => c.id === activeContactId);
 
@@ -138,10 +135,7 @@ export function ChatContainer() {
 
   const handleSelectContact = (contactId: string) => {
     setActiveContactId(contactId);
-    if (isMobile) {
-      setShowChatPanel(true);
-    }
-     setSmartReplies([]);
+    setSmartReplies([]);
   };
   
   const handleAddContact = async (user: User) => {
@@ -150,9 +144,6 @@ export function ChatContainer() {
     // Check if contact already exists locally
     if(contacts.some(c => c.id === user.phoneNumber)) {
         setActiveContactId(user.phoneNumber);
-         if (isMobile) {
-          setShowChatPanel(true);
-        }
         return;
     }
     
@@ -216,7 +207,6 @@ export function ChatContainer() {
   };
 
   const handleBackToContacts = () => {
-    setShowChatPanel(false);
     setActiveContactId(null);
   };
 
@@ -442,14 +432,6 @@ export function ChatContainer() {
       }
     }
   }, [activeContact, getSmartReplies, getAIResponse]);
-  
-  useEffect(() => {
-    if (!isMobile) {
-      setShowChatPanel(true);
-    } else {
-       setShowChatPanel(activeContactId !== null);
-    }
-  }, [isMobile, activeContactId]);
 
   const NoContactsView = () => (
     <div className="hidden h-full flex-col items-center justify-center bg-muted/50 md:flex">
@@ -464,10 +446,10 @@ export function ChatContainer() {
 
   return (
     <div className="flex h-full w-full">
-      <div
-        className={`h-full transition-all duration-300 ${
-          isMobile && showChatPanel ? 'w-0 -translate-x-full' : 'w-full md:w-1/3 lg:w-1/4'
-        }`}
+      <aside
+        className={`h-full w-full flex-shrink-0 md:w-2/5 md:flex-shrink-0 lg:w-1/3 xl:w-1/4 ${
+          activeContactId ? 'hidden md:flex' : 'flex'
+        } flex-col`}
       >
         <ContactList
           contacts={contacts}
@@ -477,11 +459,11 @@ export function ChatContainer() {
           onStartAIChat={handleStartAIChat}
           isLoading={isContactsLoading}
         />
-      </div>
-      <div
-        className={`h-full flex-1 transition-all duration-300 ${
-          isMobile && !showChatPanel ? 'hidden' : 'block'
-        }`}
+      </aside>
+      <section
+        className={`h-full flex-1 ${
+          activeContactId ? 'flex' : 'hidden md:flex'
+        } flex-col`}
       >
         {activeContact ? (
           <ChatPanel
@@ -489,7 +471,7 @@ export function ChatContainer() {
             onSendMessage={handleSendMessage}
             onUpdateMessage={handleUpdateMessage}
             onDeleteMessage={handleDeleteMessage}
-            onBack={isMobile ? handleBackToContacts : undefined}
+            onBack={handleBackToContacts}
             smartReplies={smartReplies}
             setSmartReplies={setSmartReplies}
             isLoading={isMessagesLoading}
@@ -497,7 +479,9 @@ export function ChatContainer() {
         ) : (
            <NoContactsView />
         )}
-      </div>
+      </section>
     </div>
   );
 }
+
+    
