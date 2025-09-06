@@ -38,6 +38,7 @@ export function ChatContainer() {
   
     const unsubscribe = onValue(contactsRef, (snapshot) => {
       const contactIds: string[] = snapshot.val() || [];
+      if (!Array.isArray(contactIds)) return;
   
       const contactsPromises = contactIds.map(async (id: string) => {
         try {
@@ -49,8 +50,11 @@ export function ChatContainer() {
           const messagesQuery = query(ref(db, `messages/${conversationKey}`), orderByChild('id'), limitToLast(1));
           
           const messageSnap = await get(messagesQuery);
-          const messagesData = messageSnap.val() || {};
-          const lastMessage: Message | undefined = Object.values(messagesData)[0] as Message | undefined;
+          let lastMessage: Message | undefined;
+          if (messageSnap.exists()) {
+             const messagesData = messageSnap.val();
+             lastMessage = Object.values(messagesData)[0] as Message | undefined;
+          }
   
           return {
             id: userData.phoneNumber,
@@ -71,23 +75,20 @@ export function ChatContainer() {
       Promise.all(contactsPromises).then(resolvedContacts => {
         const validContacts = resolvedContacts.filter((c): c is Contact => c !== null);
         
-        // Add AI contact if it was previously in state
-         if (contacts.some(c => c.id === AI_CONTACT_ID)) {
-            const aiContact = contacts.find(c => c.id === AI_CONTACT_ID)!;
-            validContacts.unshift(aiContact);
-         }
-
-        setContacts(validContacts);
+         setContacts(prevContacts => {
+            const aiContact = prevContacts.find(c => c.id === AI_CONTACT_ID);
+            return aiContact ? [aiContact, ...validContacts] : validContacts;
+         });
       });
     });
   
     return () => unsubscribe();
-  }, [currentUser]); // Removed `contacts` dependency to prevent re-running unnecessarily
+  }, [currentUser]);
 
 
   // Real-time messages for active chat
   useEffect(() => {
-    if (!currentUser || !activeContactId) return;
+    if (!currentUser || !activeContactId || activeContactId === AI_CONTACT_ID) return;
 
     const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
     const messagesRef = ref(db, `messages/${conversationKey}`);
@@ -95,9 +96,20 @@ export function ChatContainer() {
     const unsubscribe = onValue(messagesRef, (snapshot) => {
         const messagesData = snapshot.val() || {};
         const messages: Message[] = Object.values(messagesData);
-        setContacts(prevContacts => prevContacts.map(c => 
-            c.id === activeContactId ? { ...c, messages: messages.sort((a,b) => a.id - b.id) } : c
-        ));
+        
+        const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+
+        setContacts(prevContacts => prevContacts.map(c => {
+            if (c.id === activeContactId) {
+                return { 
+                    ...c, 
+                    messages: messages.sort((a,b) => a.id - b.id),
+                    lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? 'Image' : '')) : c.lastMessage,
+                    lastMessageTime: lastMessage ? lastMessage.timestamp : c.lastMessageTime
+                };
+            }
+            return c;
+        }));
     });
 
     return () => unsubscribe();
@@ -126,8 +138,12 @@ export function ChatContainer() {
     
     // Add to current user's contacts in DB
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
-    const newContacts = [...contacts.filter(c=> c.id !== AI_CONTACT_ID).map(c => c.id), user.phoneNumber];
+    // Fetch current contacts before updating
+    const snapshot = await get(currentUserContactsRef);
+    const currentContacts = snapshot.val() || [];
+    const newContacts = [...currentContacts, user.phoneNumber];
     await set(currentUserContactsRef, newContacts);
+
 
     // Add current user to the new contact's contacts in DB
     const newContactUserRef = ref(db, `users/${user.phoneNumber}`);
@@ -150,7 +166,7 @@ export function ChatContainer() {
       unreadCount: 0,
       messages: [],
     };
-    setContacts(prev => [newContact, ...prev]);
+    // No need to manually add to state, the onValue listener will pick it up
     handleSelectContact(newContact.id);
   };
   
@@ -269,7 +285,8 @@ export function ChatContainer() {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
         const messagesRef = ref(db, `messages/${conversationKey}`);
         const newMessageRef = push(messagesRef);
-        set(newMessageRef, newMessage);
+        // We set a temporary key on the message for the DB, but use the messageId for local state
+        set(newMessageRef, { ...newMessage, db_key: newMessageRef.key });
     }
 
     setSmartReplies([]);
@@ -304,7 +321,14 @@ export function ChatContainer() {
         get(messagesRef).then(snapshot => {
             if(snapshot.exists()) {
                 const messagesData = snapshot.val();
-                const messageKeyToUpdate = Object.keys(messagesData).find(key => messagesData[key].id === messageId);
+                let messageKeyToUpdate: string | undefined;
+
+                for (const key in messagesData) {
+                    if (messagesData[key].id === messageId) {
+                        messageKeyToUpdate = key;
+                        break;
+                    }
+                }
                 
                 if (messageKeyToUpdate) {
                     const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
