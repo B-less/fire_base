@@ -25,7 +25,17 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, sma
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
     const tempMessageId = Date.now();
-    onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+    // In a real DB scenario, we first send the temp message, then update it.
+    // For AI chat, local state update is fine.
+    if (contact.id === 'ai-assistant') {
+      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+    } else {
+      // For real users, we add a temporary message to the db which will be updated.
+      // This is optimistic UI.
+      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+    }
+    
+    setInputText('');
     setSmartReplies([]);
     
     try {

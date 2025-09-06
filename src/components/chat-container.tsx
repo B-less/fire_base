@@ -11,7 +11,7 @@ import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push } from 'firebase/database';
+import { ref, onValue, set, push, get, child, query, orderByChild, limitToLast } from 'firebase/database';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -30,68 +30,61 @@ export function ChatContainer() {
 
   const activeContact = contacts.find((c) => c.id === activeContactId);
 
-  // Load contacts and messages from Firebase
+  // Load contacts and their last messages
   useEffect(() => {
     if (!currentUser) return;
-
+  
     const contactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
-    const unsubscribe = onValue(contactsRef, async (snapshot) => {
-      const contactIds = snapshot.val() || [];
-      const contactsPromises = contactIds.map((id: string) => {
-        return new Promise<Contact>((resolve) => {
-          const userRef = ref(db, `users/${id}`);
-          onValue(userRef, (userSnap) => {
-            const userData = userSnap.val();
-            const conversationKey = getConversationKey(currentUser.phoneNumber, id);
-            const messagesRef = ref(db, `messages/${conversationKey}`);
-            
-            onValue(messagesRef, (messageSnap) => {
-               const messagesData = messageSnap.val() || {};
-               const messages: Message[] = Object.values(messagesData);
-               const lastMessage = messages[messages.length - 1];
-               
-               const contact: Contact = {
-                id: userData.phoneNumber,
-                name: userData.name,
-                avatar: `https://picsum.photos/seed/${id}/100/100`,
-                online: false, // You could implement presence with RTDB
-                lastMessage: lastMessage ? (lastMessage.content || "Image") : 'No messages yet',
-                lastMessageTime: lastMessage ? lastMessage.timestamp : '',
-                unreadCount: 0,
-                messages,
-              };
-              resolve(contact);
-            }, { onlyOnce: true });
-          }, { onlyOnce: true });
-        });
-      });
-      
-      const resolvedContacts = await Promise.all(contactsPromises);
-      
-      // Ensure AI contact is present if it was added
-      const hasAiContact = contacts.some(c => c.id === AI_CONTACT_ID);
-      if (hasAiContact && !resolvedContacts.some(c => c.id === AI_CONTACT_ID)) {
-          const aiContact: Contact = {
-            id: AI_CONTACT_ID,
-            name: 'AI Assistant',
-            avatar: 'https://picsum.photos/seed/ai-avatar/100/100',
-            online: true,
-            lastMessage: 'Ask me anything!',
-            lastMessageTime: '',
+  
+    const unsubscribe = onValue(contactsRef, (snapshot) => {
+      const contactIds: string[] = snapshot.val() || [];
+  
+      const contactsPromises = contactIds.map(async (id: string) => {
+        try {
+          const userSnap = await get(child(ref(db), `users/${id}`));
+          if (!userSnap.exists()) return null;
+          const userData = userSnap.val();
+  
+          const conversationKey = getConversationKey(currentUser.phoneNumber, id);
+          const messagesQuery = query(ref(db, `messages/${conversationKey}`), orderByChild('id'), limitToLast(1));
+          
+          const messageSnap = await get(messagesQuery);
+          const messagesData = messageSnap.val() || {};
+          const lastMessage: Message | undefined = Object.values(messagesData)[0] as Message | undefined;
+  
+          return {
+            id: userData.phoneNumber,
+            name: userData.name,
+            avatar: `https://picsum.photos/seed/${id}/100/100`,
+            online: false, 
+            lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
+            lastMessageTime: lastMessage ? lastMessage.timestamp : '',
             unreadCount: 0,
-            messages: contacts.find(c => c.id === AI_CONTACT_ID)?.messages || [],
+            messages: [], // Initially empty, will be loaded on demand
           };
-          resolvedContacts.unshift(aiContact);
-      }
-      
-      setContacts(resolvedContacts);
+        } catch (error) {
+          console.error("Error fetching contact data for ID:", id, error);
+          return null;
+        }
+      });
+  
+      Promise.all(contactsPromises).then(resolvedContacts => {
+        const validContacts = resolvedContacts.filter((c): c is Contact => c !== null);
+        
+        // Add AI contact if it was previously in state
+         if (contacts.some(c => c.id === AI_CONTACT_ID)) {
+            const aiContact = contacts.find(c => c.id === AI_CONTACT_ID)!;
+            validContacts.unshift(aiContact);
+         }
 
+        setContacts(validContacts);
+      });
     });
-
+  
     return () => unsubscribe();
-  }, [currentUser]);
-  
-  
+  }, [currentUser]); // Removed `contacts` dependency to prevent re-running unnecessarily
+
+
   // Real-time messages for active chat
   useEffect(() => {
     if (!currentUser || !activeContactId) return;
@@ -103,7 +96,7 @@ export function ChatContainer() {
         const messagesData = snapshot.val() || {};
         const messages: Message[] = Object.values(messagesData);
         setContacts(prevContacts => prevContacts.map(c => 
-            c.id === activeContactId ? { ...c, messages } : c
+            c.id === activeContactId ? { ...c, messages: messages.sort((a,b) => a.id - b.id) } : c
         ));
     });
 
@@ -166,7 +159,7 @@ export function ChatContainer() {
       const aiContact: Contact = {
         id: AI_CONTACT_ID,
         name: 'AI Assistant',
-        avatar: 'https://picsum.photos/seed/ai-avatar/100/100',
+        avatar: 'https://picsum.photos/seed/ai-assistant-avatar/100/100',
         online: true,
         lastMessage: 'Ask me anything!',
         lastMessageTime: '',
@@ -180,6 +173,7 @@ export function ChatContainer() {
 
   const handleBackToContacts = () => {
     setShowChatPanel(false);
+    setActiveContactId(null);
   };
 
   const getSmartReplies = useCallback(async (contact: Contact) => {
@@ -194,7 +188,7 @@ export function ChatContainer() {
 
     try {
       const result: SmartReplyOutput = await generateSmartReplies({
-        message: lastMessage.content,
+        message: lastMessage.content || '',
         conversationHistory: conversationHistory,
       });
       setSmartReplies(result.suggestions);
@@ -303,10 +297,29 @@ export function ChatContainer() {
           })
         );
     } else {
-        // This is more complex with Firebase RTDB as we need to find the message key by its ID
-        // For simplicity in this step, we'll assume new generated images are new messages.
-        // A proper implementation would query for the message key.
-        handleSendMessage(content, image, isGenerating);
+        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+        const messagesRef = ref(db, `messages/${conversationKey}`);
+
+        // Find the message by its temporary ID to update it
+        get(messagesRef).then(snapshot => {
+            if(snapshot.exists()) {
+                const messagesData = snapshot.val();
+                const messageKeyToUpdate = Object.keys(messagesData).find(key => messagesData[key].id === messageId);
+                
+                if (messageKeyToUpdate) {
+                    const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
+                    set(messageToUpdateRef, {
+                        ...messagesData[messageKeyToUpdate],
+                        content: content,
+                        image: image,
+                        isGenerating: isGenerating,
+                    });
+                } else {
+                    // Fallback to sending new message if couldn't find the one to update
+                     handleSendMessage(content, image, isGenerating);
+                }
+            }
+        });
     }
   }
   
@@ -325,9 +338,9 @@ export function ChatContainer() {
       setShowChatPanel(true);
     } else {
        // On mobile, only show the chat panel if a contact is selected.
-       setShowChatPanel(activeContactId !== null && contacts.length > 0);
+       setShowChatPanel(activeContactId !== null);
     }
-  }, [isMobile, activeContactId, contacts.length]);
+  }, [isMobile, activeContactId]);
 
   const NoContactsView = () => (
     <div className="hidden h-full flex-col items-center justify-center bg-muted/50 md:flex">
@@ -344,7 +357,7 @@ export function ChatContainer() {
     <div className="flex h-full w-full">
       <div
         className={`h-full transition-all duration-300 ${
-          isMobile && showChatPanel && contacts.length > 0 ? 'w-0 -translate-x-full' : 'w-full md:w-1/3 lg:w-1/4'
+          isMobile && showChatPanel ? 'w-0 -translate-x-full' : 'w-full md:w-1/3 lg:w-1/4'
         }`}
       >
         <ContactList
