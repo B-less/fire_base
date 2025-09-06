@@ -52,7 +52,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup }: Messag
                 alt="Shared media"
                 width={300}
                 height={200}
-                className="rounded-md mb-2"
+                className="rounded-md mb-2 object-cover"
                 data-ai-hint="abstract landscape"
               />
           )}

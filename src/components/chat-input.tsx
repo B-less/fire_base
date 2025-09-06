@@ -1,4 +1,5 @@
 import { Paperclip, SendHorizontal } from 'lucide-react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -7,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Loader2 } from 'lucide-react';
 
 interface ChatInputProps {
   value: string;
@@ -16,6 +18,9 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -23,11 +28,31 @@ export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputPro
     }
   };
   
-  const handleImageUpload = () => {
-    // In a real app, this would open a file picker.
-    // Here, we'll just send a random placeholder image.
-    onImageSend(`https://picsum.photos/600/400?random=${Date.now()}`);
+  const handleImageUploadClick = () => {
+    fileInputRef.current?.click();
   }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        const dataUrl = loadEvent.target?.result as string;
+        onImageSend(dataUrl);
+        setIsUploading(false);
+      };
+      reader.onerror = () => {
+        console.error("Failed to read file");
+        setIsUploading(false);
+      }
+      reader.readAsDataURL(file);
+    }
+    // Reset file input value to allow selecting the same file again
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
 
   return (
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
@@ -39,12 +64,23 @@ export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputPro
         onKeyDown={handleKeyDown}
         rows={1}
       />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*"
+      />
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUpload}>
-                <Paperclip className="h-4 w-4 text-muted-foreground" />
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading}>
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
