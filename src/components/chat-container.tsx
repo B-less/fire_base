@@ -1,16 +1,18 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Contact, Message } from '@/lib/types';
-import { CONTACTS as initialContacts } from '@/lib/data';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
+import { Plus } from 'lucide-react';
+import { Button } from './ui/button';
 
 export function ChatContainer() {
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
-  const [activeContactId, setActiveContactId] = useState<string | null>(contacts[0]?.id || null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const isMobile = useIsMobile();
@@ -102,16 +104,27 @@ export function ChatContainer() {
     if (!isMobile) {
       setShowChatPanel(true);
     } else {
-      // On mobile, only show the chat panel if a contact is selected.
-      setShowChatPanel(activeContactId !== null);
+       // On mobile, only show the chat panel if a contact is selected.
+       setShowChatPanel(activeContactId !== null && contacts.length > 0);
     }
-  }, [isMobile, activeContactId]);
+  }, [isMobile, activeContactId, contacts.length]);
+
+  const NoContactsView = () => (
+    <div className="hidden h-full flex-col items-center justify-center bg-muted/50 md:flex">
+      <div className='flex flex-col items-center gap-4'>
+         <div className='flex items-center justify-center w-24 h-24 bg-background rounded-full border-4 border-dashed border-muted-foreground/20'>
+            <Plus className='w-12 h-12 text-muted-foreground/40' />
+         </div>
+         <p className="text-muted-foreground">No chats yet. Add a new contact to start messaging!</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="flex h-full w-full">
       <div
         className={`h-full transition-all duration-300 ${
-          isMobile && showChatPanel ? 'w-0 -translate-x-full' : 'w-full md:w-1/3 lg:w-1/4'
+          isMobile && showChatPanel && contacts.length > 0 ? 'w-0 -translate-x-full' : 'w-full md:w-1/3 lg:w-1/4'
         }`}
       >
         <ContactList
@@ -135,9 +148,7 @@ export function ChatContainer() {
             setSmartReplies={setSmartReplies}
           />
         ) : (
-           <div className="hidden h-full items-center justify-center bg-muted/50 md:flex">
-            <p className="text-muted-foreground">Select a chat to start messaging</p>
-          </div>
+           <NoContactsView />
         )}
       </div>
     </div>
