@@ -9,6 +9,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Loader2 } from 'lucide-react';
+import { compressImage } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+
 
 interface ChatInputProps {
   value: string;
@@ -21,6 +24,7 @@ interface ChatInputProps {
 export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = false }: ChatInputProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -33,21 +37,33 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
     fileInputRef.current?.click();
   }
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploading(true);
-      const reader = new FileReader();
-      reader.onload = (loadEvent) => {
-        const dataUrl = loadEvent.target?.result as string;
-        onFileSelect(dataUrl);
-        setIsUploading(false);
-      };
-      reader.onerror = () => {
-        console.error("Failed to read file");
+      try {
+        if (file.type.startsWith('image/')) {
+          const compressedDataUrl = await compressImage(file);
+          onFileSelect(compressedDataUrl);
+        } else {
+          // For non-image files (like videos), read as data URL without compression
+          const reader = new FileReader();
+          reader.onload = (loadEvent) => {
+            const dataUrl = loadEvent.target?.result as string;
+            onFileSelect(dataUrl);
+          };
+          reader.readAsDataURL(file);
+        }
+      } catch (error) {
+        console.error("Error processing file:", error);
+        toast({
+          title: "File Error",
+          description: "Could not process the selected file. Please try another one.",
+          variant: "destructive",
+        });
+      } finally {
         setIsUploading(false);
       }
-      reader.readAsDataURL(file);
     }
     // Reset file input value to allow selecting the same file again
     if (event.target) {
@@ -76,6 +92,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
         onChange={handleFileChange}
         className="hidden"
         accept="image/*,video/*"
+        disabled={isUploading}
       />
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
         <TooltipProvider>
@@ -98,7 +115,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
           size="icon"
           className="h-8 w-8"
           onClick={onSend}
-          disabled={!value.trim()}
+          disabled={!value.trim() || isUploading}
         >
           {isImagineCommand ? <Sparkles className="h-4 w-4" /> : <SendHorizontal className="h-4 w-4" />}
         </Button>
