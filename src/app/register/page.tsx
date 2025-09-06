@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,35 +13,54 @@ import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
-export default function LoginPage() {
+export default function RegisterPage() {
+  const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
   const router = useRouter();
-  const { login } = useAuth();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim() || !phoneNumber.trim()) {
+      toast({
+        title: "Registration Failed",
+        description: "Please fill in all fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const fullPhoneNumber = `${country.dial_code}${phoneNumber}`;
     
     try {
       const users = JSON.parse(localStorage.getItem('chirpchat_users') || '[]');
       const userExists = users.some((user: any) => user.phoneNumber === fullPhoneNumber.trim());
 
-      if (phoneNumber.trim() && userExists) {
-        login(fullPhoneNumber.trim());
-        router.push('/');
-      } else {
+      if (userExists) {
         toast({
-          title: "Login Failed",
-          description: "This phone number is not registered. Please sign up first.",
+          title: "Registration Failed",
+          description: "This phone number is already registered.",
           variant: "destructive",
-        })
+        });
+        return;
       }
+      
+      const newUser = { name: name.trim(), phoneNumber: fullPhoneNumber.trim() };
+      users.push(newUser);
+      localStorage.setItem('chirpchat_users', JSON.stringify(users));
+
+      toast({
+        title: "Registration Successful",
+        description: "You can now log in with your phone number.",
+      });
+
+      router.push('/login');
+
     } catch (error) {
        toast({
           title: "Error",
-          description: "An error occurred during login. Please try again.",
+          description: "An error occurred during registration. Please try again.",
           variant: "destructive",
         })
     }
@@ -64,11 +82,22 @@ export default function LoginPage() {
                 <Flame className="h-8 w-8 text-primary-foreground" />
              </div>
           </div>
-          <CardTitle className="text-2xl">Welcome Back!</CardTitle>
-          <CardDescription>Sign in with your phone number to continue.</CardDescription>
+          <CardTitle className="text-2xl">Create an Account</CardTitle>
+          <CardDescription>Join ChirpChat to connect with your friends.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                    id="name"
+                    type="text"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <div className="flex gap-2">
@@ -103,16 +132,16 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={!phoneNumber.trim()}>
-              Sign In
+            <Button type="submit" className="w-full" disabled={!name.trim() || !phoneNumber.trim()}>
+              Sign Up
             </Button>
           </form>
         </CardContent>
-         <CardFooter className="flex-col items-center justify-center text-sm">
+        <CardFooter className="flex-col items-center justify-center text-sm">
             <p className="text-muted-foreground">
-              Don't have an account?{' '}
-              <Link href="/register" className="font-semibold text-primary underline-offset-4 hover:underline">
-                Sign up
+              Already have an account?{' '}
+              <Link href="/login" className="font-semibold text-primary underline-offset-4 hover:underline">
+                Sign in
               </Link>
             </p>
         </CardFooter>
