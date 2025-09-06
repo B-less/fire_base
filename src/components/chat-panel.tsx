@@ -17,9 +17,10 @@ interface ChatPanelProps {
   onBack?: () => void;
   smartReplies: string[];
   setSmartReplies: (replies: string[]) => void;
+  isLoading?: boolean;
 }
 
-export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, smartReplies, setSmartReplies }: ChatPanelProps) {
+export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, smartReplies, setSmartReplies, isLoading = false }: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
   const { toast } = useToast();
   const isAIChat = contact.id === 'ai-assistant';
@@ -83,7 +84,7 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, sma
   return (
     <div className="flex h-full flex-col bg-muted/30">
       <ChatHeader contact={contact} onBack={onBack} />
-      <MessageList messages={contact.messages} contactAvatar={contact.avatar} onImagine={handleImagine} />
+      <MessageList messages={contact.messages} contactAvatar={contact.avatar} onImagine={handleImagine} isLoading={isLoading} />
       <div className="p-4 pt-2">
         {!isAIChat && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         <ChatInput

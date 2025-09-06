@@ -28,6 +28,7 @@ export function ChatContainer() {
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [isContactsLoading, setIsContactsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const isMobile = useIsMobile();
 
   const activeContact = contacts.find((c) => c.id === activeContactId);
@@ -102,8 +103,12 @@ export function ChatContainer() {
 
   // Real-time messages for active chat
   useEffect(() => {
-    if (!currentUser || !activeContactId || activeContactId === AI_CONTACT_ID) return;
+    if (!currentUser || !activeContactId || activeContactId === AI_CONTACT_ID) {
+      if (isMessagesLoading) setIsMessagesLoading(false);
+      return;
+    }
 
+    setIsMessagesLoading(true);
     const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
     const messagesRef = ref(db, `messages/${conversationKey}`);
     
@@ -124,6 +129,7 @@ export function ChatContainer() {
             }
             return c;
         }));
+        setIsMessagesLoading(false);
     });
 
     return () => unsubscribe();
@@ -446,6 +452,7 @@ export function ChatContainer() {
             onBack={isMobile ? handleBackToContacts : undefined}
             smartReplies={smartReplies}
             setSmartReplies={setSmartReplies}
+            isLoading={isMessagesLoading}
           />
         ) : (
            <NoContactsView />
