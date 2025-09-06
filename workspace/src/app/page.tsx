@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { ChatContainer } from '@/components/chat-container';
 import { Skeleton } from '@/components/ui/skeleton';
-import SettingsPage from './settings/page';
+import SettingsPage from '@/app/settings/page';
 
 function LoadingSkeleton() {
   return (
