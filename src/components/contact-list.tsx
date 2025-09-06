@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, LogOut } from 'lucide-react';
+import { Search, Plus, LogOut, Bot } from 'lucide-react';
 import type { Contact } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,7 @@ interface ContactListProps {
   activeContactId: string | null;
   onSelectContact: (id: string) => void;
   onAddContact: (user: { name: string; phoneNumber: string }) => void;
+  onStartAIChat: () => void;
 }
 
 function AddContactDialog({ onAddContact, children }: { onAddContact: (user: { name: string; phoneNumber: string }) => void, children: React.ReactNode }) {
@@ -163,7 +164,7 @@ function EmptyContactList({ onAddContact }: { onAddContact: (user: { name: strin
   )
 }
 
-export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact }: ContactListProps) {
+export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onStartAIChat }: ContactListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const { logout } = useAuth();
 
@@ -182,6 +183,18 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
                    <Plus className="h-5 w-5" />
                 </Button>
              </AddContactDialog>
+             <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button variant="ghost" size="icon" onClick={onStartAIChat}>
+                          <Bot className="h-5 w-5" />
+                       </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Chat with AI</p>
+                    </TooltipContent>
+                  </Tooltip>
+              </TooltipProvider>
             <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

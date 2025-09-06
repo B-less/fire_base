@@ -35,6 +35,8 @@ const ReadStatusIcon = ({ status }: { status: Message['status'] }) => {
   return <Check className="h-4 w-4 text-muted-foreground" />;
 };
 
+const isAI = (sender: string) => sender === 'ai-assistant';
+
 export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagine }: MessageBubbleProps) {
   const { user: currentUser } = useAuth();
   const isMyMessage = message.sender === currentUser;
@@ -50,6 +52,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     }
   }
 
+  const senderIsAI = isAI(message.sender);
+
   return (
     <div
       className={cn(
@@ -59,8 +63,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     >
       {!isMyMessage && (
         <Avatar className={cn('h-8 w-8', !isFirstInGroup && 'invisible')}>
-          <AvatarImage src={contactAvatar} alt="Contact" data-ai-hint="person" />
-          <AvatarFallback>C</AvatarFallback>
+          <AvatarImage src={contactAvatar} alt="Contact" data-ai-hint={senderIsAI ? "robot abstract" : "person"} />
+          <AvatarFallback>{senderIsAI ? <Bot className="h-4 w-4" /> : 'C'}</AvatarFallback>
         </Avatar>
       )}
       <Card
@@ -69,7 +73,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           isMyMessage
             ? 'rounded-br-none bg-primary text-primary-foreground'
             : 'rounded-bl-none bg-card text-card-foreground',
-          message.isGenerating && 'bg-muted text-muted-foreground'
+          message.isGenerating && 'bg-muted text-muted-foreground',
+          senderIsAI && 'bg-secondary text-secondary-foreground rounded-bl-none'
         )}
       >
         <CardContent className="p-3">
@@ -132,12 +137,12 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           )}
           {message.content && (
             <div className="flex items-start gap-2">
-               {message.content.startsWith('/imagine ') && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+               {(message.content.startsWith('/imagine ') || senderIsAI) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
               <p className="whitespace-pre-wrap break-words">{message.content.startsWith('/imagine ') ? message.content.substring(9) : message.content}</p>
             </div>
           )}
           <div className="mt-1 flex items-center justify-end gap-2">
-            <span className={cn('text-xs', isMyMessage && !message.isGenerating ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+            <span className={cn('text-xs', isMyMessage && !message.isGenerating ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
               {message.timestamp}
             </span>
             {isMyMessage && !message.isGenerating && <ReadStatusIcon status={message.status} />}

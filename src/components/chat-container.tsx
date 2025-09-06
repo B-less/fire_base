@@ -8,12 +8,14 @@ import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
+import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
 import { Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '@/context/auth-context';
 
 const CONTACTS_STORAGE_KEY = 'chirpchat_contacts_';
 const MESSAGES_STORAGE_KEY = 'chirpchat_messages';
+const AI_CONTACT_ID = 'ai-assistant';
 
 // Helper to get a consistent key for a conversation between two users
 const getConversationKey = (user1: string, user2: string) => {
@@ -104,13 +106,30 @@ export function ChatContainer() {
     setContacts(prev => [newContact, ...prev]);
     handleSelectContact(newContact.id);
   };
+  
+  const handleStartAIChat = () => {
+    if (!contacts.some(c => c.id === AI_CONTACT_ID)) {
+      const aiContact: Contact = {
+        id: AI_CONTACT_ID,
+        name: 'AI Assistant',
+        avatar: '/ai-avatar.png',
+        online: true,
+        lastMessage: 'Ask me anything!',
+        lastMessageTime: '',
+        unreadCount: 0,
+        messages: [],
+      };
+      setContacts(prev => [aiContact, ...prev]);
+    }
+    handleSelectContact(AI_CONTACT_ID);
+  };
 
   const handleBackToContacts = () => {
     setShowChatPanel(false);
   };
 
   const getSmartReplies = useCallback(async (contact: Contact) => {
-    if (!contact.messages.length || !currentUser) return;
+    if (!contact.messages.length || !currentUser || contact.id === AI_CONTACT_ID) return;
     const lastMessage = contact.messages[contact.messages.length - 1];
     if (lastMessage.sender === currentUser || lastMessage.isGenerating) return;
 
@@ -128,6 +147,47 @@ export function ChatContainer() {
     } catch (error) {
       console.error('Error generating smart replies:', error);
       setSmartReplies([]);
+    }
+  }, [currentUser]);
+  
+  const getAIResponse = useCallback(async (contact: Contact) => {
+    if (!currentUser || contact.id !== AI_CONTACT_ID) return;
+    
+    const conversationHistory = contact.messages
+      .filter(m => !m.isGenerating)
+      .map(m => `${m.sender === currentUser ? 'User' : 'AI'}: ${m.content}`)
+      .join('\n');
+
+    const lastMessage = contact.messages[contact.messages.length - 1];
+    if (!lastMessage || lastMessage.sender !== currentUser) return;
+
+    try {
+      const { response } = await generateChatResponse({
+        message: lastMessage.content,
+        conversationHistory,
+      });
+
+      const aiMessage: Message = {
+        id: Date.now(),
+        content: response,
+        sender: AI_CONTACT_ID,
+        timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
+        status: 'read',
+      };
+      
+      const conversationKey = getConversationKey(currentUser, AI_CONTACT_ID);
+
+      setContacts(prevContacts => prevContacts.map(c => {
+        if (c.id === AI_CONTACT_ID) {
+          const updatedMessages = [...c.messages, aiMessage];
+          updateMessages(conversationKey, updatedMessages);
+          return { ...c, messages: updatedMessages, lastMessage: response, lastMessageTime: aiMessage.timestamp };
+        }
+        return c;
+      }));
+
+    } catch (error) {
+      console.error('Error getting AI response:', error);
     }
   }, [currentUser]);
 
@@ -201,9 +261,13 @@ export function ChatContainer() {
   
   useEffect(() => {
     if (activeContact) {
-      getSmartReplies(activeContact);
+      if (activeContact.id === AI_CONTACT_ID) {
+        getAIResponse(activeContact);
+      } else {
+        getSmartReplies(activeContact);
+      }
     }
-  }, [activeContact, getSmartReplies]);
+  }, [activeContact, getSmartReplies, getAIResponse]);
   
   useEffect(() => {
     if (!isMobile) {
@@ -237,6 +301,7 @@ export function ChatContainer() {
           activeContactId={activeContactId}
           onSelectContact={handleSelectContact}
           onAddContact={handleAddContact}
+          onStartAIChat={handleStartAIChat}
         />
       </div>
       <div

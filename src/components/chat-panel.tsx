@@ -21,6 +21,7 @@ interface ChatPanelProps {
 export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, smartReplies, setSmartReplies }: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
   const { toast } = useToast();
+  const isAIChat = contact.id === 'ai-assistant';
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
     const tempMessageId = Date.now();
@@ -67,12 +68,13 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, sma
       <ChatHeader contact={contact} onBack={onBack} />
       <MessageList messages={contact.messages} contactAvatar={contact.avatar} onImagine={handleImagine} />
       <div className="p-4 pt-2">
-        <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />
+        {!isAIChat && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         <ChatInput
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onSend={handleSend}
           onImageSend={(url) => onSendMessage('', url)}
+          isAIChat={isAIChat}
         />
       </div>
     </div>

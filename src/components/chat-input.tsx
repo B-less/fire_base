@@ -15,9 +15,10 @@ interface ChatInputProps {
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
   onImageSend: (url: string) => void;
+  isAIChat?: boolean;
 }
 
-export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputProps) {
+export function ChatInput({ value, onChange, onSend, onImageSend, isAIChat = false }: ChatInputProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,11 +56,14 @@ export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputPro
   };
 
   const isImagineCommand = value.trim().startsWith('/imagine ');
+  const placeholder = isAIChat
+    ? "Ask the AI anything..."
+    : "Type a message or use /imagine to generate an image...";
 
   return (
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
       <Textarea
-        placeholder="Type a message or use /imagine to generate an image..."
+        placeholder={placeholder}
         className="min-h-[48px] resize-none border-0 bg-transparent p-2 pr-20 shadow-none focus-visible:ring-0"
         value={value}
         onChange={onChange}
@@ -77,7 +81,7 @@ export function ChatInput({ value, onChange, onSend, onImageSend }: ChatInputPro
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isImagineCommand}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isImagineCommand || isAIChat}>
                 {isUploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
