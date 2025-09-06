@@ -1,9 +1,11 @@
+
 import type { Metadata } from 'next';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import './globals.css';
 import { AuthProvider } from '@/context/auth-context';
 import { NotificationHandler } from '@/components/notification-handler';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
   title: 'ChirpChat',
@@ -24,11 +26,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
       <body className={cn("font-body antialiased")}>
-        <AuthProvider>
-          <NotificationHandler />
-          {children}
-          <Toaster />
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <AuthProvider>
+              <NotificationHandler />
+              {children}
+              <Toaster />
+            </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

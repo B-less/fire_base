@@ -2,14 +2,17 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { ChatContainer } from '@/components/chat-container';
 import { Skeleton } from '@/components/ui/skeleton';
+import SettingsPage from './settings/page';
 
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const showSettings = searchParams.get('page') === 'settings';
 
   useEffect(() => {
     if (!loading && !user) {
@@ -27,11 +30,19 @@ export default function Home() {
       </main>
     );
   }
+  
+  const handleBackToChat = () => {
+    router.push('/');
+  }
 
   return (
     <main className="flex h-screen w-full items-center justify-center bg-background p-0 md:p-4">
-      <div className="h-full w-full max-w-7xl rounded-none border-0 bg-card shadow-none md:rounded-2xl md:border md:shadow-lg">
-        <ChatContainer />
+      <div className="h-full w-full max-w-7xl rounded-none border-0 bg-card shadow-none md:rounded-2xl md:border md:shadow-lg overflow-hidden">
+        {showSettings ? (
+            <SettingsPage onBack={handleBackToChat} />
+        ) : (
+            <ChatContainer />
+        )}
       </div>
     </main>
   );

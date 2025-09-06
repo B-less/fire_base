@@ -2,7 +2,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, LogOut, Bot, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Plus, Bot, Settings, Loader2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -199,8 +200,7 @@ function ContactListSkeleton() {
 
 export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onStartAIChat, isLoading }: ContactListProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const { logout } = useAuth();
-
+  
   const filteredContacts = contacts.filter((contact) =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -279,12 +279,14 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={logout}>
-                        <LogOut className="h-5 w-5" />
-                    </Button>
+                    <Link href="/?page=settings">
+                      <Button variant="ghost" size="icon">
+                          <Settings className="h-5 w-5" />
+                      </Button>
+                    </Link>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Log out</p>
+                    <p>Settings</p>
                   </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
