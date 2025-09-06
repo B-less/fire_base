@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Flame } from 'lucide-react';
+import { Flame, Loader2 } from 'lucide-react';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -156,6 +156,7 @@ export default function RegisterPage() {
               </div>
             </div>
             <Button type="submit" className="w-full" disabled={!name.trim() || !phoneNumber.trim() || isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Signing Up...' : 'Sign Up'}
             </Button>
           </form>

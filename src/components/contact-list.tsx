@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, LogOut, Bot } from 'lucide-react';
+import { Search, Plus, LogOut, Bot, Loader2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -150,6 +150,7 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: Use
           </div>
           <DialogFooter>
             <Button type="submit" disabled={!phoneNumber.trim() || isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isLoading ? "Searching..." : "Start Chat"}
             </Button>
           </DialogFooter>
