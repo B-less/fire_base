@@ -8,6 +8,8 @@ export type Message = {
   image?: string;
   isGenerating?: boolean;
   db_key?: string; // The key from Firebase DB
+  recipientFcmToken?: string | null;
+  senderName?: string;
 };
 
 export type Contact = {
@@ -26,6 +28,8 @@ export type User = {
     phoneNumber: string;
     name: string;
     profilePicture?: string;
+    fcmToken?: string;
+    contacts?: string[];
     status?: {
       online: boolean;
       lastSeen: number;

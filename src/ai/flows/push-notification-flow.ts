@@ -1,8 +1,10 @@
+
 'use server';
 /**
  * @fileOverview A flow for sending push notifications via FCM.
  *
  * - sendPushNotification - A function that sends a push notification.
+ * - processMessageAndNotify - A flow that is triggered on a new message to send a notification.
  * - PushNotificationInput - The input type for the sendPushNotification function.
  */
 
@@ -10,32 +12,33 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import * as admin from 'firebase-admin';
 
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+    });
+    console.log('Firebase Admin initialized successfully.');
+  } catch (error) {
+    console.error('Firebase Admin initialization error:', error);
+  }
+}
+
 const PushNotificationInputSchema = z.object({
-  recipientId: z.string().describe("The phone number of the user to send the notification to."),
-  senderName: z.string().describe("The name of the user sending the message."),
-  message: z.string().describe("The content of the message."),
+  recipientToken: z
+    .string()
+    .describe("The FCM token of the device to send the notification to."),
+  senderName: z.string().describe('The name of the user sending the message.'),
+  message: z.string().describe('The content of the message.'),
 });
 export type PushNotificationInput = z.infer<typeof PushNotificationInputSchema>;
 
-
-// Initialize Firebase Admin SDK if not already initialized
-if (!admin.apps.length) {
-    try {
-        admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
-            databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-        });
-        console.log("Firebase Admin initialized successfully.");
-    } catch (error) {
-        console.error("Firebase Admin initialization error:", error);
-    }
-}
-
-
-export async function sendPushNotification(input: PushNotificationInput): Promise<void> {
+export async function sendPushNotification(
+  input: PushNotificationInput
+): Promise<void> {
   return sendPushNotificationFlow(input);
 }
-
 
 const sendPushNotificationFlow = ai.defineFlow(
   {
@@ -43,40 +46,68 @@ const sendPushNotificationFlow = ai.defineFlow(
     inputSchema: PushNotificationInputSchema,
     outputSchema: z.void(),
   },
-  async ({ recipientId, senderName, message }) => {
-    
+  async ({ recipientToken, senderName, message }) => {
     if (!admin.apps.length) {
-      console.error("Firebase Admin SDK not initialized.");
+      console.error('Firebase Admin SDK not initialized.');
       return;
+    }
+    if (!recipientToken) {
+        console.log("No FCM token provided for recipient, skipping notification.");
+        return;
     }
 
     try {
-        const db = admin.database();
-        const userRef = db.ref(`users/${recipientId}`);
-        const snapshot = await userRef.once('value');
-        const userData = snapshot.val();
+      const payload = {
+        notification: {
+          title: `New message from ${senderName}`,
+          body: message || "Sent an image",
+          icon: '/icon-192x192.png',
+        },
+        token: recipientToken,
+      };
 
-        if (userData && userData.fcmToken) {
-            const fcmToken = userData.fcmToken;
-
-            const payload = {
-                notification: {
-                    title: `New message from ${senderName}`,
-                    body: message,
-                    icon: '/icon-192x192.png',
-                },
-                token: fcmToken,
-            };
-
-            await admin.messaging().send(payload);
-            console.log('Push notification sent successfully to:', recipientId);
-
-        } else {
-            console.log('No FCM token found for user:', recipientId);
-        }
-
+      await admin.messaging().send(payload);
+      console.log('Push notification sent successfully to token:', recipientToken);
     } catch (error) {
-        console.error('Error sending push notification:', error);
+      console.error('Error sending push notification:', error);
     }
+  }
+);
+
+
+const NewMessageSchema = z.object({
+    content: z.string(),
+    sender: z.string(),
+    senderName: z.string(),
+    recipientFcmToken: z.string().optional(),
+});
+
+ai.defineFlow(
+  {
+    name: 'processMessageAndNotify',
+    inputSchema: NewMessageSchema,
+    outputSchema: z.void(),
+    trigger: {
+      type: 'firebase',
+      firebase: {
+        eventType: 'google.firebase.database.ref.v1.written',
+        // This path needs to match where your messages are stored.
+        // The {conversationId} and {messageId} are wildcards.
+        ref: 'messages/{conversationId}/{messageId}',
+      },
+    },
+  },
+  async (message) => {
+    // The `message` object here is the data written to the database.
+    if (!message.recipientFcmToken || message.content.startsWith("Generating image:")) {
+      // No token or it's a temporary generation message, so don't send a notification.
+      return;
+    }
+
+    await sendPushNotification({
+      recipientToken: message.recipientFcmToken,
+      senderName: message.senderName,
+      message: message.content,
+    });
   }
 );

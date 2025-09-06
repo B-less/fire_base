@@ -11,7 +11,7 @@ import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, ThenableReference, update } from 'firebase/database';
+import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -97,7 +97,7 @@ export function ChatContainer() {
           lastSeen: contactUser.status?.lastSeen,
           lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
           lastMessageTime: lastMessage ? lastMessage.timestamp : '',
-          unreadCount: 0,
+          unreadCount: 0, // This would need a more complex query to be accurate
           messages: lastMessage ? [lastMessage] : [],
         };
       })
@@ -130,7 +130,7 @@ export function ChatContainer() {
                   update(messagesRef, updates);
               }
               setIsMessagesLoading(false);
-          });
+          }, { onlyOnce: false }); // Ensure it's a persistent listener
           
           return () => unsubscribe();
       } else {
@@ -284,22 +284,24 @@ export function ChatContainer() {
            setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
            return updatedContact;
         });
+        return undefined;
     } else {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
         const messagesRef = ref(db, `messages/${conversationKey}`);
         const newMessageRef = push(messagesRef);
         
-        const dbMessage: any = { ...newMessage, status: 'delivered' }; // Set to delivered on send
+        const recipientUser = allUsers[activeContact.id];
+
+        const dbMessage: any = { 
+          ...newMessage, 
+          status: 'delivered', // Set to delivered on send
+          recipientFcmToken: recipientUser?.fcmToken || null,
+          senderName: currentUser.name,
+        }; 
         if (dbMessage.image === undefined) delete dbMessage.image;
         if (dbMessage.isGenerating === undefined) delete dbMessage.isGenerating;
         
-        const setPromise = set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
-        
-        sendPushNotification({ 
-            recipientId: activeContact.id, 
-            senderName: currentUser.name, 
-            message: content || "Sent an image" 
-        }).catch(err => console.error("Failed to send notification:", err));
+        set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
 
         setSmartReplies([]);
         return newMessageRef;
@@ -307,34 +309,28 @@ export function ChatContainer() {
   };
 
   const handleUpdateMessage = (dbKey: string, content: string, image?: string, isGenerating?: boolean) => {
-    if (!activeContact || !currentUser) return;
+    if (!activeContact || !currentUser || activeContact.id === AI_CONTACT_ID) return;
     
-    if (activeContact.id === AI_CONTACT_ID) {
-        // This case might need adjustment if AI chat ever needs to update messages.
-        // For now, we only update DB messages.
-    } else {
-        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
-        const messageToUpdateRef = ref(db, `messages/${conversationKey}/${dbKey}`);
-        
-        // Optimistic update might be good here, but for now we just set.
-        get(messageToUpdateRef).then((snapshot) => {
-            if (snapshot.exists()) {
-                const dbMessage = snapshot.val();
-                
-                const updatedMessage: any = { ...dbMessage, content: content };
-                
-                if (image !== undefined) updatedMessage.image = image;
+    const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
+    const messageToUpdateRef = ref(db, `messages/${conversationKey}/${dbKey}`);
+    
+    get(messageToUpdateRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            const dbMessage = snapshot.val();
+            
+            const updatedMessage: any = { ...dbMessage, content: content };
+            
+            if (image !== undefined) updatedMessage.image = image;
 
-                if (isGenerating !== undefined) {
-                  updatedMessage.isGenerating = isGenerating;
-                } else if ('isGenerating' in updatedMessage) {
-                  delete updatedMessage.isGenerating;
-                }
-
-                set(messageToUpdateRef, updatedMessage);
+            if (isGenerating === false) {
+              delete updatedMessage.isGenerating;
+            } else if (isGenerating === true) {
+              updatedMessage.isGenerating = true;
             }
-        });
-    }
+
+            set(messageToUpdateRef, updatedMessage);
+        }
+    });
   }
 
   const handleDeleteMessage = (messageId: number, dbKey?: string) => {
@@ -349,16 +345,13 @@ export function ChatContainer() {
             return updatedContact;
         });
     } else {
-        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
-        
-        const keyToDelete = dbKey || Object.keys(activeContactFullMessages || {}).find(key => activeContactFullMessages[key].id === messageId);
-
-        if (keyToDelete) {
-            const messageRef = ref(db, `messages/${conversationKey}/${keyToDelete}`);
-            remove(messageRef);
-        } else {
+        if (!dbKey) {
             console.error("Cannot delete message without a database key.");
+            return;
         }
+        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
+        const messageRef = ref(db, `messages/${conversationKey}/${dbKey}`);
+        remove(messageRef);
     }
   }
   
@@ -367,7 +360,10 @@ export function ChatContainer() {
     if (activeContact.id === AI_CONTACT_ID) {
         return activeContact.messages;
     }
-    return Object.values(activeContactFullMessages).sort((a,b) => a.id - b.id);
+    // Add the db_key from the parent object into the message object itself
+    return Object.entries(activeContactFullMessages)
+      .map(([key, value]) => ({ ...value, db_key: key }))
+      .sort((a,b) => a.id - b.id);
   }, [activeContact, activeContactFullMessages]);
 
   useEffect(() => {
@@ -379,7 +375,7 @@ export function ChatContainer() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeContact, currentChatMessages]);
+  }, [activeContact, currentChatMessages, activeContact?.messages.length]);
 
 
   const NoContactsView = () => (
