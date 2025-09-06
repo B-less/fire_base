@@ -32,6 +32,7 @@ import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { db } from '@/lib/firebase';
 import { ref, get, child } from 'firebase/database';
+import { Skeleton } from './ui/skeleton';
 
 
 interface ContactListProps {
@@ -40,6 +41,7 @@ interface ContactListProps {
   onSelectContact: (id: string) => void;
   onAddContact: (user: User) => void;
   onStartAIChat: () => void;
+  isLoading: boolean;
 }
 
 function AddContactDialog({ onAddContact, children }: { onAddContact: (user: User) => void, children: React.ReactNode }) {
@@ -175,13 +177,80 @@ function EmptyContactList({ onAddContact }: { onAddContact: (user: User) => void
   )
 }
 
-export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onStartAIChat }: ContactListProps) {
+function ContactListSkeleton() {
+    return (
+        <div className="flex flex-col p-4 space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                        <div className="flex justify-between">
+                           <Skeleton className="h-4 w-2/4" />
+                           <Skeleton className="h-3 w-1/4" />
+                        </div>
+                        <Skeleton className="h-4 w-4/5" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onStartAIChat, isLoading }: ContactListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const { logout } = useAuth();
 
   const filteredContacts = contacts.filter((contact) =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const renderContent = () => {
+    if (isLoading) {
+        return <ContactListSkeleton />
+    }
+    if (contacts.length === 0) {
+        return <EmptyContactList onAddContact={onAddContact} />
+    }
+    if (filteredContacts.length > 0) {
+        return filteredContacts.map((contact) => (
+          <button
+            key={contact.id}
+            onClick={() => onSelectContact(contact.id)}
+            className={cn(
+              'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50',
+              activeContactId === contact.id && 'bg-muted'
+            )}
+          >
+            <Avatar className="relative h-12 w-12">
+              <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
+              <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+              {contact.online && (
+                <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-accent ring-1 ring-accent" />
+              )}
+            </Avatar>
+            <div className="flex-1 overflow-hidden">
+              <div className="flex items-center justify-between">
+                <p className="truncate font-semibold text-foreground">{contact.name}</p>
+                <p className="text-xs text-muted-foreground">{contact.lastMessageTime}</p>
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <p className="truncate text-sm text-muted-foreground">{contact.lastMessage}</p>
+                {contact.unreadCount > 0 && (
+                  <Badge variant="default" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full p-0">
+                    {contact.unreadCount}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </button>
+        ));
+    }
+    return (
+        <div className="p-4 text-center text-sm text-muted-foreground">
+            No contacts found.
+        </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col border-r bg-card">
@@ -231,50 +300,11 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
         </div>
       </div>
       
-      {contacts.length === 0 ? <EmptyContactList onAddContact={onAddContact} /> : (
-        <ScrollArea className="flex-1">
-          <div className="flex flex-col">
-            {filteredContacts.length > 0 ? (
-              filteredContacts.map((contact) => (
-                <button
-                  key={contact.id}
-                  onClick={() => onSelectContact(contact.id)}
-                  className={cn(
-                    'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50',
-                    activeContactId === contact.id && 'bg-muted'
-                  )}
-                >
-                  <Avatar className="relative h-12 w-12">
-                    <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
-                    <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
-                    {contact.online && (
-                      <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-accent ring-1 ring-accent" />
-                    )}
-                  </Avatar>
-                  <div className="flex-1 overflow-hidden">
-                    <div className="flex items-center justify-between">
-                      <p className="truncate font-semibold text-foreground">{contact.name}</p>
-                      <p className="text-xs text-muted-foreground">{contact.lastMessageTime}</p>
-                    </div>
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="truncate text-sm text-muted-foreground">{contact.lastMessage}</p>
-                      {contact.unreadCount > 0 && (
-                        <Badge variant="default" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full p-0">
-                          {contact.unreadCount}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                No contacts found.
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      )}
+      <ScrollArea className="flex-1">
+        <div className="flex flex-col">
+            {renderContent()}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

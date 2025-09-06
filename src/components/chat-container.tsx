@@ -27,6 +27,7 @@ export function ChatContainer() {
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [showChatPanel, setShowChatPanel] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [isContactsLoading, setIsContactsLoading] = useState(true);
   const isMobile = useIsMobile();
 
   const activeContact = contacts.find((c) => c.id === activeContactId);
@@ -34,12 +35,16 @@ export function ChatContainer() {
   // Load contacts and their last messages
   useEffect(() => {
     if (!currentUser) return;
+    setIsContactsLoading(true);
   
     const contactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
   
     const unsubscribe = onValue(contactsRef, (snapshot) => {
       const contactIds: string[] = snapshot.val() || [];
-      if (!Array.isArray(contactIds)) return;
+      if (!Array.isArray(contactIds)) {
+        setIsContactsLoading(false);
+        return;
+      };
   
       const contactsPromises = contactIds.map(async (id: string) => {
         try {
@@ -87,6 +92,7 @@ export function ChatContainer() {
             }
             return finalContacts;
          });
+         setIsContactsLoading(false);
       });
     });
   
@@ -424,6 +430,7 @@ export function ChatContainer() {
           onSelectContact={handleSelectContact}
           onAddContact={handleAddContact}
           onStartAIChat={handleStartAIChat}
+          isLoading={isContactsLoading}
         />
       </div>
       <div
