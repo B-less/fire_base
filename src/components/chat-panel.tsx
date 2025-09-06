@@ -8,7 +8,9 @@ import { MessageList } from './message-list';
 import { ChatInput } from './chat-input';
 import { SmartReplySuggestions } from './smart-reply-suggestions';
 import { generateImage } from '@/ai/flows/image-generation-flow';
+import { generateVideo } from '@/ai/flows/video-generation-flow';
 import { useToast } from '@/hooks/use-toast';
+import { MediaStudio } from './media-studio';
 
 interface ChatPanelProps {
   contact: Contact;
@@ -23,13 +25,12 @@ interface ChatPanelProps {
 
 export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMessage, onBack, smartReplies, setSmartReplies, isLoading = false }: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
+  const [mediaFile, setMediaFile] = useState<string | null>(null);
   const { toast } = useToast();
   const isAIChat = contact.id === 'ai-assistant';
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
     const tempMessageId = Date.now();
-    // For both AI and real users, we add a temporary message which will be updated.
-    // This provides optimistic UI.
     onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
     
     setInputText('');
@@ -70,16 +71,21 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     setSmartReplies([]);
   };
 
-  const handleSendImage = (url: string) => {
+  const handleFileSelect = (url: string) => {
     // Check if the current input is an imagine command
     if (inputText.trim().startsWith('/imagine ')) {
        const prompt = inputText.trim().substring(9);
        handleImagine(prompt, url);
        setInputText('');
     } else {
-      // Otherwise, send as a normal image message
-      onSendMessage('', url);
+      // Otherwise, open the media studio
+      setMediaFile(url);
     }
+  }
+  
+  const handleStudioSend = (mediaUrl: string) => {
+    onSendMessage('', mediaUrl);
+    setMediaFile(null);
   }
 
   return (
@@ -92,10 +98,19 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onSend={handleSend}
-          onImageSend={handleSendImage}
+          onFileSelect={handleFileSelect}
           isAIChat={isAIChat}
         />
       </div>
+      {mediaFile && (
+        <MediaStudio 
+            mediaUrl={mediaFile}
+            onClose={() => setMediaFile(null)}
+            onSend={handleStudioSend}
+            generateImage={generateImage}
+            generateVideo={generateVideo}
+        />
+      )}
     </div>
   );
 }

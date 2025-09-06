@@ -1,5 +1,5 @@
 
-import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2, Video } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
@@ -57,6 +57,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
 
+  const isVideo = message.image && message.image.startsWith('data:video');
+
   const handleEditImage = (e: React.FormEvent) => {
     e.preventDefault();
     if(prompt.trim() && message.image) {
@@ -106,14 +108,20 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           )}
           {message.image && (
             <div className="relative">
-              <Image
-                src={message.image}
-                alt="Shared media"
-                width={300}
-                height={200}
-                className={cn("rounded-md mb-2 object-cover", message.isGenerating && "opacity-50")}
-                data-ai-hint="abstract landscape"
-              />
+              {isVideo ? (
+                <div className="relative w-full aspect-video rounded-md bg-black flex items-center justify-center">
+                    <video src={message.image} controls className="max-w-full max-h-full rounded-md" />
+                </div>
+              ) : (
+                <Image
+                  src={message.image}
+                  alt="Shared media"
+                  width={300}
+                  height={200}
+                  className={cn("rounded-md mb-2 object-cover", message.isGenerating && "opacity-50")}
+                  data-ai-hint="abstract landscape"
+                />
+              )}
             </div>
           )}
           {message.content && (
@@ -135,13 +143,13 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  {message.image && (
+                  {message.image && !isVideo && (
                     <DropdownMenuItem onClick={() => setIsPromptOpen(true)}>
                       <ImageIcon className="mr-2 h-4 w-4" />
                       <span>Edit with AI</span>
                     </DropdownMenuItem>
                   )}
-                  {message.image && canBeDeleted && <DropdownMenuSeparator />}
+                  {message.image && !isVideo && canBeDeleted && <DropdownMenuSeparator />}
                   {canBeDeleted && (
                     <DropdownMenuItem onClick={() => setIsDeleteConfirmOpen(true)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                       <Trash2 className="mr-2 h-4 w-4" />

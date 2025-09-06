@@ -14,11 +14,11 @@ interface ChatInputProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
-  onImageSend: (url: string) => void;
+  onFileSelect: (url: string) => void;
   isAIChat?: boolean;
 }
 
-export function ChatInput({ value, onChange, onSend, onImageSend, isAIChat = false }: ChatInputProps) {
+export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = false }: ChatInputProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,7 +40,7 @@ export function ChatInput({ value, onChange, onSend, onImageSend, isAIChat = fal
       const reader = new FileReader();
       reader.onload = (loadEvent) => {
         const dataUrl = loadEvent.target?.result as string;
-        onImageSend(dataUrl);
+        onFileSelect(dataUrl);
         setIsUploading(false);
       };
       reader.onerror = () => {
@@ -75,7 +75,7 @@ export function ChatInput({ value, onChange, onSend, onImageSend, isAIChat = fal
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
-        accept="image/*"
+        accept="image/*,video/*"
       />
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
         <TooltipProvider>
