@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { ref, set, get, child } from "firebase/database";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { compressImage } from '@/lib/utils';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -27,14 +28,23 @@ export default function RegisterPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
-  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePicture(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsLoading(true);
+      try {
+        const compressedImage = await compressImage(file);
+        setProfilePicture(compressedImage);
+      } catch (error) {
+        console.error("Error compressing image:", error);
+        toast({
+          title: "Image Error",
+          description: "Could not process the selected image. Please try another one.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -122,11 +132,11 @@ export default function RegisterPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
            <div className="mb-4 flex justify-center">
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="group relative">
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="group relative" disabled={isLoading}>
                 <Avatar className="h-24 w-24 text-4xl">
                     <AvatarImage src={profilePicture ?? undefined} alt="Profile Picture" />
                     <AvatarFallback>
-                        <UserIcon className="h-10 w-10 text-muted-foreground" />
+                        {isLoading ? <Loader2 className="h-10 w-10 animate-spin" /> : <UserIcon className="h-10 w-10 text-muted-foreground" />}
                     </AvatarFallback>
                 </Avatar>
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
@@ -139,6 +149,7 @@ export default function RegisterPage() {
                 onChange={handleProfilePictureChange}
                 className="hidden"
                 accept="image/*"
+                disabled={isLoading}
             />
           </div>
           <CardTitle className="text-2xl">Create an Account</CardTitle>
