@@ -12,7 +12,7 @@ import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push, get, child, query, orderByChild, limitToLast } from 'firebase/database';
+import { ref, onValue, set, push, get, child, query, orderByChild, limitToLast, remove } from 'firebase/database';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -371,17 +371,20 @@ export function ChatContainer() {
                 
                 if (messageKeyToUpdate) {
                     const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
+                    const dbMessage = messagesData[messageKeyToUpdate];
+                    
                     const updatedMessage: any = {
-                        ...messagesData[messageKeyToUpdate],
+                        ...dbMessage,
                         content: content,
                     };
                     
                     if (image !== undefined) {
                         updatedMessage.image = image;
                     }
+
                     if (isGenerating !== undefined) {
                         updatedMessage.isGenerating = isGenerating;
-                    } else {
+                    } else if ('isGenerating' in updatedMessage) {
                        delete updatedMessage.isGenerating;
                     }
 
@@ -391,6 +394,42 @@ export function ChatContainer() {
                 }
             }
         });
+    }
+  }
+
+  const handleDeleteMessage = (messageId: number, dbKey?: string) => {
+    if (!activeContactId || !currentUser) return;
+    
+    if (activeContactId === AI_CONTACT_ID) {
+        // Just remove from local state for AI chat
+        setContacts(prev => prev.map(c => {
+            if (c.id === AI_CONTACT_ID) {
+                return { ...c, messages: c.messages.filter(m => m.id !== messageId) };
+            }
+            return c;
+        }));
+    } else {
+        // Remove from Firebase for real users
+        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+        if (dbKey) {
+            const messageRef = ref(db, `messages/${conversationKey}/${dbKey}`);
+            remove(messageRef);
+        } else {
+             console.error("Cannot delete message without a database key.");
+             // Fallback: try to find it, but this is inefficient
+             const messagesRef = ref(db, `messages/${conversationKey}`);
+             get(messagesRef).then(snapshot => {
+                if(snapshot.exists()) {
+                    const messagesData = snapshot.val();
+                    for (const key in messagesData) {
+                        if (messagesData[key].id === messageId) {
+                             remove(ref(db, `messages/${conversationKey}/${key}`));
+                            break;
+                        }
+                    }
+                }
+             });
+        }
     }
   }
   
@@ -449,6 +488,7 @@ export function ChatContainer() {
             contact={activeContact}
             onSendMessage={handleSendMessage}
             onUpdateMessage={handleUpdateMessage}
+            onDeleteMessage={handleDeleteMessage}
             onBack={isMobile ? handleBackToContacts : undefined}
             smartReplies={smartReplies}
             setSmartReplies={setSmartReplies}

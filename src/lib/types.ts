@@ -6,6 +6,7 @@ export type Message = {
   status: 'sent' | 'delivered' | 'read';
   image?: string;
   isGenerating?: boolean;
+  db_key?: string; // The key from Firebase DB
 };
 
 export type Contact = {

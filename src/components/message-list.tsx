@@ -11,6 +11,7 @@ interface MessageListProps {
   messages: Message[];
   contactAvatar: string;
   onImagine: (prompt: string, baseImage: string) => void;
+  onDelete: (messageId: number, dbKey?: string) => void;
   isLoading?: boolean;
 }
 
@@ -38,7 +39,7 @@ function MessageListSkeleton() {
     )
 }
 
-export function MessageList({ messages, contactAvatar, onImagine, isLoading = false }: MessageListProps) {
+export function MessageList({ messages, contactAvatar, onImagine, onDelete, isLoading = false }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export function MessageList({ messages, contactAvatar, onImagine, isLoading = fa
                 contactAvatar={contactAvatar}
                 isFirstInGroup={index === 0 || messages[index - 1].sender !== message.sender}
                 onImagine={onImagine}
+                onDelete={onDelete}
             />
             ))}
         </div>
