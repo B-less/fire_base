@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Contact, Message } from '@/lib/types';
+import type { Contact, Message } from '@/lib/types';
 import { CONTACTS as initialContacts } from '@/lib/data';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
@@ -23,6 +23,21 @@ export function ChatContainer() {
       setShowChatPanel(true);
     }
      setSmartReplies([]);
+  };
+  
+  const handleAddContact = (name: string) => {
+    const newContact: Contact = {
+      id: `contact-${Date.now()}`,
+      name,
+      avatar: `https://picsum.photos/100/100?random=${Date.now()}`,
+      online: false,
+      lastMessage: 'No messages yet',
+      lastMessageTime: '',
+      unreadCount: 0,
+      messages: [],
+    };
+    setContacts(prev => [newContact, ...prev]);
+    handleSelectContact(newContact.id);
   };
 
   const handleBackToContacts = () => {
@@ -87,6 +102,7 @@ export function ChatContainer() {
     if (!isMobile) {
       setShowChatPanel(true);
     } else {
+      // On mobile, only show the chat panel if a contact is selected.
       setShowChatPanel(activeContactId !== null);
     }
   }, [isMobile, activeContactId]);
@@ -102,6 +118,7 @@ export function ChatContainer() {
           contacts={contacts}
           activeContactId={activeContactId}
           onSelectContact={handleSelectContact}
+          onAddContact={handleAddContact}
         />
       </div>
       <div
@@ -118,7 +135,7 @@ export function ChatContainer() {
             setSmartReplies={setSmartReplies}
           />
         ) : (
-          <div className="hidden h-full items-center justify-center bg-muted/50 md:flex">
+           <div className="hidden h-full items-center justify-center bg-muted/50 md:flex">
             <p className="text-muted-foreground">Select a chat to start messaging</p>
           </div>
         )}
