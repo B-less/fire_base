@@ -1,3 +1,4 @@
+
 import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   }
 
   const senderIsAI = isAI(message.sender);
+  const canBeDeleted = message.content || message.image;
 
   return (
     <div
@@ -139,8 +141,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                       <span>Edit with AI</span>
                     </DropdownMenuItem>
                   )}
-                  {(message.image && message.content) && <DropdownMenuSeparator />}
-                  {message.content && (
+                  {message.image && canBeDeleted && <DropdownMenuSeparator />}
+                  {canBeDeleted && (
                     <DropdownMenuItem onClick={() => setIsDeleteConfirmOpen(true)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                       <Trash2 className="mr-2 h-4 w-4" />
                       <span>Delete</span>
