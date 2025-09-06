@@ -9,17 +9,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Flame } from 'lucide-react';
+import { countries } from '@/lib/countries';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
   const router = useRouter();
   const { login } = useAuth();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    const fullPhoneNumber = `${country.dial_code}${phoneNumber}`;
     if (phoneNumber.trim()) {
-      login(phoneNumber.trim());
+      login(fullPhoneNumber.trim());
       router.push('/');
+    }
+  };
+
+  const handleCountryChange = (value: string) => {
+    const selectedCountry = countries.find(c => c.code === value);
+    if (selectedCountry) {
+      setCountry(selectedCountry);
     }
   };
 
@@ -39,14 +50,37 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                required
-              />
+              <div className="flex gap-2">
+                 <Select value={country.code} onValueChange={handleCountryChange}>
+                    <SelectTrigger className="w-auto">
+                      <SelectValue>
+                        <span className="flex items-center gap-2">
+                          <span>{country.flag}</span>
+                          <span>{country.dial_code}</span>
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{c.flag}</span>
+                            <span>{c.name} ({c.dial_code})</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Enter your phone number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required
+                  className="flex-1"
+                />
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={!phoneNumber.trim()}>
               Sign In
