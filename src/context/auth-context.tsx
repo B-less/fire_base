@@ -4,9 +4,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@/lib/types';
-import { getFCMToken } from '@/lib/firebase';
-import { ref, set } from 'firebase/database';
-import { db } from '@/lib/firebase';
+import { getFCMToken, db } from '@/lib/firebase';
+import { ref, set, onValue, off, serverTimestamp, onDisconnect } from 'firebase/database';
 
 
 interface AuthContextType {
@@ -59,8 +58,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   useEffect(() => {
-    if (user) {
+    if (user?.phoneNumber) {
       setupNotifications(user);
+
+      // Setup presence system
+      const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
+      const isOnline = {
+        online: true,
+        lastSeen: serverTimestamp(),
+      };
+      const isOffline = {
+        online: false,
+        lastSeen: serverTimestamp(),
+      };
+      
+      const connectedRef = ref(db, '.info/connected');
+      const listener = onValue(connectedRef, (snap) => {
+        if (snap.val() === true) {
+          onDisconnect(userStatusRef).set(isOffline).then(() => {
+             set(userStatusRef, isOnline);
+          });
+        }
+      });
+
+      return () => {
+        off(connectedRef, 'value', listener);
+        set(userStatusRef, isOffline); // Set offline when component unmounts (e.g., logout)
+      };
     }
   }, [user]);
 
@@ -70,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = { phoneNumber, name };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
       setUser(userData);
-      setupNotifications(userData); // Setup notifications on login
+      // Notifications and presence are handled by useEffect
       router.push('/');
     } catch (error) {
       console.error("Could not set user in localStorage", error);
@@ -80,6 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     try {
       if (user?.phoneNumber) {
+         const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
+         set(userStatusRef, { online: false, lastSeen: serverTimestamp() });
          const tokenRef = ref(db, `users/${user.phoneNumber}/fcmToken`);
          set(tokenRef, null); // Clear token on logout
          console.log('FCM token removed from database for user:', user.phoneNumber);

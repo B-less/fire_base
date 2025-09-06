@@ -19,10 +19,15 @@ export type Contact = {
   lastMessageTime: string;
   unreadCount: number;
   messages: Message[];
+  lastSeen?: number | string;
 };
 
 export type User = {
     phoneNumber: string;
     name: string;
     profilePicture?: string;
+    status?: {
+      online: boolean;
+      lastSeen: number;
+    }
 }

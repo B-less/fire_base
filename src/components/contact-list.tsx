@@ -226,7 +226,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
               <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
               <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
               {contact.online && (
-                <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-accent ring-1 ring-accent" />
+                <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-green-500 ring-1 ring-background" />
               )}
             </Avatar>
             <div className="flex-1 overflow-hidden">

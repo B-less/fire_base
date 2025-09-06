@@ -1,4 +1,6 @@
 
+'use client';
+
 import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2, Video } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -40,7 +42,7 @@ interface MessageBubbleProps {
 
 const ReadStatusIcon = ({ status }: { status: Message['status'] }) => {
   if (status === 'read') {
-    return <CheckCheck className="h-4 w-4 text-primary" />;
+    return <CheckCheck className="h-4 w-4 text-blue-500" />;
   }
   if (status === 'delivered') {
     return <CheckCheck className="h-4 w-4 text-muted-foreground" />;

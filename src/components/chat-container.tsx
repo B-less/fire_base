@@ -11,7 +11,7 @@ import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, ThenableReference } from 'firebase/database';
+import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, ThenableReference, update } from 'firebase/database';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -93,7 +93,8 @@ export function ChatContainer() {
           id: contactUser.phoneNumber,
           name: contactUser.name,
           avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
-          online: false,
+          online: contactUser.status?.online || false,
+          lastSeen: contactUser.status?.lastSeen,
           lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
           lastMessageTime: lastMessage ? lastMessage.timestamp : '',
           unreadCount: 0,
@@ -108,14 +109,26 @@ export function ChatContainer() {
   }, [currentUser, allUsers, lastMessages]);
 
   useEffect(() => {
-      if (activeContact?.id && activeContact.id !== AI_CONTACT_ID) {
+      if (activeContact?.id && activeContact.id !== AI_CONTACT_ID && currentUser) {
           setIsMessagesLoading(true);
-          const conversationKey = getConversationKey(currentUser!.phoneNumber, activeContact.id);
+          const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
           const messagesRef = ref(db, `messages/${conversationKey}`);
           
           const unsubscribe = onValue(messagesRef, (snapshot) => {
               const messagesData = snapshot.val() || {};
               setActiveContactFullMessages(messagesData);
+
+              // Mark messages as read
+              const updates: Record<string, any> = {};
+              Object.entries(messagesData).forEach(([key, message]: [string, any]) => {
+                  if (message.sender === activeContact.id && message.status !== 'read') {
+                      updates[`/${key}/status`] = 'read';
+                  }
+              });
+
+              if (Object.keys(updates).length > 0) {
+                  update(messagesRef, updates);
+              }
               setIsMessagesLoading(false);
           });
           
@@ -128,7 +141,14 @@ export function ChatContainer() {
 
   const handleSelectContact = (contactId: string) => {
     const contact = contacts.find(c => c.id === contactId);
-    setActiveContact(contact || null);
+    if(contact) {
+        const fullContactData = allUsers[contactId];
+        setActiveContact({
+            ...contact,
+            online: fullContactData?.status?.online || false,
+            lastSeen: fullContactData?.status?.lastSeen,
+        });
+    }
     setSmartReplies([]);
   };
 
@@ -269,7 +289,7 @@ export function ChatContainer() {
         const messagesRef = ref(db, `messages/${conversationKey}`);
         const newMessageRef = push(messagesRef);
         
-        const dbMessage: any = { ...newMessage };
+        const dbMessage: any = { ...newMessage, status: 'delivered' }; // Set to delivered on send
         if (dbMessage.image === undefined) delete dbMessage.image;
         if (dbMessage.isGenerating === undefined) delete dbMessage.isGenerating;
         

@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { formatDistanceToNow } from 'date-fns';
 
 interface ChatHeaderProps {
   contact: Contact;
@@ -23,6 +24,15 @@ export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const isAiAssistant = contact.id === 'ai-assistant';
+  
+  const lastSeenText = () => {
+    if(contact.online) return 'Online';
+    if(isAiAssistant) return 'Always available';
+    if(contact.lastSeen && typeof contact.lastSeen === 'number') {
+        return `Last seen ${formatDistanceToNow(new Date(contact.lastSeen), { addSuffix: true })}`;
+    }
+    return 'Last seen recently';
+  }
 
   return (
     <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
@@ -34,14 +44,15 @@ export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
         <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
           <DialogTrigger asChild>
             <button className="flex items-center gap-3 text-left" disabled={isAiAssistant}>
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-10 w-10 relative">
                 <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
                 <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+                {contact.online && <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />}
               </Avatar>
               <div>
                 <h2 className="font-semibold text-foreground">{contact.name}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {contact.online ? 'Online' : (isAiAssistant ? 'Always available' : `Last seen ${contact.lastMessageTime}`)}
+                   {lastSeenText()}
                 </p>
               </div>
             </button>
