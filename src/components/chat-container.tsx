@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Contact, Message, User } from '@/lib/types';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
@@ -11,7 +11,7 @@ import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push, get, child, query, orderByChild, limitToLast, remove } from 'firebase/database';
+import { ref, onValue, set, push, get, child, remove } from 'firebase/database';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -22,115 +22,105 @@ const getConversationKey = (user1: string, user2: string) => {
 
 export function ChatContainer() {
   const { user: currentUser } = useAuth();
+  const [allUsers, setAllUsers] = useState<Record<string, User>>({});
+  const [allMessages, setAllMessages] = useState<Record<string, Record<string, Message>>>({});
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
-  const [isContactsLoading, setIsContactsLoading] = useState(true);
-  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const activeContact = contacts.find((c) => c.id === activeContactId);
-
-  // Load contacts and their last messages
+  // Fetch all users once
   useEffect(() => {
     if (!currentUser) return;
-    setIsContactsLoading(true);
-  
-    const contactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
-  
-    const unsubscribe = onValue(contactsRef, (snapshot) => {
-      const contactIds: string[] = snapshot.val() || [];
-      if (!Array.isArray(contactIds)) {
-        setIsContactsLoading(false);
-        return;
-      };
-  
-      const contactsPromises = contactIds.map(async (id: string) => {
-        try {
-          const userSnap = await get(child(ref(db), `users/${id}`));
-          if (!userSnap.exists()) return null;
-          const userData = userSnap.val();
-  
-          const conversationKey = getConversationKey(currentUser.phoneNumber, id);
-          const messagesQuery = query(ref(db, `messages/${conversationKey}`), orderByChild('id'), limitToLast(1));
-          
-          const messageSnap = await get(messagesQuery);
-          let lastMessage: Message | undefined;
-          if (messageSnap.exists()) {
-             const messagesData = messageSnap.val();
-             lastMessage = Object.values(messagesData)[0] as Message | undefined;
-          }
-  
-          return {
-            id: userData.phoneNumber,
-            name: userData.name,
-            avatar: userData.profilePicture || `https://picsum.photos/seed/${id}/100/100`,
-            online: false, 
-            lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
-            lastMessageTime: lastMessage ? lastMessage.timestamp : '',
-            unreadCount: 0,
-            messages: [], // Initially empty, will be loaded on demand
-          };
-        } catch (error) {
-          console.error("Error fetching contact data for ID:", id, error);
-          return null;
-        }
-      });
-  
-      Promise.all(contactsPromises).then(resolvedContacts => {
-        const validContacts = resolvedContacts.filter((c): c is Contact => c !== null);
-        
-         setContacts(prevContacts => {
-            const aiContact = prevContacts.find(c => c.id === AI_CONTACT_ID);
-            const existingContactIds = new Set(prevContacts.map(c => c.id));
-            const newContacts = validContacts.filter(c => !existingContactIds.has(c.id));
-            
-            const finalContacts = [...prevContacts.filter(c => validContacts.some(vc => vc.id === c.id)), ...newContacts];
-            if(aiContact && !finalContacts.some(c => c.id === AI_CONTACT_ID)) {
-                return [aiContact, ...finalContacts];
-            }
-            return finalContacts;
-         });
-         setIsContactsLoading(false);
-      });
+    const usersRef = ref(db, 'users');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      const usersData = snapshot.val() || {};
+      setAllUsers(usersData);
     });
-  
     return () => unsubscribe();
   }, [currentUser]);
 
-
-  // Real-time messages for active chat
+  // Listen to all messages for conversations involving the current user
   useEffect(() => {
-    if (!currentUser || !activeContactId || activeContactId === AI_CONTACT_ID) {
-      if (isMessagesLoading) setIsMessagesLoading(false);
-      return;
-    }
+    if (!currentUser || !Object.keys(allUsers).length) return;
 
-    setIsMessagesLoading(true);
-    const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
-    const messagesRef = ref(db, `messages/${conversationKey}`);
+    const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
+    const conversationKeys = currentUserContacts.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
     
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
-        const messagesData = snapshot.val() || {};
-        const messages: Message[] = Object.values(messagesData);
-        
-        const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-
-        setContacts(prevContacts => prevContacts.map(c => {
-            if (c.id === activeContactId) {
-                return { 
-                    ...c, 
-                    messages: messages.sort((a,b) => a.id - b.id),
-                    lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? 'Image' : '')) : c.lastMessage,
-                    lastMessageTime: lastMessage ? lastMessage.timestamp : c.lastMessageTime
-                };
-            }
-            return c;
-        }));
-        setIsMessagesLoading(false);
+    const unsubscribers = conversationKeys.map(key => {
+        const messagesRef = ref(db, `messages/${key}`);
+        return onValue(messagesRef, (snapshot) => {
+            const messagesData = snapshot.val() || {};
+            setAllMessages(prev => ({ ...prev, [key]: messagesData }));
+        });
     });
 
-    return () => unsubscribe();
-  }, [currentUser, activeContactId, isMessagesLoading]);
+    // When the component unmounts, unsubscribe from all listeners
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+
+  }, [currentUser, allUsers]);
+
+  // Process data and build contacts list
+  useEffect(() => {
+    if (!currentUser || !Object.keys(allUsers).length) {
+      setIsLoading(true);
+      return;
+    }
+  
+    const currentUserData = allUsers[currentUser.phoneNumber];
+    if (!currentUserData || !currentUserData.contacts) {
+      setContacts([]);
+      setIsLoading(false);
+      return;
+    }
+  
+    const contactList = currentUserData.contacts
+      .map((contactId: string) => {
+        const contactUser = allUsers[contactId];
+        if (!contactUser) return null;
+  
+        const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
+        const conversationMessages = allMessages[conversationKey] ? Object.values(allMessages[conversationKey]) : [];
+        conversationMessages.sort((a, b) => a.id - b.id);
+        
+        const lastMessage = conversationMessages.length > 0 ? conversationMessages[conversationMessages.length - 1] : null;
+  
+        return {
+          id: contactUser.phoneNumber,
+          name: contactUser.name,
+          avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
+          online: false, // Online status can be implemented separately if needed
+          lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
+          lastMessageTime: lastMessage ? lastMessage.timestamp : '',
+          unreadCount: 0, // Unread count can be implemented separately
+          messages: conversationMessages,
+        };
+      })
+      .filter((c): c is Contact => c !== null);
+      
+    // Add AI contact if it was previously there or started
+    const hasAIChat = contacts.some(c => c.id === AI_CONTACT_ID);
+    if(hasAIChat && !contactList.some(c => c.id === AI_CONTACT_ID)) {
+       const aiContact = contacts.find(c => c.id === AI_CONTACT_ID);
+       if(aiContact) contactList.unshift(aiContact);
+    }
+    
+    setContacts(contactList);
+    setIsLoading(false);
+
+  }, [currentUser, allUsers, allMessages]);
+  
+  const activeContact = useMemo(() => {
+      const contact = contacts.find((c) => c.id === activeContactId);
+      if (contact) {
+          const conversationKey = contact.id !== AI_CONTACT_ID && currentUser ? getConversationKey(currentUser.phoneNumber, contact.id) : null;
+          const messages = conversationKey && allMessages[conversationKey] 
+              ? Object.values(allMessages[conversationKey]).sort((a,b) => a.id - b.id) 
+              : contact.messages;
+          return { ...contact, messages };
+      }
+      return undefined;
+  }, [contacts, activeContactId, currentUser, allMessages]);
 
 
   const handleSelectContact = (contactId: string) => {
@@ -141,7 +131,6 @@ export function ChatContainer() {
   const handleAddContact = async (user: User) => {
     if (!currentUser) return;
     
-    // Check if contact already exists locally
     if(contacts.some(c => c.id === user.phoneNumber)) {
         setActiveContactId(user.phoneNumber);
         return;
@@ -149,43 +138,21 @@ export function ChatContainer() {
     
     // Add to current user's contacts in DB
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
-    // Fetch current contacts before updating
     const snapshot = await get(currentUserContactsRef);
     const currentContacts = snapshot.val() || [];
     if (!currentContacts.includes(user.phoneNumber)) {
-      const newContacts = [...currentContacts, user.phoneNumber];
-      await set(currentUserContactsRef, newContacts);
+      await set(currentUserContactsRef, [...currentContacts, user.phoneNumber]);
     }
 
     // Add current user to the new contact's contacts in DB
-    const newContactUserRef = ref(db, `users/${user.phoneNumber}`);
-    onValue(newContactUserRef, async (snapshot) => {
-        const newContactUserData = snapshot.val();
-        if (newContactUserData) {
-          const existingContacts = newContactUserData.contacts || [];
-          if(!existingContacts.includes(currentUser.phoneNumber)) {
-              const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
-              await set(newContactContactsRef, [...existingContacts, currentUser.phoneNumber]);
-          }
-        }
-    }, { onlyOnce: true });
-
-    // The onValue listener on contacts should pick this up automatically.
-    // If not, we can add it manually.
-    if (!contacts.some(c => c.id === user.phoneNumber)) {
-        const newContact: Contact = {
-          id: user.phoneNumber,
-          name: user.name,
-          avatar: user.profilePicture || `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
-          online: false,
-          lastMessage: 'No messages yet',
-          lastMessageTime: '',
-          unreadCount: 0,
-          messages: [],
-        };
-        setContacts(prev => [...prev, newContact]);
+    const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
+    const newContactSnapshot = await get(newContactContactsRef);
+    const newContactCurrentContacts = newContactSnapshot.val() || [];
+    if (!newContactCurrentContacts.includes(currentUser.phoneNumber)) {
+        await set(newContactContactsRef, [...newContactCurrentContacts, currentUser.phoneNumber]);
     }
     
+    // The onValue listeners will automatically update the UI
     handleSelectContact(user.phoneNumber);
   };
   
@@ -310,7 +277,6 @@ export function ChatContainer() {
         
         set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
         
-        // Trigger push notification
         sendPushNotification({ 
             recipientId: activeContactId, 
             senderName: currentUser.name, 
@@ -331,7 +297,7 @@ export function ChatContainer() {
             if (contact.id === activeContactId) {
               const updatedMessages = contact.messages.map(msg => 
                 msg.id === messageId 
-                  ? { ...msg, content, image, isGenerating: isGenerating, sender: currentUser.phoneNumber } // ensure sender is correct
+                  ? { ...msg, content, image, isGenerating: isGenerating, sender: currentUser.phoneNumber }
                   : msg
               );
               return {
@@ -345,45 +311,30 @@ export function ChatContainer() {
         );
     } else {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
-        const messagesRef = ref(db, `messages/${conversationKey}`);
-
-        get(messagesRef).then(snapshot => {
-            if(snapshot.exists()) {
-                const messagesData = snapshot.val();
-                let messageKeyToUpdate: string | undefined;
-
-                for (const key in messagesData) {
-                    if (messagesData[key].id === messageId) {
-                        messageKeyToUpdate = key;
-                        break;
-                    }
-                }
-                
-                if (messageKeyToUpdate) {
-                    const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
-                    const dbMessage = messagesData[messageKeyToUpdate];
-                    
-                    const updatedMessage: any = {
-                        ...dbMessage,
-                        content: content,
-                    };
-                    
-                    if (image !== undefined) {
-                        updatedMessage.image = image;
-                    }
-
-                    if (isGenerating !== undefined) {
-                        updatedMessage.isGenerating = isGenerating;
-                    } else if ('isGenerating' in updatedMessage) {
-                       delete updatedMessage.isGenerating;
-                    }
-
-                    set(messageToUpdateRef, updatedMessage);
-                } else {
-                     handleSendMessage(content, image, isGenerating);
-                }
+        
+        const messagesForConvo = allMessages[conversationKey] || {};
+        const messageKeyToUpdate = Object.keys(messagesForConvo).find(key => messagesForConvo[key].id === messageId);
+        
+        if (messageKeyToUpdate) {
+            const messageToUpdateRef = ref(db, `messages/${conversationKey}/${messageKeyToUpdate}`);
+            const dbMessage = messagesForConvo[messageKeyToUpdate];
+            
+            const updatedMessage: any = {
+                ...dbMessage,
+                content: content,
+            };
+            
+            if (image !== undefined) updatedMessage.image = image;
+            if (isGenerating !== undefined) {
+              updatedMessage.isGenerating = isGenerating;
+            } else if ('isGenerating' in updatedMessage) {
+              delete updatedMessage.isGenerating;
             }
-        });
+
+            set(messageToUpdateRef, updatedMessage);
+        } else {
+            handleSendMessage(content, image, isGenerating);
+        }
     }
   }
 
@@ -391,7 +342,6 @@ export function ChatContainer() {
     if (!activeContactId || !currentUser) return;
     
     if (activeContactId === AI_CONTACT_ID) {
-        // Just remove from local state for AI chat
         setContacts(prev => prev.map(c => {
             if (c.id === AI_CONTACT_ID) {
                 return { ...c, messages: c.messages.filter(m => m.id !== messageId) };
@@ -399,26 +349,15 @@ export function ChatContainer() {
             return c;
         }));
     } else {
-        // Remove from Firebase for real users
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
-        if (dbKey) {
-            const messageRef = ref(db, `messages/${conversationKey}/${dbKey}`);
+        
+        const keyToDelete = dbKey || Object.keys(allMessages[conversationKey] || {}).find(key => allMessages[conversationKey][key].id === messageId);
+
+        if (keyToDelete) {
+            const messageRef = ref(db, `messages/${conversationKey}/${keyToDelete}`);
             remove(messageRef);
         } else {
-             console.error("Cannot delete message without a database key.");
-             // Fallback: try to find it, but this is inefficient
-             const messagesRef = ref(db, `messages/${conversationKey}`);
-             get(messagesRef).then(snapshot => {
-                if(snapshot.exists()) {
-                    const messagesData = snapshot.val();
-                    for (const key in messagesData) {
-                        if (messagesData[key].id === messageId) {
-                             remove(ref(db, `messages/${conversationKey}/${key}`));
-                            break;
-                        }
-                    }
-                }
-             });
+            console.error("Cannot delete message without a database key.");
         }
     }
   }
@@ -457,7 +396,7 @@ export function ChatContainer() {
           onSelectContact={handleSelectContact}
           onAddContact={handleAddContact}
           onStartAIChat={handleStartAIChat}
-          isLoading={isContactsLoading}
+          isLoading={isLoading}
         />
       </aside>
       <section
@@ -467,6 +406,7 @@ export function ChatContainer() {
       >
         {activeContact ? (
           <ChatPanel
+            key={activeContact.id} // Add key to force re-mount on contact change
             contact={activeContact}
             onSendMessage={handleSendMessage}
             onUpdateMessage={handleUpdateMessage}
@@ -474,7 +414,7 @@ export function ChatContainer() {
             onBack={handleBackToContacts}
             smartReplies={smartReplies}
             setSmartReplies={setSmartReplies}
-            isLoading={isMessagesLoading}
+            isLoading={false} // Loading is handled at the contact list level
           />
         ) : (
            <NoContactsView />

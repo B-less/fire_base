@@ -31,14 +31,20 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
     const tempMessageId = Date.now();
-    onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+    // For AI chat, we need a different mechanism to show pending messages.
+    // For now, just send a text message first.
+    if(contact.id === 'ai-assistant') {
+      onSendMessage(`/imagine ${prompt}`, baseImage, true);
+    } else {
+      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+    }
     
     setInputText('');
     setSmartReplies([]);
     
     try {
       const result = await generateImage({ prompt, baseImage });
-      onUpdateMessage(tempMessageId, prompt, result.imageUrl, false);
+       onUpdateMessage(tempMessageId, prompt, result.imageUrl, false);
     } catch (error) {
       console.error("Error generating image:", error);
       onUpdateMessage(tempMessageId, `Failed to generate image: "${prompt}"`, undefined, false);
@@ -72,13 +78,11 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
   };
 
   const handleFileSelect = (url: string) => {
-    // Check if the current input is an imagine command
     if (inputText.trim().startsWith('/imagine ')) {
        const prompt = inputText.trim().substring(9);
        handleImagine(prompt, url);
        setInputText('');
     } else {
-      // Otherwise, open the media studio
       setMediaFile(url);
     }
   }
