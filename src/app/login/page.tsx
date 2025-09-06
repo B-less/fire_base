@@ -23,14 +23,25 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const fullPhoneNumber = `${country.dial_code}${phoneNumber}`;
+    const trimmedPhoneNumber = phoneNumber.trim();
+
+    if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
+        toast({
+            title: "Invalid Phone Number",
+            description: `Please enter a valid ${country.name} phone number.`,
+            variant: "destructive",
+        });
+        return;
+    }
+
+    const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
     
     try {
       const users = JSON.parse(localStorage.getItem('chirpchat_users') || '[]');
-      const userExists = users.some((user: any) => user.phoneNumber === fullPhoneNumber.trim());
+      const userExists = users.some((user: any) => user.phoneNumber === fullPhoneNumber);
 
-      if (phoneNumber.trim() && userExists) {
-        login(fullPhoneNumber.trim());
+      if (trimmedPhoneNumber && userExists) {
+        login(fullPhoneNumber);
         router.push('/');
       } else {
         toast({

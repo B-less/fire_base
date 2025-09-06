@@ -22,7 +22,10 @@ export default function RegisterPage() {
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !phoneNumber.trim()) {
+    const trimmedName = name.trim();
+    const trimmedPhoneNumber = phoneNumber.trim();
+
+    if (!trimmedName || !trimmedPhoneNumber) {
       toast({
         title: "Registration Failed",
         description: "Please fill in all fields.",
@@ -30,12 +33,21 @@ export default function RegisterPage() {
       });
       return;
     }
+    
+    if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
+        toast({
+            title: "Invalid Phone Number",
+            description: `Please enter a valid ${country.name} phone number.`,
+            variant: "destructive",
+        });
+        return;
+    }
 
-    const fullPhoneNumber = `${country.dial_code}${phoneNumber}`;
+    const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
     
     try {
       const users = JSON.parse(localStorage.getItem('chirpchat_users') || '[]');
-      const userExists = users.some((user: any) => user.phoneNumber === fullPhoneNumber.trim());
+      const userExists = users.some((user: any) => user.phoneNumber === fullPhoneNumber);
 
       if (userExists) {
         toast({
@@ -46,7 +58,7 @@ export default function RegisterPage() {
         return;
       }
       
-      const newUser = { name: name.trim(), phoneNumber: fullPhoneNumber.trim() };
+      const newUser = { name: trimmedName, phoneNumber: fullPhoneNumber };
       users.push(newUser);
       localStorage.setItem('chirpchat_users', JSON.stringify(users));
 
