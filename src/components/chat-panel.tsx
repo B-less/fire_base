@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -47,16 +48,16 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onBack, sma
   }
 
   const handleSend = () => {
-    if (!inputText.trim()) return;
+    const trimmedInput = inputText.trim();
+    if (!trimmedInput) return;
 
-    if (inputText.trim().startsWith('/imagine ')) {
-      const prompt = inputText.trim().substring(9);
+    if (trimmedInput.startsWith('/imagine ')) {
+      const prompt = trimmedInput.substring(9);
       handleImagine(prompt);
-      setInputText('');
-      return;
+    } else {
+        onSendMessage(trimmedInput);
     }
 
-    onSendMessage(inputText.trim());
     setInputText('');
     setSmartReplies([]);
   };

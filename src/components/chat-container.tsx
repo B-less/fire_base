@@ -72,12 +72,14 @@ export function ChatContainer() {
         }
       });
   
-      Promise.all(resolvedContacts).then(resolvedContacts => {
+      Promise.all(contactsPromises).then(resolvedContacts => {
         const validContacts = resolvedContacts.filter((c): c is Contact => c !== null);
         
          setContacts(prevContacts => {
             const aiContact = prevContacts.find(c => c.id === AI_CONTACT_ID);
-            return aiContact ? [aiContact, ...validContacts] : validContacts;
+            const existingContactIds = new Set(prevContacts.map(c => c.id));
+            const newContacts = validContacts.filter(c => !existingContactIds.has(c.id));
+            return [...prevContacts, ...newContacts];
          });
       });
     });
@@ -141,33 +143,41 @@ export function ChatContainer() {
     // Fetch current contacts before updating
     const snapshot = await get(currentUserContactsRef);
     const currentContacts = snapshot.val() || [];
-    const newContacts = [...currentContacts, user.phoneNumber];
-    await set(currentUserContactsRef, newContacts);
-
+    if (!currentContacts.includes(user.phoneNumber)) {
+      const newContacts = [...currentContacts, user.phoneNumber];
+      await set(currentUserContactsRef, newContacts);
+    }
 
     // Add current user to the new contact's contacts in DB
     const newContactUserRef = ref(db, `users/${user.phoneNumber}`);
     onValue(newContactUserRef, async (snapshot) => {
         const newContactUserData = snapshot.val();
-        const existingContacts = newContactUserData.contacts || [];
-        if(!existingContacts.includes(currentUser.phoneNumber)) {
-            const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
-            await set(newContactContactsRef, [...existingContacts, currentUser.phoneNumber]);
+        if (newContactUserData) {
+          const existingContacts = newContactUserData.contacts || [];
+          if(!existingContacts.includes(currentUser.phoneNumber)) {
+              const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
+              await set(newContactContactsRef, [...existingContacts, currentUser.phoneNumber]);
+          }
         }
     }, { onlyOnce: true });
 
-    const newContact: Contact = {
-      id: user.phoneNumber,
-      name: user.name,
-      avatar: `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
-      online: false,
-      lastMessage: 'No messages yet',
-      lastMessageTime: '',
-      unreadCount: 0,
-      messages: [],
-    };
-    // No need to manually add to state, the onValue listener will pick it up
-    handleSelectContact(newContact.id);
+    // The onValue listener on contacts should pick this up automatically.
+    // If not, we can add it manually.
+    if (!contacts.some(c => c.id === user.phoneNumber)) {
+        const newContact: Contact = {
+          id: user.phoneNumber,
+          name: user.name,
+          avatar: `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
+          online: false,
+          lastMessage: 'No messages yet',
+          lastMessageTime: '',
+          unreadCount: 0,
+          messages: [],
+        };
+        setContacts(prev => [...prev, newContact]);
+    }
+    
+    handleSelectContact(user.phoneNumber);
   };
   
   const handleStartAIChat = () => {
@@ -175,7 +185,7 @@ export function ChatContainer() {
       const aiContact: Contact = {
         id: AI_CONTACT_ID,
         name: 'AI Assistant',
-        avatar: 'https://picsum.photos/seed/ai-robot-abstract/100/100',
+        avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
         online: true,
         lastMessage: 'Ask me anything!',
         lastMessageTime: '',
@@ -262,18 +272,9 @@ export function ChatContainer() {
       sender: currentUser.phoneNumber,
       timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
       status: 'sent',
+      ...(image && { image }),
+      ...(isGenerating && { isGenerating }),
     };
-    
-    const dbMessage: any = { ...newMessage };
-
-    if (image) {
-      dbMessage.image = image;
-      newMessage.image = image;
-    }
-    if (isGenerating) {
-      dbMessage.isGenerating = isGenerating;
-      newMessage.isGenerating = isGenerating;
-    }
     
     if (activeContactId === AI_CONTACT_ID) {
          setContacts((prevContacts) =>
@@ -294,6 +295,12 @@ export function ChatContainer() {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
         const messagesRef = ref(db, `messages/${conversationKey}`);
         const newMessageRef = push(messagesRef);
+        
+        // Create a DB-safe version of the message
+        const dbMessage: any = { ...newMessage };
+        if (!dbMessage.image) delete dbMessage.image;
+        if (!dbMessage.isGenerating) delete dbMessage.isGenerating;
+        
         set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
     }
 
