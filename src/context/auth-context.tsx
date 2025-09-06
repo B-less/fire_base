@@ -25,7 +25,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (jsonError) {
+          console.error("Failed to parse user from localStorage", jsonError);
+          // Clear corrupted data
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+        }
       }
     } catch (error) {
       console.error("Could not access localStorage", error);
