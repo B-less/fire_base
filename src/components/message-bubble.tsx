@@ -39,7 +39,7 @@ const isAI = (sender: string) => sender === 'ai-assistant';
 
 export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagine }: MessageBubbleProps) {
   const { user: currentUser } = useAuth();
-  const isMyMessage = message.sender === currentUser;
+  const isMyMessage = currentUser ? message.sender === currentUser.phoneNumber : false;
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
 

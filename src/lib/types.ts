@@ -18,3 +18,8 @@ export type Contact = {
   unreadCount: number;
   messages: Message[];
 };
+
+export type User = {
+    phoneNumber: string;
+    name: string;
+}

@@ -13,16 +13,21 @@ import { Flame } from 'lucide-react';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { ref, get, child } from "firebase/database";
+
 
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     const trimmedPhoneNumber = phoneNumber.trim();
 
     if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
@@ -31,17 +36,18 @@ export default function LoginPage() {
             description: `Please enter a valid ${country.name} phone number.`,
             variant: "destructive",
         });
+        setIsLoading(false);
         return;
     }
 
     const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
     
     try {
-      const users = JSON.parse(localStorage.getItem('chirpchat_users') || '[]');
-      const userExists = users.some((user: any) => user.phoneNumber === fullPhoneNumber);
-
-      if (trimmedPhoneNumber && userExists) {
-        login(fullPhoneNumber);
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, `users/${fullPhoneNumber}`));
+      
+      if (snapshot.exists()) {
+        login(fullPhoneNumber, snapshot.val().name);
         router.push('/');
       } else {
         toast({
@@ -56,6 +62,9 @@ export default function LoginPage() {
           description: "An error occurred during login. Please try again.",
           variant: "destructive",
         })
+        console.error(error);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -114,8 +123,8 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={!phoneNumber.trim()}>
-              Sign In
+            <Button type="submit" className="w-full" disabled={!phoneNumber.trim() || isLoading}>
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
         </CardContent>

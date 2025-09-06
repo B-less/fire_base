@@ -3,11 +3,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import type { User } from '@/lib/types';
 
 interface AuthContextType {
-  user: string | null;
+  user: User | null;
   loading: boolean;
-  login: (phoneNumber: string) => void;
+  login: (phoneNumber: string, name: string) => void;
   logout: () => void;
 }
 
@@ -16,7 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'chirpchat_user';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -24,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
       if (storedUser) {
-        setUser(storedUser);
+        setUser(JSON.parse(storedUser));
       }
     } catch (error) {
       console.error("Could not access localStorage", error);
@@ -33,10 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = (phoneNumber: string) => {
+  const login = (phoneNumber: string, name: string) => {
     try {
-      localStorage.setItem(AUTH_STORAGE_KEY, phoneNumber);
-      setUser(phoneNumber);
+      const userData = { phoneNumber, name };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
+      setUser(userData);
       router.push('/');
     } catch (error) {
       console.error("Could not set user in localStorage", error);

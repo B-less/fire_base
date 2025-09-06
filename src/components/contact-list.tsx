@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { Search, Plus, LogOut, Bot } from 'lucide-react';
-import type { Contact } from '@/lib/types';
+import type { Contact, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,20 +30,23 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { db } from '@/lib/firebase';
+import { ref, get, child } from 'firebase/database';
 
 
 interface ContactListProps {
   contacts: Contact[];
   activeContactId: string | null;
   onSelectContact: (id: string) => void;
-  onAddContact: (user: { name: string; phoneNumber: string }) => void;
+  onAddContact: (user: User) => void;
   onStartAIChat: () => void;
 }
 
-function AddContactDialog({ onAddContact, children }: { onAddContact: (user: { name: string; phoneNumber: string }) => void, children: React.ReactNode }) {
+function AddContactDialog({ onAddContact, children }: { onAddContact: (user: User) => void, children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
 
@@ -54,27 +57,29 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: { n
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneNumber.trim()) return;
+    if (!phoneNumber.trim() || !currentUser) return;
+    setIsLoading(true);
 
     const fullPhoneNumber = `${country.dial_code}${phoneNumber}`;
 
-    if (fullPhoneNumber === currentUser) {
+    if (fullPhoneNumber === currentUser.phoneNumber) {
         toast({
             title: "Cannot Add Yourself",
             description: "You cannot start a chat with your own phone number.",
             variant: "destructive"
         });
+        setIsLoading(false);
         return;
     }
 
     try {
-        const users = JSON.parse(localStorage.getItem('chirpchat_users') || '[]');
-        const targetUser = users.find((u: any) => u.phoneNumber === fullPhoneNumber.trim());
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, `users/${fullPhoneNumber.trim()}`));
 
-        if (targetUser) {
-            onAddContact(targetUser);
+        if (snapshot.exists()) {
+            onAddContact(snapshot.val());
             setPhoneNumber('');
             setOpen(false);
         } else {
@@ -90,6 +95,9 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: { n
             description: "An error occurred while searching for the user.",
             variant: "destructive"
         });
+        console.error(error);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -141,7 +149,9 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: { n
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={!phoneNumber.trim()}>Start Chat</Button>
+            <Button type="submit" disabled={!phoneNumber.trim() || isLoading}>
+                {isLoading ? "Searching..." : "Start Chat"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -149,7 +159,7 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: { n
   )
 }
 
-function EmptyContactList({ onAddContact }: { onAddContact: (user: { name: string; phoneNumber: string }) => void }) {
+function EmptyContactList({ onAddContact }: { onAddContact: (user: User) => void }) {
   return (
     <div className='flex flex-col h-full items-center justify-center p-4 text-center'>
       <div className='flex flex-col items-center gap-4'>

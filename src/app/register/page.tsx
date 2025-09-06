@@ -12,16 +12,20 @@ import { Flame } from 'lucide-react';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { ref, set, get, child } from "firebase/database";
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     const trimmedName = name.trim();
     const trimmedPhoneNumber = phoneNumber.trim();
 
@@ -31,6 +35,7 @@ export default function RegisterPage() {
         description: "Please fill in all fields.",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
     
@@ -40,27 +45,30 @@ export default function RegisterPage() {
             description: `Please enter a valid ${country.name} phone number.`,
             variant: "destructive",
         });
+        setIsLoading(false);
         return;
     }
 
     const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
     
     try {
-      const users = JSON.parse(localStorage.getItem('chirpchat_users') || '[]');
-      const userExists = users.some((user: any) => user.phoneNumber === fullPhoneNumber);
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, `users/${fullPhoneNumber}`));
 
-      if (userExists) {
+      if (snapshot.exists()) {
         toast({
           title: "Registration Failed",
           description: "This phone number is already registered.",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
       
-      const newUser = { name: trimmedName, phoneNumber: fullPhoneNumber };
-      users.push(newUser);
-      localStorage.setItem('chirpchat_users', JSON.stringify(users));
+      await set(ref(db, 'users/' + fullPhoneNumber), {
+        name: trimmedName,
+        phoneNumber: fullPhoneNumber,
+      });
 
       toast({
         title: "Registration Successful",
@@ -75,6 +83,9 @@ export default function RegisterPage() {
           description: "An error occurred during registration. Please try again.",
           variant: "destructive",
         })
+        console.error(error);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -144,8 +155,8 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={!name.trim() || !phoneNumber.trim()}>
-              Sign Up
+            <Button type="submit" className="w-full" disabled={!name.trim() || !phoneNumber.trim() || isLoading}>
+              {isLoading ? 'Signing Up...' : 'Sign Up'}
             </Button>
           </form>
         </CardContent>

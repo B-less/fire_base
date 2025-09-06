@@ -2,19 +2,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Contact, Message } from '@/lib/types';
-import type { AllMessages } from '@/lib/data';
+import type { Contact, Message, User } from '@/lib/types';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
 import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
 import { Plus } from 'lucide-react';
-import { Button } from './ui/button';
 import { useAuth } from '@/context/auth-context';
+import { db } from '@/lib/firebase';
+import { ref, onValue, set, push } from 'firebase/database';
 
-const CONTACTS_STORAGE_KEY = 'chirpchat_contacts_';
-const MESSAGES_STORAGE_KEY = 'chirpchat_messages';
 const AI_CONTACT_ID = 'ai-assistant';
 
 // Helper to get a consistent key for a conversation between two users
@@ -32,47 +30,85 @@ export function ChatContainer() {
 
   const activeContact = contacts.find((c) => c.id === activeContactId);
 
-  // Load contacts from localStorage
+  // Load contacts and messages from Firebase
   useEffect(() => {
-    if (currentUser) {
-      try {
-        const storedContacts = localStorage.getItem(`${CONTACTS_STORAGE_KEY}${currentUser}`);
-        const allMessages: AllMessages = JSON.parse(localStorage.getItem(MESSAGES_STORAGE_KEY) || '{}');
+    if (!currentUser) return;
 
-        if (storedContacts) {
-          const loadedContacts: Contact[] = JSON.parse(storedContacts);
-          // Update messages for each contact
-          const updatedContacts = loadedContacts.map(contact => {
-            const conversationKey = getConversationKey(currentUser, contact.id);
-            const messages = allMessages[conversationKey] || [];
-            const lastMessage = messages[messages.length - 1];
-            return {
-              ...contact,
-              messages,
-              lastMessage: lastMessage ? (lastMessage.content || "Image") : 'No messages yet',
-              lastMessageTime: lastMessage ? lastMessage.timestamp : '',
-            };
-          });
-          setContacts(updatedContacts);
-        }
-      } catch (error) {
-        console.error("Failed to load contacts from localStorage", error);
+    const contactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
+    const unsubscribe = onValue(contactsRef, async (snapshot) => {
+      const contactIds = snapshot.val() || [];
+      const contactsPromises = contactIds.map((id: string) => {
+        return new Promise<Contact>((resolve) => {
+          const userRef = ref(db, `users/${id}`);
+          onValue(userRef, (userSnap) => {
+            const userData = userSnap.val();
+            const conversationKey = getConversationKey(currentUser.phoneNumber, id);
+            const messagesRef = ref(db, `messages/${conversationKey}`);
+            
+            onValue(messagesRef, (messageSnap) => {
+               const messagesData = messageSnap.val() || {};
+               const messages: Message[] = Object.values(messagesData);
+               const lastMessage = messages[messages.length - 1];
+               
+               const contact: Contact = {
+                id: userData.phoneNumber,
+                name: userData.name,
+                avatar: `https://picsum.photos/seed/${id}/100/100`,
+                online: false, // You could implement presence with RTDB
+                lastMessage: lastMessage ? (lastMessage.content || "Image") : 'No messages yet',
+                lastMessageTime: lastMessage ? lastMessage.timestamp : '',
+                unreadCount: 0,
+                messages,
+              };
+              resolve(contact);
+            }, { onlyOnce: true });
+          }, { onlyOnce: true });
+        });
+      });
+      
+      const resolvedContacts = await Promise.all(contactsPromises);
+      
+      // Ensure AI contact is present if it was added
+      const hasAiContact = contacts.some(c => c.id === AI_CONTACT_ID);
+      if (hasAiContact && !resolvedContacts.some(c => c.id === AI_CONTACT_ID)) {
+          const aiContact: Contact = {
+            id: AI_CONTACT_ID,
+            name: 'AI Assistant',
+            avatar: 'https://picsum.photos/seed/ai-avatar/100/100',
+            online: true,
+            lastMessage: 'Ask me anything!',
+            lastMessageTime: '',
+            unreadCount: 0,
+            messages: contacts.find(c => c.id === AI_CONTACT_ID)?.messages || [],
+          };
+          resolvedContacts.unshift(aiContact);
       }
-    }
+      
+      setContacts(resolvedContacts);
+
+    });
+
+    return () => unsubscribe();
   }, [currentUser]);
-
-  // Save contacts to localStorage whenever they change
+  
+  
+  // Real-time messages for active chat
   useEffect(() => {
-    if (currentUser) {
-      try {
-        // We only save the contact info, not the messages
-        const contactsToSave = contacts.map(({ messages, ...contact }) => contact);
-        localStorage.setItem(`${CONTACTS_STORAGE_KEY}${currentUser}`, JSON.stringify(contactsToSave));
-      } catch (error) {
-        console.error("Failed to save contacts to localStorage", error);
-      }
-    }
-  }, [contacts, currentUser]);
+    if (!currentUser || !activeContactId) return;
+
+    const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+    const messagesRef = ref(db, `messages/${conversationKey}`);
+    
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+        const messagesData = snapshot.val() || {};
+        const messages: Message[] = Object.values(messagesData);
+        setContacts(prevContacts => prevContacts.map(c => 
+            c.id === activeContactId ? { ...c, messages } : c
+        ));
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, activeContactId]);
 
 
   const handleSelectContact = (contactId: string) => {
@@ -83,8 +119,10 @@ export function ChatContainer() {
      setSmartReplies([]);
   };
   
-  const handleAddContact = (user: { name: string; phoneNumber: string }) => {
-    // Check if contact already exists
+  const handleAddContact = async (user: User) => {
+    if (!currentUser) return;
+    
+    // Check if contact already exists locally
     if(contacts.some(c => c.id === user.phoneNumber)) {
         setActiveContactId(user.phoneNumber);
          if (isMobile) {
@@ -92,11 +130,27 @@ export function ChatContainer() {
         }
         return;
     }
+    
+    // Add to current user's contacts in DB
+    const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
+    const newContacts = [...contacts.filter(c=> c.id !== AI_CONTACT_ID).map(c => c.id), user.phoneNumber];
+    await set(currentUserContactsRef, newContacts);
+
+    // Add current user to the new contact's contacts in DB
+    const newContactUserRef = ref(db, `users/${user.phoneNumber}`);
+    onValue(newContactUserRef, async (snapshot) => {
+        const newContactUserData = snapshot.val();
+        const existingContacts = newContactUserData.contacts || [];
+        if(!existingContacts.includes(currentUser.phoneNumber)) {
+            const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
+            await set(newContactContactsRef, [...existingContacts, currentUser.phoneNumber]);
+        }
+    }, { onlyOnce: true });
 
     const newContact: Contact = {
       id: user.phoneNumber,
       name: user.name,
-      avatar: `https://picsum.photos/100/100?random=${Date.now()}`,
+      avatar: `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
       online: false,
       lastMessage: 'No messages yet',
       lastMessageTime: '',
@@ -131,11 +185,11 @@ export function ChatContainer() {
   const getSmartReplies = useCallback(async (contact: Contact) => {
     if (!contact.messages.length || !currentUser || contact.id === AI_CONTACT_ID) return;
     const lastMessage = contact.messages[contact.messages.length - 1];
-    if (lastMessage.sender === currentUser || lastMessage.isGenerating) return;
+    if (lastMessage.sender === currentUser.phoneNumber || lastMessage.isGenerating) return;
 
     const conversationHistory = contact.messages
       .filter(m => !m.isGenerating)
-      .map((m) => `${m.sender === currentUser ? 'User' : contact.name}: ${m.content}`)
+      .map((m) => `${m.sender === currentUser.phoneNumber ? 'User' : contact.name}: ${m.content}`)
       .join('\n');
 
     try {
@@ -155,11 +209,11 @@ export function ChatContainer() {
     
     const conversationHistory = contact.messages
       .filter(m => !m.isGenerating)
-      .map(m => `${m.sender === currentUser ? 'User' : 'AI'}: ${m.content}`)
+      .map(m => `${m.sender === currentUser.phoneNumber ? 'User' : 'AI'}: ${m.content}`)
       .join('\n');
 
     const lastMessage = contact.messages[contact.messages.length - 1];
-    if (!lastMessage || lastMessage.sender !== currentUser) return;
+    if (!lastMessage || lastMessage.sender !== currentUser.phoneNumber) return;
 
     try {
       const { response } = await generateChatResponse({
@@ -175,12 +229,9 @@ export function ChatContainer() {
         status: 'read',
       };
       
-      const conversationKey = getConversationKey(currentUser, AI_CONTACT_ID);
-
       setContacts(prevContacts => prevContacts.map(c => {
         if (c.id === AI_CONTACT_ID) {
           const updatedMessages = [...c.messages, aiMessage];
-          updateMessages(conversationKey, updatedMessages);
           return { ...c, messages: updatedMessages, lastMessage: response, lastMessageTime: aiMessage.timestamp };
         }
         return c;
@@ -191,72 +242,72 @@ export function ChatContainer() {
     }
   }, [currentUser]);
 
-  const updateMessages = (conversationKey: string, newMessages: Message[]) => {
-     try {
-        const allMessages: AllMessages = JSON.parse(localStorage.getItem(MESSAGES_STORAGE_KEY) || '{}');
-        allMessages[conversationKey] = newMessages;
-        localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(allMessages));
-      } catch (error) {
-        console.error("Failed to save messages to localStorage", error);
-      }
-  }
-
   const handleSendMessage = (content: string, image?: string, isGenerating?: boolean) => {
     if (!activeContactId || !currentUser) return;
-
+    
+    const messageId = Date.now();
     const newMessage: Message = {
-      id: Date.now(),
+      id: messageId,
       content,
       image,
-      sender: currentUser,
+      sender: currentUser.phoneNumber,
       timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
       status: 'sent',
       isGenerating: isGenerating,
     };
     
-    const conversationKey = getConversationKey(currentUser, activeContactId);
+    if (activeContactId === AI_CONTACT_ID) {
+         setContacts((prevContacts) =>
+          prevContacts.map((contact) => {
+            if (contact.id === activeContactId) {
+              const updatedMessages = [...contact.messages, newMessage];
+              return {
+                ...contact,
+                messages: updatedMessages,
+                lastMessage: content || 'Image',
+                lastMessageTime: newMessage.timestamp,
+              };
+            }
+            return contact;
+          })
+        );
+    } else {
+        const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+        const messagesRef = ref(db, `messages/${conversationKey}`);
+        const newMessageRef = push(messagesRef);
+        set(newMessageRef, newMessage);
+    }
 
-    setContacts((prevContacts) =>
-      prevContacts.map((contact) => {
-        if (contact.id === activeContactId) {
-          const updatedMessages = [...contact.messages, newMessage];
-          updateMessages(conversationKey, updatedMessages);
-          return {
-            ...contact,
-            messages: updatedMessages,
-            lastMessage: content || 'Image',
-            lastMessageTime: newMessage.timestamp,
-          };
-        }
-        return contact;
-      })
-    );
-     setSmartReplies([]);
+    setSmartReplies([]);
   };
 
   const handleUpdateMessage = (messageId: number, content: string, image?: string, isGenerating?: boolean) => {
     if (!activeContactId || !currentUser) return;
     
-    const conversationKey = getConversationKey(currentUser, activeContactId);
-
-     setContacts((prevContacts) =>
-      prevContacts.map((contact) => {
-        if (contact.id === activeContactId) {
-          const updatedMessages = contact.messages.map(msg => 
-            msg.id === messageId 
-              ? { ...msg, content, image, isGenerating, sender: currentUser } // ensure sender is correct
-              : msg
-          );
-          updateMessages(conversationKey, updatedMessages);
-          return {
-              ...contact,
-              messages: updatedMessages,
-              lastMessage: content || 'Image',
-            };
-        }
-        return contact;
-      })
-    );
+    if (activeContactId === AI_CONTACT_ID) {
+         setContacts((prevContacts) =>
+          prevContacts.map((contact) => {
+            if (contact.id === activeContactId) {
+              const updatedMessages = contact.messages.map(msg => 
+                msg.id === messageId 
+                  ? { ...msg, content, image, isGenerating: isGenerating, sender: currentUser.phoneNumber } // ensure sender is correct
+                  : msg
+              );
+              return {
+                  ...contact,
+                  messages: updatedMessages,
+                  lastMessage: content || 'Image',
+                };
+            }
+            return contact;
+          })
+        );
+    } else {
+        // This is more complex with Firebase RTDB as we need to find the message key by its ID
+        // For simplicity in this step, we'll assume new generated images are new messages.
+        // A proper implementation would query for the message key.
+        handleSendMessage(content, image, isGenerating);
+    }
   }
   
   useEffect(() => {
