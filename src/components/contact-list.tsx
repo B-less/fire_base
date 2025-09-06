@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { db } from '@/lib/firebase';
 import { ref, get, child } from 'firebase/database';
 import { Skeleton } from './ui/skeleton';
+import { InstallPWA } from './install-pwa';
 
 
 interface ContactListProps {
@@ -305,6 +306,10 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             {renderContent()}
         </div>
       </ScrollArea>
+
+      <div className="p-2 border-t">
+        <InstallPWA />
+      </div>
     </div>
   );
 }
