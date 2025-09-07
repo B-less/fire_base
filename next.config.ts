@@ -4,9 +4,6 @@ const { join } = require('path');
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Add the output: 'export' configuration
-  output: 'export',
-  
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -28,8 +25,6 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
-    // Make images compatible with static export
-    unoptimized: true,
   },
 };
 
