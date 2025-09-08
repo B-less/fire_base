@@ -7,7 +7,6 @@ import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
 import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
-import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
@@ -29,7 +28,7 @@ export function ChatContainer() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
-  const [activeContactFullMessages, setActiveContactFullMessages] = useState<Record<string, Message>>({});
+  const [messageCache, setMessageCache] = useState<Record<string, Record<string, Message>>>({});
 
 
   // Fetch all users once
@@ -98,7 +97,7 @@ export function ChatContainer() {
           lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
           lastMessageTime: lastMessage ? lastMessage.timestamp : '',
           unreadCount: 0, // This would need a more complex query to be accurate
-          messages: lastMessage ? [lastMessage] : [],
+          messages: [], // We use the cache now, so this can be empty
         };
       })
       .filter((c): c is Contact => c !== null);
@@ -110,13 +109,19 @@ export function ChatContainer() {
 
   useEffect(() => {
       if (activeContact?.id && activeContact.id !== AI_CONTACT_ID && currentUser) {
-          setIsMessagesLoading(true);
           const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
+          
+          if (messageCache[conversationKey]) {
+            setIsMessagesLoading(false);
+          } else {
+            setIsMessagesLoading(true);
+          }
+
           const messagesRef = ref(db, `messages/${conversationKey}`);
           
           const unsubscribe = onValue(messagesRef, (snapshot) => {
               const messagesData = snapshot.val() || {};
-              setActiveContactFullMessages(messagesData);
+              setMessageCache(prev => ({...prev, [conversationKey]: messagesData}));
 
               // Mark messages as read
               const updates: Record<string, any> = {};
@@ -133,11 +138,8 @@ export function ChatContainer() {
           }, { onlyOnce: false }); // Ensure it's a persistent listener
           
           return () => unsubscribe();
-      } else {
-        // Clear messages if no active contact or AI chat
-        setActiveContactFullMessages({});
       }
-  }, [activeContact?.id, currentUser]);
+  }, [activeContact?.id, currentUser, messageCache]); // Rerun when active contact changes
 
   const handleSelectContact = (contactId: string) => {
     const contact = contacts.find(c => c.id === contactId);
@@ -356,15 +358,18 @@ export function ChatContainer() {
   }
   
   const currentChatMessages = useMemo(() => {
-    if (!activeContact) return [];
+    if (!activeContact || !currentUser) return [];
     if (activeContact.id === AI_CONTACT_ID) {
         return activeContact.messages;
     }
-    // Add the db_key from the parent object into the message object itself
-    return Object.entries(activeContactFullMessages)
+    
+    const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
+    const cachedMessages = messageCache[conversationKey] || {};
+
+    return Object.entries(cachedMessages)
       .map(([key, value]) => ({ ...value, db_key: key }))
       .sort((a,b) => a.id - b.id);
-  }, [activeContact, activeContactFullMessages]);
+  }, [activeContact, currentUser, messageCache]);
 
   useEffect(() => {
     if (activeContact && currentChatMessages.length > 0) {
@@ -375,7 +380,7 @@ export function ChatContainer() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeContact, currentChatMessages, activeContact?.messages.length]);
+  }, [activeContact, currentChatMessages.length, getAIResponse, getSmartReplies]);
 
 
   const NoContactsView = () => (
@@ -429,3 +434,4 @@ export function ChatContainer() {
     </div>
   );
 }
+ 
