@@ -63,6 +63,35 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     }
   }
 
+  const handleVideoGenerate = async (prompt: string, baseMedia?: string) => {
+    setInputText('');
+    setSmartReplies([]);
+    
+    const messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
+    if (!messageRef || !messageRef.key) {
+        toast({
+            title: "Error",
+            description: "Could not send message. Please try again.",
+            variant: "destructive",
+        });
+        return;
+    }
+    const messageDbKey = messageRef.key;
+    
+    try {
+      const result = await generateVideo({ prompt, baseMedia });
+      onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
+    } catch (error) {
+      console.error("Error generating video:", error);
+      onUpdateMessage(messageDbKey, `Failed to generate video: "${prompt}"`, undefined, false);
+      toast({
+        title: "Video Generation Failed",
+        description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
+        variant: "destructive",
+      });
+    }
+  }
+
   const handleSend = () => {
     const trimmedInput = inputText.trim();
     if (!trimmedInput) return;
@@ -70,6 +99,9 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     if (trimmedInput.startsWith('/imagine ')) {
       const prompt = trimmedInput.substring(9);
       handleImagine(prompt);
+    } else if (trimmedInput.startsWith('/video ')) {
+        const prompt = trimmedInput.substring(7);
+        handleVideoGenerate(prompt);
     } else {
         onSendMessage(trimmedInput);
     }
@@ -89,6 +121,10 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
        const prompt = inputText.trim().substring(9);
        handleImagine(prompt, url);
        setInputText('');
+    } else if (inputText.trim().startsWith('/video ')) {
+        const prompt = inputText.trim().substring(7);
+        handleVideoGenerate(prompt, url);
+        setInputText('');
     } else {
       setMediaFile(url);
     }

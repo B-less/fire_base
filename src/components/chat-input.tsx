@@ -1,4 +1,4 @@
-import { Paperclip, SendHorizontal, Sparkles } from 'lucide-react';
+import { Paperclip, SendHorizontal, Sparkles, Video } from 'lucide-react';
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -72,9 +72,12 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
   };
 
   const isImagineCommand = value.trim().startsWith('/imagine ');
+  const isVideoCommand = value.trim().startsWith('/video ');
+  const isAICommand = isImagineCommand || isVideoCommand;
+
   const placeholder = isAIChat
     ? "Ask the AI anything..."
-    : "Type a message or use /imagine to generate an image...";
+    : "Type a message or use /imagine or /video...";
 
   return (
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
@@ -98,7 +101,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isImagineCommand || isAIChat}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isAIChat}>
                 {isUploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
@@ -117,7 +120,9 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
           onClick={onSend}
           disabled={!value.trim() || isUploading}
         >
-          {isImagineCommand ? <Sparkles className="h-4 w-4" /> : <SendHorizontal className="h-4 w-4" />}
+          {isImagineCommand && <Sparkles className="h-4 w-4" />}
+          {isVideoCommand && <Video className="h-4 w-4" />}
+          {!isAICommand && <SendHorizontal className="h-4 w-4" />}
         </Button>
       </div>
     </div>
