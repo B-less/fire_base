@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2, Video } from 'lucide-react';
+import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2, Video, MoreHorizontal, Download } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
@@ -75,8 +75,23 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     setIsDeleteConfirmOpen(false);
   }
 
+  const handleDownload = () => {
+    if (!message.image) return;
+    const link = document.createElement('a');
+    link.href = message.image;
+    // Extract extension from MIME type, default to .png
+    const mimeType = message.image.match(/data:(.*);/)?.[1];
+    const extension = mimeType?.split('/')[1] || (isVideo ? 'mp4' : 'png');
+    link.download = `chirpchat-media-${message.id}.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   const senderIsAI = isAI(message.sender);
-  const canBeDeleted = message.content || message.image;
+  const canBeDeleted = (message.content || message.image) && isMyMessage;
+  const canBeEdited = isMyMessage && message.image && !isVideo && !message.isGenerating;
+  const canBeDownloaded = message.image && !message.isGenerating;
 
   return (
     <div
@@ -133,25 +148,34 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
             </div>
           )}
 
-          {!message.isGenerating && isMyMessage && (
+          {!message.isGenerating && (canBeEdited || canBeDeleted || canBeDownloaded) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className={cn(
+                      "absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity",
+                       isMyMessage ? "bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground" : ""
+                    )}
                   >
-                    <Sparkles className="h-4 w-4" />
+                    {isMyMessage ? <Sparkles className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  {message.image && !isVideo && (
+                  {canBeDownloaded && (
+                    <DropdownMenuItem onClick={handleDownload}>
+                      <Download className="mr-2 h-4 w-4" />
+                      <span>Download</span>
+                    </DropdownMenuItem>
+                  )}
+                  {canBeEdited && (
                     <DropdownMenuItem onClick={() => setIsPromptOpen(true)}>
                       <ImageIcon className="mr-2 h-4 w-4" />
                       <span>Edit with AI</span>
                     </DropdownMenuItem>
                   )}
-                  {message.image && !isVideo && canBeDeleted && <DropdownMenuSeparator />}
+                  {(canBeDownloaded || canBeEdited) && canBeDeleted && <DropdownMenuSeparator />}
                   {canBeDeleted && (
                     <DropdownMenuItem onClick={() => setIsDeleteConfirmOpen(true)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                       <Trash2 className="mr-2 h-4 w-4" />
