@@ -1,6 +1,4 @@
-const { DefinePlugin } = require('webpack');
-const { readFileSync } = require('fs');
-const { join } = require('path');
+
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -25,6 +23,9 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  serverActions: {
+    maxDuration: 120, // 2 minutes
   },
 };
 
