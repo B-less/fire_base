@@ -59,7 +59,7 @@ export function MessageList({ messages, contactAvatar, onImagine, onDelete, isLo
         <div className="p-4 space-y-4">
             {messages.map((message, index) => (
             <MessageBubble
-                key={message.id}
+                key={`${message.db_key || message.id}-${index}`}
                 message={message}
                 contactAvatar={contactAvatar}
                 isFirstInGroup={index === 0 || messages[index - 1].sender !== message.sender}
