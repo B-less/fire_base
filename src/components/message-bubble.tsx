@@ -152,11 +152,12 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant={isMyMessage ? "ghost" : "secondary"}
+                    variant="ghost"
                     size="icon"
                     className={cn(
                       "absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity",
-                       isMyMessage && "bg-primary/20 hover:bg-primary/30 text-primary-foreground"
+                       isMyMessage && "bg-primary/20 hover:bg-primary/30 text-primary-foreground",
+                       !isMyMessage && "bg-card/20 hover:bg-card/30 text-card-foreground"
                     )}
                   >
                     {isMyMessage ? <Sparkles className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
