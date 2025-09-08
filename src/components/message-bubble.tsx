@@ -156,11 +156,12 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                     size="icon"
                     className={cn(
                       "absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity",
-                       isMyMessage && "bg-primary/20 hover:bg-primary/30 text-primary-foreground",
-                       !isMyMessage && "bg-card/20 hover:bg-card/30 text-card-foreground"
+                       isMyMessage && canBeEdited && "bg-accent text-accent-foreground shadow-md hover:bg-accent/90 hover:shadow-lg hover:ring-2 hover:ring-accent/50",
+                       isMyMessage && !canBeEdited && "bg-primary/50 hover:bg-primary/60 text-primary-foreground",
+                       !isMyMessage && "bg-card/50 hover:bg-muted text-card-foreground"
                     )}
                   >
-                    {isMyMessage ? <Sparkles className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
+                     {isMyMessage && canBeEdited ? <Sparkles className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
