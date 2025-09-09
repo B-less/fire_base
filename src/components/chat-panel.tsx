@@ -36,19 +36,19 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     
     // First, send a message to the database that is in a "generating" state.
     // This returns a reference with the key of the new message.
-    const messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
-    if (!messageRef || !messageRef.key) {
-        // Handle AI chat message update locally
-        if (isAIChat) {
-            onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
-        } else {
-            toast({
-                title: "Error",
-                description: "Could not send message. Please try again.",
-                variant: "destructive",
-            });
-            return;
-        }
+    let messageRef: ThenableReference | undefined;
+    if (isAIChat) {
+      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
+    } else {
+      messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
+      if (!messageRef || !messageRef.key) {
+          toast({
+              title: "Error",
+              description: "Could not send message. Please try again.",
+              variant: "destructive",
+          });
+          return;
+      }
     }
     const messageDbKey = messageRef?.key;
     
@@ -61,10 +61,11 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
       }
     } catch (error) {
       console.error("Error generating image:", error);
+      const failMessage = `Failed to generate image: "${prompt}"`;
       if(messageDbKey){
-         onUpdateMessage(messageDbKey, `Failed to generate image: "${prompt}"`, undefined, false);
+         onUpdateMessage(messageDbKey, failMessage, undefined, false);
       } else if (isAIChat) {
-        onSendMessage(`Failed to generate image: "${prompt}"`, undefined, false);
+        onSendMessage(failMessage, undefined, false);
       }
       toast({
         title: "Image Generation Failed",
@@ -78,11 +79,12 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     setInputText('');
     setSmartReplies([]);
     
-    const messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
-    if (!messageRef || !messageRef.key) {
-      if(isAIChat) {
-        onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
-      } else {
+    let messageRef: ThenableReference | undefined;
+    if (isAIChat) {
+      onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true)
+    } else {
+       messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
+       if (!messageRef || !messageRef.key) {
         toast({
             title: "Error",
             description: "Could not send message. Please try again.",
@@ -102,10 +104,11 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
       }
     } catch (error) {
       console.error("Error generating video:", error);
+      const failMessage = `Failed to generate video: "${prompt}"`;
       if(messageDbKey){
-        onUpdateMessage(messageDbKey, `Failed to generate video: "${prompt}"`, undefined, false);
+        onUpdateMessage(messageDbKey, failMessage, undefined, false);
       } else if (isAIChat) {
-        onSendMessage(`Failed to generate video: "${prompt}"`, undefined, false);
+        onSendMessage(failMessage, undefined, false);
       }
       toast({
         title: "Video Generation Failed",
@@ -177,3 +180,5 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     </div>
   );
 }
+
+    

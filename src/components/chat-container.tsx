@@ -103,25 +103,32 @@ export function ChatContainer() {
       .filter((c): c is Contact => c !== null);
       
     // Add AI contact to the top if not already there
-    const aiContactExists = contacts.some(c => c.id === AI_CONTACT_ID);
-    const finalContacts = [...contactList];
-    if (!aiContactExists) {
-        finalContacts.unshift({
-            id: AI_CONTACT_ID,
-            name: 'AI Assistant',
-            avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
-            online: true,
-            lastMessage: 'Ask me to generate media!',
-            lastMessageTime: '',
-            unreadCount: 0,
-            messages: [],
-        });
-    }
+    setContacts(prevContacts => {
+        const aiContactExists = prevContacts.some(c => c.id === AI_CONTACT_ID);
+        const finalContacts = [...contactList];
+        if (!aiContactExists) {
+            finalContacts.unshift({
+                id: AI_CONTACT_ID,
+                name: 'AI Assistant',
+                avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
+                online: true,
+                lastMessage: 'Ask me to generate media!',
+                lastMessageTime: '',
+                unreadCount: 0,
+                messages: [],
+            });
+        }
+        // This is a bit of a hack to merge without losing the AI contact if it's already there
+        // A better approach might be to separate AI contact from user contacts in state
+        const existingContacts = prevContacts.filter(c => c.id !== AI_CONTACT_ID);
+        const updatedContactIds = new Set(finalContacts.map(c => c.id));
+        const nonDuplicateExisting = existingContacts.filter(c => !updatedContactIds.has(c.id));
+        return [...finalContacts, ...nonDuplicateExisting];
+    });
 
-    setContacts(finalContacts);
     setIsLoading(false);
 
-  }, [currentUser, allUsers, lastMessages, contacts]);
+  }, [currentUser, allUsers, lastMessages]);
 
   useEffect(() => {
       if (activeContact?.id && activeContact.id !== AI_CONTACT_ID && currentUser) {
@@ -289,13 +296,19 @@ export function ChatContainer() {
     };
     
     if (activeContact.id === AI_CONTACT_ID) {
+        setContacts(prevContacts => {
+            return prevContacts.map(c => {
+                if (c.id === AI_CONTACT_ID) {
+                    const updatedMessages = [...c.messages.filter(m => !m.isGenerating), newMessage];
+                    return { ...c, messages: updatedMessages, lastMessage: content || 'Image', lastMessageTime: newMessage.timestamp };
+                }
+                return c;
+            });
+        });
         setActiveContact(prev => {
            if (!prev) return null;
-           // Remove previous "Generating" message before adding the new one.
            const updatedMessages = [...prev.messages.filter(m => !m.isGenerating), newMessage];
-           const updatedContact = { ...prev, messages: updatedMessages, lastMessage: content || 'Image', lastMessageTime: newMessage.timestamp };
-           setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
-           return updatedContact;
+           return { ...prev, messages: updatedMessages };
         });
         return undefined;
     } else {
@@ -350,12 +363,19 @@ export function ChatContainer() {
     if (!activeContact || !currentUser) return;
     
     if (activeContact.id === AI_CONTACT_ID) {
+        setContacts(prevContacts => {
+            return prevContacts.map(c => {
+                if (c.id === AI_CONTACT_ID) {
+                    const updatedMessages = c.messages.filter(m => m.id !== messageId);
+                    return { ...c, messages: updatedMessages };
+                }
+                return c;
+            });
+        });
         setActiveContact(prev => {
             if (!prev) return null;
             const updatedMessages = prev.messages.filter(m => m.id !== messageId);
-            const updatedContact = { ...prev, messages: updatedMessages };
-            setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
-            return updatedContact;
+            return { ...prev, messages: updatedMessages };
         });
     } else {
         if (!dbKey) {
@@ -446,3 +466,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    
