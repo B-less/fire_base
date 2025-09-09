@@ -79,7 +79,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
   return (
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
        {isAIChat && (
-        <div className="flex gap-2 mb-2 px-2">
+        <div className="flex justify-center gap-2 mb-2 px-2">
             <Button variant="outline" size="sm" onClick={() => onSend('image')} disabled={!value.trim() || isUploading}>
                 <ImageIcon className="mr-2 h-4 w-4" /> Generate Image
             </Button>
