@@ -101,11 +101,27 @@ export function ChatContainer() {
         };
       })
       .filter((c): c is Contact => c !== null);
+      
+    // Add AI contact to the top if not already there
+    const aiContactExists = contacts.some(c => c.id === AI_CONTACT_ID);
+    const finalContacts = [...contactList];
+    if (!aiContactExists) {
+        finalContacts.unshift({
+            id: AI_CONTACT_ID,
+            name: 'AI Assistant',
+            avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
+            online: true,
+            lastMessage: 'Ask me to generate media!',
+            lastMessageTime: '',
+            unreadCount: 0,
+            messages: [],
+        });
+    }
 
-    setContacts(contactList);
+    setContacts(finalContacts);
     setIsLoading(false);
 
-  }, [currentUser, allUsers, lastMessages]);
+  }, [currentUser, allUsers, lastMessages, contacts]);
 
   useEffect(() => {
       if (activeContact?.id && activeContact.id !== AI_CONTACT_ID && currentUser) {
@@ -145,11 +161,12 @@ export function ChatContainer() {
     const contact = contacts.find(c => c.id === contactId);
     if(contact) {
         const fullContactData = allUsers[contactId];
-        setActiveContact({
-            ...contact,
-            online: fullContactData?.status?.online || false,
-            lastSeen: fullContactData?.status?.lastSeen,
-        });
+        const newActiveContact = {...contact};
+        if(fullContactData) {
+            newActiveContact.online = fullContactData.status?.online || false;
+            newActiveContact.lastSeen = fullContactData.status?.lastSeen;
+        }
+        setActiveContact(newActiveContact);
     }
     setSmartReplies([]);
   };
@@ -182,22 +199,7 @@ export function ChatContainer() {
   };
   
   const handleStartAIChat = () => {
-     if (!contacts.some(c => c.id === AI_CONTACT_ID)) {
-      const aiContact: Contact = {
-        id: AI_CONTACT_ID,
-        name: 'AI Assistant',
-        avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
-        online: true,
-        lastMessage: 'Ask me anything!',
-        lastMessageTime: '',
-        unreadCount: 0,
-        messages: [],
-      };
-       setContacts(prev => [aiContact, ...prev]);
-       setActiveContact(aiContact);
-    } else {
-      handleSelectContact(AI_CONTACT_ID);
-    }
+     handleSelectContact(AI_CONTACT_ID);
   };
 
   const handleBackToContacts = () => {
@@ -229,13 +231,16 @@ export function ChatContainer() {
   const getAIResponse = useCallback(async () => {
     if (!currentUser || activeContact?.id !== AI_CONTACT_ID) return;
     
-    const conversationHistory = activeContact.messages
-      .filter(m => !m.isGenerating)
+    const currentMessages = currentChatMessages;
+
+    const conversationHistory = currentMessages
+      .filter(m => !m.isGenerating && !m.image)
       .map(m => `${m.sender === currentUser.phoneNumber ? 'User' : 'AI'}: ${m.content}`)
       .join('\n');
 
-    const lastMessage = activeContact.messages[activeContact.messages.length - 1];
-    if (!lastMessage || lastMessage.sender !== currentUser.phoneNumber) return;
+    const lastMessage = currentMessages[currentMessages.length - 1];
+    // Only respond if the last message was from the user and was not a media generation request
+    if (!lastMessage || lastMessage.sender !== currentUser.phoneNumber || lastMessage.image) return;
 
     try {
       const { response } = await generateChatResponse({
@@ -253,15 +258,20 @@ export function ChatContainer() {
       
       setActiveContact(prev => {
         if (!prev) return null;
-        const updatedMessages = [...prev.messages, aiMessage];
+        // Remove old 'Generating...' message if it exists
+        const cleanedMessages = prev.messages.filter(m => !m.isGenerating);
+        const updatedMessages = [...cleanedMessages, aiMessage];
         const updatedContact = { ...prev, messages: updatedMessages, lastMessage: response, lastMessageTime: aiMessage.timestamp };
+        
         setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
+        
         return updatedContact;
       });
 
     } catch (error) {
       console.error('Error getting AI response:', error);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, activeContact]);
 
   const handleSendMessage = (content: string, image?: string, isGenerating?: boolean): ThenableReference | undefined => {
@@ -281,7 +291,8 @@ export function ChatContainer() {
     if (activeContact.id === AI_CONTACT_ID) {
         setActiveContact(prev => {
            if (!prev) return null;
-           const updatedMessages = [...prev.messages, newMessage];
+           // Remove previous "Generating" message before adding the new one.
+           const updatedMessages = [...prev.messages.filter(m => !m.isGenerating), newMessage];
            const updatedContact = { ...prev, messages: updatedMessages, lastMessage: content || 'Image', lastMessageTime: newMessage.timestamp };
            setContacts(prevContacts => prevContacts.map(c => c.id === AI_CONTACT_ID ? updatedContact : c));
            return updatedContact;
@@ -360,7 +371,8 @@ export function ChatContainer() {
   const currentChatMessages = useMemo(() => {
     if (!activeContact || !currentUser) return [];
     if (activeContact.id === AI_CONTACT_ID) {
-        return activeContact.messages;
+        const contact = contacts.find(c => c.id === AI_CONTACT_ID);
+        return contact ? contact.messages : [];
     }
     
     const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
@@ -369,7 +381,7 @@ export function ChatContainer() {
     return Object.entries(cachedMessages)
       .map(([key, value]) => ({ ...value, db_key: key }))
       .sort((a,b) => a.id - b.id);
-  }, [activeContact, currentUser, messageCache]);
+  }, [activeContact, currentUser, messageCache, contacts]);
 
   useEffect(() => {
     if (activeContact && currentChatMessages.length > 0) {
@@ -380,7 +392,7 @@ export function ChatContainer() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeContact, currentChatMessages.length, getAIResponse, getSmartReplies]);
+  }, [activeContact, currentChatMessages.length]);
 
 
   const NoContactsView = () => (
@@ -434,4 +446,3 @@ export function ChatContainer() {
     </div>
   );
 }
- 

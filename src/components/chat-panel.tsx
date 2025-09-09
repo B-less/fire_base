@@ -38,23 +38,34 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     // This returns a reference with the key of the new message.
     const messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
     if (!messageRef || !messageRef.key) {
-        toast({
-            title: "Error",
-            description: "Could not send message. Please try again.",
-            variant: "destructive",
-        });
-        return;
+        // Handle AI chat message update locally
+        if (isAIChat) {
+            onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
+        } else {
+            toast({
+                title: "Error",
+                description: "Could not send message. Please try again.",
+                variant: "destructive",
+            });
+            return;
+        }
     }
-    const messageDbKey = messageRef.key;
+    const messageDbKey = messageRef?.key;
     
     try {
       const result = await generateImage({ prompt, baseImage });
-      // Now, update the message in the database with the generated image.
-      onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
+      if(messageDbKey) {
+        onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
+      } else if (isAIChat) {
+        onSendMessage(prompt, result.imageUrl, false);
+      }
     } catch (error) {
       console.error("Error generating image:", error);
-      // Update the message to show the error.
-      onUpdateMessage(messageDbKey, `Failed to generate image: "${prompt}"`, undefined, false);
+      if(messageDbKey){
+         onUpdateMessage(messageDbKey, `Failed to generate image: "${prompt}"`, undefined, false);
+      } else if (isAIChat) {
+        onSendMessage(`Failed to generate image: "${prompt}"`, undefined, false);
+      }
       toast({
         title: "Image Generation Failed",
         description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
@@ -69,21 +80,33 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     
     const messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
     if (!messageRef || !messageRef.key) {
+      if(isAIChat) {
+        onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
+      } else {
         toast({
             title: "Error",
             description: "Could not send message. Please try again.",
             variant: "destructive",
         });
         return;
+      }
     }
-    const messageDbKey = messageRef.key;
+    const messageDbKey = messageRef?.key;
     
     try {
       const result = await generateVideo({ prompt, baseMedia });
-      onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
+      if(messageDbKey) {
+        onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
+      } else if (isAIChat) {
+        onSendMessage(prompt, result.videoUrl, false);
+      }
     } catch (error) {
       console.error("Error generating video:", error);
-      onUpdateMessage(messageDbKey, `Failed to generate video: "${prompt}"`, undefined, false);
+      if(messageDbKey){
+        onUpdateMessage(messageDbKey, `Failed to generate video: "${prompt}"`, undefined, false);
+      } else if (isAIChat) {
+        onSendMessage(`Failed to generate video: "${prompt}"`, undefined, false);
+      }
       toast({
         title: "Video Generation Failed",
         description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
@@ -92,20 +115,22 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     }
   }
 
-  const handleSend = () => {
+  const handleSend = (type: 'text' | 'image' | 'video' = 'text') => {
     const trimmedInput = inputText.trim();
     if (!trimmedInput) return;
 
-    if (trimmedInput.startsWith('/imagine ')) {
-      const prompt = trimmedInput.substring(9);
-      handleImagine(prompt);
-    } else if (trimmedInput.startsWith('/video ')) {
-        const prompt = trimmedInput.substring(7);
-        handleVideoGenerate(prompt);
-    } else {
+    if (isAIChat) {
+      if (type === 'image') {
+        handleImagine(trimmedInput);
+      } else if (type === 'video') {
+        handleVideoGenerate(trimmedInput);
+      } else {
         onSendMessage(trimmedInput);
+      }
+    } else {
+      onSendMessage(trimmedInput);
     }
-
+    
     setInputText('');
     setSmartReplies([]);
   };
@@ -117,17 +142,8 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
   };
 
   const handleFileSelect = (url: string) => {
-    if (inputText.trim().startsWith('/imagine ')) {
-       const prompt = inputText.trim().substring(9);
-       handleImagine(prompt, url);
-       setInputText('');
-    } else if (inputText.trim().startsWith('/video ')) {
-        const prompt = inputText.trim().substring(7);
-        handleVideoGenerate(prompt, url);
-        setInputText('');
-    } else {
-      setMediaFile(url);
-    }
+    // This is for regular file sharing, not generation
+    setMediaFile(url);
   }
   
   const handleStudioSend = (mediaUrl: string) => {
@@ -161,5 +177,3 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     </div>
   );
 }
-
-    

@@ -1,4 +1,4 @@
-import { Paperclip, SendHorizontal, Sparkles, Video } from 'lucide-react';
+import { Paperclip, SendHorizontal, Sparkles, Video, ImageIcon } from 'lucide-react';
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 interface ChatInputProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onSend: () => void;
+  onSend: (type: 'text' | 'image' | 'video') => void;
   onFileSelect: (url: string) => void;
   isAIChat?: boolean;
 }
@@ -29,7 +29,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      onSend('text');
     }
   };
   
@@ -71,16 +71,23 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
     }
   };
 
-  const isImagineCommand = value.trim().startsWith('/imagine ');
-  const isVideoCommand = value.trim().startsWith('/video ');
-  const isAICommand = isImagineCommand || isVideoCommand;
 
   const placeholder = isAIChat
-    ? "Ask the AI anything..."
-    : "Type a message or use /imagine or /video...";
+    ? "Ask for a new image or video..."
+    : "Type a message...";
 
   return (
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
+       {isAIChat && (
+        <div className="flex gap-2 mb-2 px-2">
+            <Button variant="outline" size="sm" onClick={() => onSend('image')} disabled={!value.trim() || isUploading}>
+                <ImageIcon className="mr-2 h-4 w-4" /> Generate Image
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onSend('video')} disabled={!value.trim() || isUploading}>
+                <Video className="mr-2 h-4 w-4" /> Generate Video
+            </Button>
+        </div>
+       )}
       <Textarea
         placeholder={placeholder}
         className="min-h-[48px] resize-none border-0 bg-transparent p-2 pr-20 shadow-none focus-visible:ring-0"
@@ -98,31 +105,31 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
         disabled={isUploading}
       />
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isAIChat}>
-                {isUploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Paperclip className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Share Media</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {!isAIChat && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading}>
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Share Media</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <Button
           size="icon"
           className="h-8 w-8"
-          onClick={onSend}
+          onClick={() => onSend('text')}
           disabled={!value.trim() || isUploading}
         >
-          {isImagineCommand && <Sparkles className="h-4 w-4" />}
-          {isVideoCommand && <Video className="h-4 w-4" />}
-          {!isAICommand && <SendHorizontal className="h-4 w-4" />}
+            <SendHorizontal className="h-4 w-4" />
         </Button>
       </div>
     </div>

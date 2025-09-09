@@ -89,8 +89,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   }
 
   const senderIsAI = isAI(message.sender);
-  const canBeDeleted = (message.content || message.image) && isMyMessage;
-  const canBeEdited = isMyMessage && message.image && !isVideo && !message.isGenerating;
+  const canBeDeleted = (message.content || message.image) && (isMyMessage || senderIsAI);
+  const canBeEdited = (isMyMessage || senderIsAI) && message.image && !isVideo && !message.isGenerating;
   const canBeDownloaded = message.image && !message.isGenerating;
 
   return (
@@ -143,8 +143,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           )}
           {message.content && (
             <div className="flex items-start gap-2">
-               {(message.content.startsWith('/imagine ') || senderIsAI) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-              <p className="whitespace-pre-wrap break-words">{message.content.startsWith('/imagine ') ? message.content.substring(9) : message.content}</p>
+               {(senderIsAI) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+              <p className="whitespace-pre-wrap break-words">{message.content}</p>
             </div>
           )}
 
@@ -156,12 +156,12 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                     size="icon"
                     className={cn(
                       "absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity",
-                       isMyMessage && canBeEdited && "bg-accent text-accent-foreground shadow-md hover:bg-accent/90 hover:shadow-lg hover:ring-2 hover:ring-accent/50",
-                       isMyMessage && !canBeEdited && "bg-primary/50 hover:bg-primary/60 text-primary-foreground",
+                       canBeEdited && "bg-accent/80 text-accent-foreground shadow-md hover:bg-accent hover:shadow-lg hover:ring-2 hover:ring-accent/50 animate-pulse hover:animate-none",
+                       !canBeEdited && isMyMessage && "bg-primary/50 hover:bg-primary/60 text-primary-foreground",
                        !isMyMessage && "bg-card/50 hover:bg-muted text-card-foreground"
                     )}
                   >
-                     {isMyMessage && canBeEdited ? <Sparkles className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
+                     {canBeEdited ? <Sparkles className="h-4 w-4" /> : <MoreHorizontal className="h-4 w-4" />}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
