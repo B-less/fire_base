@@ -35,7 +35,12 @@ import { db } from '@/lib/firebase';
 import { ref, get, child } from 'firebase/database';
 import { Skeleton } from './ui/skeleton';
 import { InstallPWA } from './install-pwa';
+import { AdminDashboard } from './admin-dashboard';
 
+
+// IMPORTANT: Change this to your actual phone number with the country code to be the admin.
+const ADMIN_PHONE_NUMBER = '+10000000000'; 
+const ADMIN_SECRET_CODE = '!admin';
 
 interface ContactListProps {
   contacts: Contact[];
@@ -200,10 +205,32 @@ function ContactListSkeleton() {
 
 export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onStartAIChat, isLoading }: ContactListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const { user: currentUser } = useAuth();
   
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    if (value === ADMIN_SECRET_CODE && currentUser?.phoneNumber === ADMIN_PHONE_NUMBER) {
+      setShowAdminPanel(true);
+    } else if (showAdminPanel && value !== ADMIN_SECRET_CODE) {
+      setShowAdminPanel(false);
+    }
+  };
+
   const filteredContacts = contacts.filter((contact) =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const handleBackToContacts = () => {
+    setShowAdminPanel(false);
+    setSearchTerm('');
+  }
+
+  if (showAdminPanel) {
+    return <AdminDashboard onBack={handleBackToContacts} />;
+  }
 
   const renderContent = () => {
     if (isLoading) {
@@ -298,7 +325,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             placeholder="Search contacts..."
             className="pl-10"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
           />
         </div>
       </div>
