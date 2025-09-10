@@ -39,7 +39,7 @@ import { AdminDashboard } from './admin-dashboard';
 
 
 // IMPORTANT: Change this to your actual phone number with the country code to be the admin.
-const ADMIN_PHONE_NUMBER = '+10000000000'; 
+const ADMIN_PHONE_NUMBER = '+233504151292'; 
 const ADMIN_SECRET_CODE = '!admin';
 
 interface ContactListProps {
