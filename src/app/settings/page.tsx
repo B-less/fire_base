@@ -46,7 +46,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       get(userRef).then((snapshot) => {
         if (snapshot.exists()) {
           const userData = snapshot.val();
-          setName(userData.name);
+          setName(userData.name || '');
           setProfilePicture(userData.profilePicture || null);
         }
       });
