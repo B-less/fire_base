@@ -292,11 +292,14 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     }
     if (filteredContacts.length > 0) {
         return filteredContacts.map((contact) => (
-          <button
+          <div
             key={contact.id}
+            role="button"
+            tabIndex={0}
             onClick={() => onSelectContact(contact.id)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelectContact(contact.id)}
             className={cn(
-              'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50 relative group',
+              'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50 relative group cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               activeContactId === contact.id && 'bg-muted'
             )}
           >
@@ -306,7 +309,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
                     <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 {contact.online && (
-                    <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-green-500" />
+                   <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-500 ring-2 ring-card" />
                 )}
             </div>
             <div className="flex-1 overflow-hidden">
@@ -346,7 +349,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
-          </button>
+          </div>
         ));
     }
     return (
