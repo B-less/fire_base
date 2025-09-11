@@ -38,13 +38,10 @@ export function HomePageClient() {
   return (
     <main className="flex h-screen w-full items-center justify-center bg-background p-0 md:p-4">
       <div className="h-full w-full max-w-7xl rounded-none border-0 bg-card shadow-none md:rounded-2xl md:border md:shadow-lg overflow-hidden">
-        <div className={!showSettings ? 'h-full' : 'hidden'}>
-          <ChatContainer />
-        </div>
-        {showSettings && (
-          <div className="h-full">
+        {showSettings ? (
             <SettingsPage onBack={handleBackToChat} />
-          </div>
+        ) : (
+            <ChatContainer />
         )}
       </div>
     </main>
