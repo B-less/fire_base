@@ -15,7 +15,6 @@ import type { ThenableReference } from 'firebase/database';
 
 interface ChatPanelProps {
   contactId: string;
-  contactUser: User | Contact;
   messages: Message[];
   onSendMessage: (content: string, media?: string, isGenerating?: boolean) => ThenableReference | undefined;
   onUpdateMessage: (dbKey: string, content: string, media?: string, isGenerating?: boolean) => void;
@@ -29,7 +28,6 @@ interface ChatPanelProps {
 
 export function ChatPanel({ 
   contactId,
-  contactUser,
   messages, 
   onSendMessage, 
   onUpdateMessage, 
@@ -178,23 +176,10 @@ export function ChatPanel({
     onTypingChange(e.target.value.length > 0);
   }
 
-  const contactForHeader: Contact = {
-    id: contactUser.phoneNumber || (contactUser as Contact).id,
-    name: contactUser.name,
-    avatar: contactUser.profilePicture || (contactUser as Contact).avatar,
-    online: contactUser.status?.online || (contactUser as Contact).online || false,
-    lastSeen: contactUser.status?.lastSeen,
-    lastMessage: (contactUser as Contact).lastMessage || '',
-    lastMessageTime: (contactUser as Contact).lastMessageTime || '',
-    unreadCount: (contactUser as Contact).unreadCount || 0,
-    isTyping: (contactUser as Contact).isTyping || false,
-  };
-
-
   return (
     <div className="flex h-full flex-col bg-muted/30">
-      <ChatHeader contact={contactForHeader} onBack={onBack} />
-      <MessageList messages={messages} contactAvatar={contactForHeader.avatar} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
+      <ChatHeader contactId={contactId} onBack={onBack} />
+      <MessageList messages={messages} contactId={contactId} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
       <div className="p-4 pt-2">
         {!isAIChat && smartReplies.length > 0 && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         <ChatInput

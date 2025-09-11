@@ -1,19 +1,23 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Message } from '@/lib/types';
+import type { Message, User } from '@/lib/types';
 import { MessageBubble } from './message-bubble';
 import { Skeleton } from './ui/skeleton';
+import { db } from '@/lib/firebase';
+import { ref, onValue, off } from 'firebase/database';
 
 interface MessageListProps {
   messages: Message[];
-  contactAvatar: string;
+  contactId: string;
   onImagine: (prompt: string, baseImage: string) => void;
   onDelete: (dbKey?: string) => void;
   isLoading?: boolean;
 }
+
+const AI_CONTACT_ID = 'ai-assistant';
 
 function MessageListSkeleton() {
     return (
@@ -39,8 +43,30 @@ function MessageListSkeleton() {
     )
 }
 
-export function MessageList({ messages, contactAvatar, onImagine, onDelete, isLoading = false }: MessageListProps) {
+export function MessageList({ messages, contactId, onImagine, onDelete, isLoading = false }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [contactUser, setContactUser] = useState<User | null>(null);
+
+  const isAiAssistant = contactId === AI_CONTACT_ID;
+
+  useEffect(() => {
+    if (isAiAssistant || !contactId) return;
+
+    const userRef = ref(db, `users/${contactId}`);
+    const listener = onValue(userRef, (snapshot) => {
+        if(snapshot.exists()) {
+            setContactUser({ ...snapshot.val(), phoneNumber: contactId });
+        }
+    });
+
+    return () => off(userRef, 'value', listener);
+  }, [contactId, isAiAssistant]);
+
+  const contactAvatar = useMemo(() => {
+      if (isAiAssistant) return 'https://picsum.photos/seed/ai-robot-abstract-art/100/100';
+      return contactUser?.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`;
+  }, [contactUser, contactId, isAiAssistant]);
+
 
   useEffect(() => {
     if (scrollAreaRef.current) {

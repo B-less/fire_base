@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState } from 'react';
-import { ArrowLeft, MoreVertical, Phone } from 'lucide-react';
-import type { Contact } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import { ArrowLeft, MoreVertical, Phone, User as UserIcon } from 'lucide-react';
+import type { Contact, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,16 +14,80 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatDistanceToNow } from 'date-fns';
+import { db } from '@/lib/firebase';
+import { ref, onValue, off } from 'firebase/database';
+import { useAuth } from '@/context/auth-context';
+
 
 interface ChatHeaderProps {
-  contact: Contact;
+  contactId: string;
   onBack: () => void;
 }
 
-export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+const AI_CONTACT_ID = 'ai-assistant';
 
-  const isAiAssistant = contact.id === 'ai-assistant';
+export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [contactUser, setContactUser] = useState<User | null>(null);
+  const { user: currentUser } = useAuth();
+  
+  const isAiAssistant = contactId === AI_CONTACT_ID;
+
+  useEffect(() => {
+    if (isAiAssistant || !contactId) {
+        return;
+    };
+
+    const userRef = ref(db, `users/${contactId}`);
+    const listener = onValue(userRef, (snapshot) => {
+        if(snapshot.exists()) {
+            setContactUser({ ...snapshot.val(), phoneNumber: contactId });
+        }
+    });
+
+    return () => off(userRef, 'value', listener);
+  }, [contactId, isAiAssistant]);
+  
+  
+  const contact: Contact | null = useMemo(() => {
+    if (isAiAssistant) {
+        return {
+            id: AI_CONTACT_ID,
+            name: 'AI Assistant',
+            avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
+            online: true,
+            lastMessage: '',
+            lastMessageTime: '',
+            unreadCount: 0,
+        }
+    }
+    if (!contactUser) return null;
+
+    return {
+        id: contactUser.phoneNumber,
+        name: contactUser.name,
+        avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
+        online: contactUser.status?.online || false,
+        lastSeen: contactUser.status?.lastSeen,
+        lastMessage: '', // Not needed for header
+        lastMessageTime: '', // Not needed for header
+        unreadCount: 0,
+    }
+  }, [contactUser, contactId, isAiAssistant]);
+
+
+  if (!contact) {
+    // Render a skeleton or loading state
+    return (
+       <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
+         <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+         </div>
+       </div>
+    )
+  }
   
   const lastSeenText = () => {
     if(contact.online) return 'Online';
@@ -54,7 +118,7 @@ export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
               <div>
                 <h2 className="font-semibold text-foreground">{contact.name}</h2>
                 <p className="text-sm text-muted-foreground">
-                   {lastSeenText()}
+                   {contact.isTyping ? <span className="italic text-primary">typing...</span> : lastSeenText()}
                 </p>
               </div>
             </button>

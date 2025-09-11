@@ -485,10 +485,10 @@ export function ChatContainer() {
           activeContactId ? 'flex' : 'hidden md:flex'
         } flex-col`}
       >
-        {activeContactUser ? (
+        {activeContactId ? (
           <ChatPanel
-            key={activeContactUser.phoneNumber || activeContactUser.id}
-            contactId={activeContactUser.phoneNumber || activeContactUser.id!}
+            key={activeContactId}
+            contactId={activeContactId}
             messages={currentChatMessages}
             onSendMessage={handleSendMessage}
             onUpdateMessage={handleUpdateMessage}
@@ -498,7 +498,6 @@ export function ChatContainer() {
             setSmartReplies={setSmartReplies}
             isLoading={isMessagesLoading}
             onTypingChange={handleTypingChange}
-            contactUser={activeContactUser}
           />
         ) : (
            <NoContactsView />
