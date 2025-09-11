@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@/lib/types';
-import { getFCMToken, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { ref, set, onValue, off, serverTimestamp, onDisconnect } from 'firebase/database';
 
 
@@ -42,25 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, []);
-
-  const setupNotifications = async (user: User) => {
-    try {
-      const token = await getFCMToken();
-      if (token && user?.phoneNumber) {
-        // Save the token to the user's profile in the database
-        const tokenRef = ref(db, `users/${user.phoneNumber}/fcmToken`);
-        await set(tokenRef, token);
-        console.log('FCM token saved to database for user:', user.phoneNumber);
-      }
-    } catch (error) {
-      console.error('Could not set up notifications:', error);
-    }
-  };
   
   useEffect(() => {
     if (user?.phoneNumber) {
-      setupNotifications(user);
-
       // Setup presence system
       const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
       const isOnline = {
@@ -94,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = { phoneNumber, name };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
       setUser(userData);
-      // Notifications and presence are handled by useEffect
       router.push('/');
     } catch (error) {
       console.error("Could not set user in localStorage", error);
@@ -106,9 +89,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user?.phoneNumber) {
          const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
          set(userStatusRef, { online: false, lastSeen: serverTimestamp() });
-         const tokenRef = ref(db, `users/${user.phoneNumber}/fcmToken`);
-         set(tokenRef, null); // Clear token on logout
-         console.log('FCM token removed from database for user:', user.phoneNumber);
       }
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
