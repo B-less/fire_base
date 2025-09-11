@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Plus, Bot, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
