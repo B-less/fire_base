@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -9,6 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { logAIUsage } from '@/lib/ai-logger';
 import { z } from 'genkit';
 
 const GenerateImageInputSchema = z.object({
@@ -16,6 +18,7 @@ const GenerateImageInputSchema = z.object({
   baseImage: z.string().optional().describe(
     "A base image to edit, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'. If not provided, a new image will be generated."
   ),
+  userId: z.string().optional().describe('The ID of the user generating the image.'),
 });
 export type GenerateImageInput = z.infer<typeof GenerateImageInputSchema>;
 
@@ -34,7 +37,7 @@ const generateImageFlow = ai.defineFlow(
     inputSchema: GenerateImageInputSchema,
     outputSchema: GenerateImageOutputSchema,
   },
-  async ({ prompt, baseImage }) => {
+  async ({ prompt, baseImage, userId }) => {
     let response;
     if (baseImage) {
       // Image-to-image generation
@@ -60,6 +63,10 @@ const generateImageFlow = ai.defineFlow(
       throw new Error('Image generation failed.');
     }
 
+    await logAIUsage('image', { userId: userId, prompt: prompt });
+    
     return { imageUrl: response.media.url };
   }
 );
+
+    

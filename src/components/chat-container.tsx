@@ -57,17 +57,16 @@ export function ChatContainer() {
     // Combine user contacts with the static AI contact
     const contactIds = [...(currentUserData.contacts || []), AI_CONTACT_ID];
     
-    const conversationKeys = contactIds.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
-
-    const unsubscribers = conversationKeys.map(key => {
-      const messagesRef = query(ref(db, `messages/${key}`), limitToLast(1));
+    const unsubscribers = contactIds.map((contactId: string) => {
+      const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
+      const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
       const listener = onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
           const messageData = snapshot.val();
           const lastMessageKey = Object.keys(messageData)[0];
           const lastMessage = messageData[lastMessageKey];
           // This state is ONLY for the contact list preview
-          setLastMessages(prev => ({ ...prev, [key]: lastMessage }));
+          setLastMessages(prev => ({ ...prev, [conversationKey]: lastMessage }));
         }
       });
       return () => off(messagesRef, 'value', listener);
@@ -288,6 +287,7 @@ export function ChatContainer() {
       const result: SmartReplyOutput = await generateSmartReplies({
         message: lastMessage.content || '',
         conversationHistory: conversationHistory,
+        userId: currentUser.phoneNumber,
       });
       setSmartReplies(result.suggestions);
     } catch (error) {
@@ -324,6 +324,7 @@ export function ChatContainer() {
       const { response } = await generateChatResponse({
         message: lastMessage.content,
         conversationHistory,
+        userId: currentUser.phoneNumber,
       });
 
       const aiMessage: Omit<Message, 'id'> = {
@@ -513,3 +514,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    

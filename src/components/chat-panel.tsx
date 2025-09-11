@@ -12,6 +12,7 @@ import { generateVideo } from '@/ai/flows/video-generation-flow';
 import { useToast } from '@/hooks/use-toast';
 import { MediaStudio } from './media-studio';
 import type { ThenableReference } from 'firebase/database';
+import { useAuth } from '@/context/auth-context';
 
 interface ChatPanelProps {
   contactId: string;
@@ -41,6 +42,7 @@ export function ChatPanel({
   const [inputText, setInputText] = useState('');
   const [mediaFile, setMediaFile] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
   const isAIChat = contactId === 'ai-assistant';
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
@@ -64,7 +66,7 @@ export function ChatPanel({
     const messageDbKey = messageRef?.key;
     
     try {
-      const result = await generateImage({ prompt, baseImage });
+      const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
       if(messageDbKey) {
         onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
       } else if (isAIChat) {
@@ -107,7 +109,7 @@ export function ChatPanel({
     const messageDbKey = messageRef?.key;
     
     try {
-      const result = await generateVideo({ prompt, baseMedia });
+      const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
       if(messageDbKey) {
         onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
       } else if (isAIChat) {
@@ -196,10 +198,12 @@ export function ChatPanel({
             mediaUrl={mediaFile}
             onClose={() => setMediaFile(null)}
             onSend={handleStudioSend}
-            generateImage={generateImage}
-            generateVideo={generateVideo}
+            generateImage={(input) => generateImage({...input, userId: user?.phoneNumber})}
+            generateVideo={(input) => generateVideo({...input, userId: user?.phoneNumber})}
         />
       )}
     </div>
   );
 }
+
+    

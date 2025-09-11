@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -9,6 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { logAIUsage } from '@/lib/ai-logger';
 import {z} from 'genkit';
 
 const SmartReplyInputSchema = z.object({
@@ -16,6 +18,7 @@ const SmartReplyInputSchema = z.object({
   conversationHistory: z
     .string()
     .describe('The conversation history between the user and the contact.'),
+  userId: z.string().optional().describe('The ID of the user for whom replies are generated.'),
 });
 export type SmartReplyInput = z.infer<typeof SmartReplyInputSchema>;
 
@@ -55,6 +58,11 @@ const smartReplyFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
+    if (output && output.suggestions.length > 0) {
+      await logAIUsage('smart-reply', { userId: input.userId });
+    }
     return output!;
   }
 );
+
+    

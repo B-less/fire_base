@@ -17,7 +17,7 @@ export type Contact = {
   avatar: string;
   online: boolean;
   lastMessage: string;
-  lastMessageTime: string; // This can be a formatted string
+  lastMessageTime: string; // ISO 8601 string format
   unreadCount: number;
   lastSeen?: number | object; // Can be timestamp or server timestamp object
   isTyping?: boolean;
@@ -33,3 +33,12 @@ export type User = {
       lastSeen: number | object; // Can be timestamp or server timestamp object
     }
 }
+
+export type AIUsageLog = {
+    id: string;
+    feature: 'chat' | 'image' | 'video' | 'smart-reply';
+    timestamp: number;
+    userId?: string;
+};
+
+    

@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -9,11 +10,13 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { logAIUsage } from '@/lib/ai-logger';
 import { z } from 'genkit';
 
 const ChatInputSchema = z.object({
   message: z.string().describe('The user message to respond to.'),
   conversationHistory: z.string().describe('The conversation history between the user and the AI.'),
+  userId: z.string().optional().describe('The ID of the user initiating the chat.'),
 });
 export type ChatInput = z.infer<typeof ChatInputSchema>;
 
@@ -49,6 +52,11 @@ const conversationalAIFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
+    if (output) {
+      await logAIUsage('chat', { userId: input.userId });
+    }
     return output!;
   }
 );
+
+    

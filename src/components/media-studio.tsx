@@ -14,8 +14,8 @@ interface MediaStudioProps {
   mediaUrl: string;
   onClose: () => void;
   onSend: (mediaUrl: string) => void;
-  generateImage: (input: GenerateImageInput) => Promise<GenerateImageOutput>;
-  generateVideo: (input: GenerateVideoInput) => Promise<GenerateVideoOutput>;
+  generateImage: (input: Omit<GenerateImageInput, 'userId'>) => Promise<GenerateImageOutput>;
+  generateVideo: (input: Omit<GenerateVideoInput, 'userId'>) => Promise<GenerateVideoOutput>;
 }
 
 export function MediaStudio({ mediaUrl, onClose, onSend, generateImage, generateVideo }: MediaStudioProps) {
@@ -106,3 +106,5 @@ export function MediaStudio({ mediaUrl, onClose, onSend, generateImage, generate
     </Dialog>
   );
 }
+
+    

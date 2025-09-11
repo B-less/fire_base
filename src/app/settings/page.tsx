@@ -106,10 +106,10 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   };
   
   const handleAIPictureGeneration = async (prompt: string) => {
-    if(!prompt) return;
+    if(!prompt || !user) return;
     setIsUploading(true);
     try {
-        const result = await generateImage({ prompt });
+        const result = await generateImage({ prompt, userId: user.phoneNumber });
         setProfilePicture(result.imageUrl);
     } catch(error) {
         console.error("Error generating AI profile picture:", error);
@@ -250,3 +250,5 @@ function GenerateAIPictureDialog({ onGenerate, isLoading }: { onGenerate: (promp
     </Dialog>
   );
 }
+
+    
