@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search, Plus, Bot, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
@@ -255,7 +255,15 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     }
   };
 
-  const filteredContacts = contacts.filter((contact) =>
+  const sortedContacts = useMemo(() => {
+    return [...contacts].sort((a, b) => {
+        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        return timeB - timeA;
+    });
+  }, [contacts]);
+
+  const filteredContacts = sortedContacts.filter((contact) =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   

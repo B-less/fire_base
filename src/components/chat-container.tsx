@@ -49,12 +49,11 @@ export function ChatContainer() {
 
   // Listen for the LAST message in each conversation for the contact list preview
   useEffect(() => {
-    if (!currentUser || !Object.keys(allUsers).length) return;
+    if (!currentUser?.phoneNumber) return;
 
     const currentUserData = allUsers[currentUser.phoneNumber];
     if (!currentUserData) return;
     
-    // Include AI assistant in conversations
     const contactIds = [...(currentUserData.contacts || []), AI_CONTACT_ID];
     const conversationKeys = contactIds.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
 
@@ -74,7 +73,7 @@ export function ChatContainer() {
     return () => {
       unsubscribers.forEach(unsubscribe => unsubscribe());
     };
-  }, [currentUser, allUsers]);
+  }, [currentUser?.phoneNumber, allUsers]);
 
   const aiChatState: Contact = useMemo(() => {
     if (!currentUser) return {} as Contact; // Should not happen if logged in
@@ -92,18 +91,17 @@ export function ChatContainer() {
     };
   }, [currentUser, lastMessages]);
 
-  // Process data and build contacts list
   const userContacts: Contact[] = useMemo(() => {
-    if (!currentUser || !Object.keys(allUsers).length) {
+    if (!currentUser?.phoneNumber || !Object.keys(allUsers).length) {
       return [];
     }
 
     const currentUserData = allUsers[currentUser.phoneNumber];
-    if (!currentUserData) {
+    if (!currentUserData || !currentUserData.contacts) {
       return [];
     }
 
-    return (currentUserData.contacts || [])
+    return currentUserData.contacts
       .map((contactId: string) => {
         const contactUser = allUsers[contactId];
         if (!contactUser) return null;
@@ -118,13 +116,13 @@ export function ChatContainer() {
           online: contactUser.status?.online || false,
           lastSeen: contactUser.status?.lastSeen,
           lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : (lastMessage.video ? "Video" : ''))) : 'No messages yet',
-          lastMessageTime: lastMessage ? lastMessage.timestamp : '',
-          unreadCount: 0, // This would need a more complex query to be accurate
+          lastMessageTime: lastMessage?.timestamp || '',
+          unreadCount: 0, 
           isTyping: typingStatus[contactUser.phoneNumber] || false,
         };
       })
       .filter((c): c is Contact => c !== null);
-  }, [currentUser, allUsers, lastMessages, typingStatus]);
+  }, [currentUser?.phoneNumber, allUsers, lastMessages, typingStatus]);
 
 
   useEffect(() => {
@@ -136,7 +134,7 @@ export function ChatContainer() {
 
   // Listen for messages and typing status for the active conversation
   useEffect(() => {
-      if (activeContactId && currentUser) {
+      if (activeContactId && currentUser?.phoneNumber) {
           const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
           
           if (!messageCache[conversationKey]) {
@@ -181,7 +179,7 @@ export function ChatContainer() {
               }
           };
       }
-  }, [activeContactId, currentUser?.phoneNumber, messageCache]);
+  }, [activeContactId, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
     setActiveContactId(contactId);
@@ -196,7 +194,6 @@ export function ChatContainer() {
         return;
     }
     
-    // Add to current user's contact list
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
     const snapshot = await get(currentUserContactsRef);
     const currentContacts = snapshot.val() || [];
@@ -204,7 +201,6 @@ export function ChatContainer() {
       await set(currentUserContactsRef, [...currentContacts, user.phoneNumber]);
     }
 
-    // Add current user to the new contact's list (mutual)
     const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
     const newContactSnapshot = await get(newContactContactsRef);
     const newContactCurrentContacts = newContactSnapshot.val() || [];
@@ -212,7 +208,6 @@ export function ChatContainer() {
         await set(newContactContactsRef, [...newContactCurrentContacts, currentUser.phoneNumber]);
     }
     
-    // Immediately select the new contact for chatting
     handleSelectContact(user.phoneNumber);
   };
   
@@ -235,10 +230,6 @@ export function ChatContainer() {
         const otherUserSnapshot = await get(otherUserContactsRef);
         const otherUserContacts = (otherUserSnapshot.val() || []).filter((id: string) => id !== currentUser.phoneNumber);
         await set(otherUserContactsRef, otherUserContacts);
-
-        // Optionally, remove the conversation history
-        // const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-        // await remove(ref(db, `messages/${conversationKey}`));
 
         if (activeContactId === contactId) {
             setActiveContactId(null);
@@ -384,7 +375,6 @@ export function ChatContainer() {
       }
     }
     
-    // Use null to remove the key from Firebase
     updatedMessage.isGenerating = isGenerating === true ? true : null;
 
     update(messageToUpdateRef, updatedMessage);
@@ -455,15 +445,6 @@ export function ChatContainer() {
     </div>
   )
   
-  const contactsForList = useMemo(() => {
-      const sortedUserContacts = [...userContacts].sort((a, b) => {
-        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-        return timeB - timeA;
-    });
-    return [aiChatState, ...sortedUserContacts];
-  }, [aiChatState, userContacts]);
-
   return (
     <div className="flex h-full w-full">
       <aside
@@ -472,7 +453,7 @@ export function ChatContainer() {
         } flex-col`}
       >
         <ContactList
-          contacts={contactsForList}
+          contacts={[aiChatState, ...userContacts]}
           activeContactId={activeContactId}
           onSelectContact={handleSelectContact}
           onAddContact={handleAddContact}
