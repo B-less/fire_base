@@ -4,7 +4,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import './globals.css';
 import { AuthProvider } from '@/context/auth-context';
-import { NotificationHandler } from '@/components/notification-handler';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
@@ -27,7 +26,6 @@ export default function RootLayout({
       <body className={cn("font-body antialiased")}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <AuthProvider>
-              <NotificationHandler />
               {children}
               <Toaster />
             </AuthProvider>

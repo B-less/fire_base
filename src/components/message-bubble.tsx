@@ -37,7 +37,7 @@ interface MessageBubbleProps {
   contactAvatar: string;
   isFirstInGroup: boolean;
   onImagine: (prompt: string, baseImage: string) => void;
-  onDelete: (messageId: number, dbKey?: string) => void;
+  onDelete: (dbKey?: string) => void;
 }
 
 const ReadStatusIcon = ({ status }: { status: Message['status'] }) => {
@@ -56,6 +56,10 @@ const formatTimestamp = (isoString: string) => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
+        // Check if the date is valid
+        if (isNaN(date.getTime())) {
+            throw new Error('Invalid date');
+        }
         return new Intl.DateTimeFormat('en-US', {
             hour: 'numeric',
             minute: 'numeric',
@@ -88,7 +92,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   }
 
   const handleDelete = () => {
-    onDelete(message.id, message.db_key);
+    onDelete(message.db_key);
     setIsDeleteConfirmOpen(false);
   }
 
@@ -106,7 +110,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   }
 
   const senderIsAI = isAI(message.sender);
-  const canBeDeleted = (message.content || mediaUrl) && (isMyMessage || senderIsAI);
+  const canBeDeleted = (message.content || mediaUrl) && !message.isGenerating;
   const canBeEdited = (isMyMessage || senderIsAI) && message.image && !isVideo && !message.isGenerating;
   const canBeDownloaded = mediaUrl && !message.isGenerating;
 
@@ -160,7 +164,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           )}
           {message.content && (
             <div className="flex items-start gap-2">
-               {(senderIsAI) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+               {(senderIsAI && !isMyMessage) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
             </div>
           )}

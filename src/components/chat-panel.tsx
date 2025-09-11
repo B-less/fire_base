@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Contact, Message } from '@/lib/types';
+import type { Contact, Message, User } from '@/lib/types';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
 import { ChatInput } from './chat-input';
@@ -14,11 +14,12 @@ import { MediaStudio } from './media-studio';
 import type { ThenableReference } from 'firebase/database';
 
 interface ChatPanelProps {
-  contact: Contact;
+  contactId: string;
+  contactUser: User | Contact;
   messages: Message[];
   onSendMessage: (content: string, media?: string, isGenerating?: boolean) => ThenableReference | undefined;
   onUpdateMessage: (dbKey: string, content: string, media?: string, isGenerating?: boolean) => void;
-  onDeleteMessage: (messageId: number, dbKey?: string) => void;
+  onDeleteMessage: (dbKey?: string) => void;
   onBack: () => void;
   smartReplies: string[];
   setSmartReplies: (replies: string[]) => void;
@@ -27,7 +28,8 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ 
-  contact, 
+  contactId,
+  contactUser,
   messages, 
   onSendMessage, 
   onUpdateMessage, 
@@ -41,14 +43,12 @@ export function ChatPanel({
   const [inputText, setInputText] = useState('');
   const [mediaFile, setMediaFile] = useState<string | null>(null);
   const { toast } = useToast();
-  const isAIChat = contact.id === 'ai-assistant';
+  const isAIChat = contactId === 'ai-assistant';
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
     setInputText('');
     setSmartReplies([]);
     
-    // First, send a message to the database that is in a "generating" state.
-    // This returns a reference with the key of the new message.
     let messageRef: ThenableReference | undefined;
     if (isAIChat) {
       onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
@@ -78,7 +78,6 @@ export function ChatPanel({
       if(messageDbKey){
          onUpdateMessage(messageDbKey, failMessage, baseImage, false);
       } else if (isAIChat) {
-        // Find the "generating" message and replace it with a failure message.
         onSendMessage(failMessage, undefined, false);
       }
       toast({
@@ -165,7 +164,6 @@ export function ChatPanel({
   };
 
   const handleFileSelect = (url: string) => {
-    // This is for regular file sharing, not generation
     setMediaFile(url);
   }
   
@@ -180,11 +178,23 @@ export function ChatPanel({
     onTypingChange(e.target.value.length > 0);
   }
 
+  const contactForHeader: Contact = {
+    id: contactUser.phoneNumber || (contactUser as Contact).id,
+    name: contactUser.name,
+    avatar: contactUser.profilePicture || (contactUser as Contact).avatar,
+    online: contactUser.status?.online || (contactUser as Contact).online || false,
+    lastSeen: contactUser.status?.lastSeen,
+    lastMessage: (contactUser as Contact).lastMessage || '',
+    lastMessageTime: (contactUser as Contact).lastMessageTime || '',
+    unreadCount: (contactUser as Contact).unreadCount || 0,
+    isTyping: (contactUser as Contact).isTyping || false,
+  };
+
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
-      <ChatHeader contact={contact} onBack={onBack} />
-      <MessageList messages={messages} contactAvatar={contact.avatar} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
+      <ChatHeader contact={contactForHeader} onBack={onBack} />
+      <MessageList messages={messages} contactAvatar={contactForHeader.avatar} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
       <div className="p-4 pt-2">
         {!isAIChat && smartReplies.length > 0 && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         <ChatInput
@@ -208,5 +218,3 @@ export function ChatPanel({
     </div>
   );
 }
-
-    

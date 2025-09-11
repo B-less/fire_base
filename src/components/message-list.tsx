@@ -11,7 +11,7 @@ interface MessageListProps {
   messages: Message[];
   contactAvatar: string;
   onImagine: (prompt: string, baseImage: string) => void;
-  onDelete: (messageId: number, dbKey?: string) => void;
+  onDelete: (dbKey?: string) => void;
   isLoading?: boolean;
 }
 

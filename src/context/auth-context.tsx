@@ -45,7 +45,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   useEffect(() => {
     if (user?.phoneNumber) {
-      // Setup presence system
       const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
       const isOnline = {
         online: true,
@@ -57,8 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       
       const connectedRef = ref(db, '.info/connected');
+      
       const listener = onValue(connectedRef, (snap) => {
         if (snap.val() === true) {
+          // We're connected (or reconnected)! Set up our presence state.
           onDisconnect(userStatusRef).set(isOffline).then(() => {
              set(userStatusRef, isOnline);
           });
@@ -66,11 +67,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       return () => {
+        // Correctly set offline status on component unmount or user change
+        if (user?.phoneNumber) {
+            const userStatusOnUnmountRef = ref(db, `users/${user.phoneNumber}/status`);
+            set(userStatusOnUnmountRef, isOffline);
+        }
         off(connectedRef, 'value', listener);
-        set(userStatusRef, isOffline); // Set offline when component unmounts (e.g., logout)
       };
     }
-  }, [user]);
+  }, [user?.phoneNumber]);
 
 
   const login = (phoneNumber: string, name: string) => {
@@ -84,11 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     try {
       if (user?.phoneNumber) {
          const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
-         set(userStatusRef, { online: false, lastSeen: serverTimestamp() });
+         await set(userStatusRef, { online: false, lastSeen: serverTimestamp() });
       }
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
