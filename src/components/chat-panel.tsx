@@ -15,6 +15,7 @@ import type { ThenableReference } from 'firebase/database';
 
 interface ChatPanelProps {
   contact: Contact;
+  messages: Message[];
   onSendMessage: (content: string, media?: string, isGenerating?: boolean) => ThenableReference | undefined;
   onUpdateMessage: (dbKey: string, content: string, media?: string, isGenerating?: boolean) => void;
   onDeleteMessage: (messageId: number, dbKey?: string) => void;
@@ -25,7 +26,18 @@ interface ChatPanelProps {
   onTypingChange: (isTyping: boolean) => void;
 }
 
-export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMessage, onBack, smartReplies, setSmartReplies, isLoading = false, onTypingChange }: ChatPanelProps) {
+export function ChatPanel({ 
+  contact, 
+  messages, 
+  onSendMessage, 
+  onUpdateMessage, 
+  onDeleteMessage, 
+  onBack, 
+  smartReplies, 
+  setSmartReplies, 
+  isLoading = false, 
+  onTypingChange 
+}: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
   const [mediaFile, setMediaFile] = useState<string | null>(null);
   const { toast } = useToast();
@@ -122,7 +134,7 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
 
   const handleSend = (type: 'text' | 'image' | 'video' = 'text') => {
     const trimmedInput = inputText.trim();
-    if (!trimmedInput && type === 'text') return;
+    if (!trimmedInput && type === 'text' && !mediaFile) return;
 
 
     if (isAIChat) {
@@ -134,11 +146,16 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
         onSendMessage(trimmedInput);
       }
     } else {
-      onSendMessage(trimmedInput);
+       if (mediaFile) {
+        onSendMessage(trimmedInput, mediaFile);
+      } else {
+        onSendMessage(trimmedInput);
+      }
     }
     
     setInputText('');
     setSmartReplies([]);
+    setMediaFile(null);
   };
 
   const handleSelectReply = (reply: string) => {
@@ -153,7 +170,8 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
   }
   
   const handleStudioSend = (mediaUrl: string) => {
-    onSendMessage('', mediaUrl);
+    onSendMessage(inputText, mediaUrl);
+    setInputText('');
     setMediaFile(null);
   }
 
@@ -166,7 +184,7 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
   return (
     <div className="flex h-full flex-col bg-muted/30">
       <ChatHeader contact={contact} onBack={onBack} />
-      <MessageList messages={contact.messages} contactAvatar={contact.avatar} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
+      <MessageList messages={messages} contactAvatar={contact.avatar} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
       <div className="p-4 pt-2">
         {!isAIChat && smartReplies.length > 0 && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         <ChatInput
