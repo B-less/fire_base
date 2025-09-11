@@ -53,7 +53,9 @@ import { Skeleton } from './ui/skeleton';
 import { AdminDashboard } from './admin-dashboard';
 
 
-// IMPORTANT: Change this to your actual phone number with the country code to be the admin.
+// IMPORTANT: To become an admin, change this phone number to the one you will use to log in.
+// It must include the country code (e.g., +1 for the US).
+// After logging in with this number, type '!admin' into the search bar to open the dashboard.
 const ADMIN_PHONE_NUMBER = '+16505551234'; 
 const ADMIN_SECRET_CODE = '!admin';
 
@@ -250,7 +252,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
 
     if (value === ADMIN_SECRET_CODE && currentUser?.phoneNumber === ADMIN_PHONE_NUMBER) {
       setShowAdminPanel(true);
-    } else if (showAdminPanel) {
+    } else {
       setShowAdminPanel(false);
     }
   };
@@ -432,3 +434,5 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
+
+    
