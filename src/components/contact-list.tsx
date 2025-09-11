@@ -234,7 +234,13 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     }
   };
 
-  const filteredContacts = contacts.filter((contact) =>
+  const sortedContacts = [...contacts].sort((a, b) => {
+    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  const filteredContacts = sortedContacts.filter((contact) =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
@@ -353,3 +359,5 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
+
+    

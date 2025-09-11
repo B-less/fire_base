@@ -167,7 +167,7 @@ export function ChatContainer() {
               off(typingRef, 'value', typingListener);
           };
       }
-  }, [activeContact?.id, currentUser?.phoneNumber, messageCache]);
+  }, [activeContact?.id, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
     if (contactId === AI_CONTACT_ID) {
@@ -351,16 +351,18 @@ export function ChatContainer() {
         const recipientUser = allUsers[activeContact.id];
 
         // Create a clean object for the database, removing client-side only properties
-        const { db_key, ...dbMessage } = { 
-          ...newMessage, 
+        const dbMessage: Omit<Message, 'db_key' | 'id'> & {recipientFcmToken?: string | null; senderName?: string} = {
+          content: newMessage.content,
+          sender: newMessage.sender,
+          timestamp: newMessage.timestamp,
           status: 'delivered', // Set to delivered on send
           recipientFcmToken: recipientUser?.fcmToken || null,
           senderName: currentUser.name,
-        } as Message & {video?: string};
+        };
 
-        if (dbMessage.isGenerating === undefined) {
-             delete dbMessage.isGenerating;
-        }
+        if (newMessage.image) dbMessage.image = newMessage.image;
+        if (newMessage.video) dbMessage.video = newMessage.video;
+        if (newMessage.isGenerating) dbMessage.isGenerating = newMessage.isGenerating;
 
         set(newMessageRef, dbMessage);
         setSmartReplies([]);
@@ -468,11 +470,7 @@ export function ChatContainer() {
     </div>
   )
   
-  const contactsForList = useMemo(() => [aiChatState, ...userContacts].sort((a, b) => {
-    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-    return timeB - timeA;
-  }), [aiChatState, userContacts]);
+  const contactsForList = useMemo(() => [aiChatState, ...userContacts], [aiChatState, userContacts]);
 
   return (
     <div className="flex h-full w-full">
@@ -515,3 +513,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    
