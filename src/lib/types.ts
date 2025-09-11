@@ -6,6 +6,7 @@ export type Message = {
   sender: string; // phone number of the sender
   status: 'sent' | 'delivered' | 'read';
   image?: string;
+  video?: string;
   isGenerating?: boolean;
   db_key?: string; // The key from Firebase DB
   recipientFcmToken?: string | null;
@@ -33,6 +34,8 @@ export type User = {
     contacts?: string[];
     status?: {
       online: boolean;
-      lastSeen: number;
+      lastSeen: number | object;
     }
 }
+
+    

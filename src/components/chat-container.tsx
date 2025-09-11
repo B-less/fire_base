@@ -49,11 +49,13 @@ export function ChatContainer() {
   useEffect(() => {
     if (!currentUser) return;
     const usersRef = ref(db, 'users');
-    const unsubscribe = onValue(usersRef, (snapshot) => {
+    const listener = onValue(usersRef, (snapshot) => {
       const usersData = snapshot.val() || {};
       setAllUsers(usersData);
+    }, (error) => {
+      console.error("Error fetching users:", error);
     });
-    return () => unsubscribe();
+    return () => off(usersRef, 'value', listener);
   }, [currentUser]);
 
   // Listen for the LAST message in each conversation for the contact list preview
@@ -65,7 +67,7 @@ export function ChatContainer() {
 
     const unsubscribers = conversationKeys.map(key => {
       const messagesRef = query(ref(db, `messages/${key}`), limitToLast(1));
-      const unsubscribe = onValue(messagesRef, (snapshot) => {
+      const listener = onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
           const messageData = snapshot.val();
           const lastMessageKey = Object.keys(messageData)[0];
@@ -73,7 +75,7 @@ export function ChatContainer() {
           setLastMessages(prev => ({ ...prev, [key]: lastMessage }));
         }
       });
-      return unsubscribe;
+      return () => off(messagesRef, 'value', listener);
     });
 
     return () => {
@@ -128,16 +130,14 @@ export function ChatContainer() {
       if (activeContact?.id && activeContact.id !== AI_CONTACT_ID && currentUser) {
           const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
           
-          if (messageCache[conversationKey]) {
-            setIsMessagesLoading(false);
-          } else {
+          if (!messageCache[conversationKey]) {
             setIsMessagesLoading(true);
           }
 
           const messagesRef = ref(db, `messages/${conversationKey}`);
           const typingRef = ref(db, `conversations/${conversationKey}/typing`);
           
-          const messagesUnsubscribe = onValue(messagesRef, (snapshot) => {
+          const messagesListener = onValue(messagesRef, (snapshot) => {
               const messagesData = snapshot.val() || {};
               setMessageCache(prev => ({...prev, [conversationKey]: messagesData}));
 
@@ -152,19 +152,22 @@ export function ChatContainer() {
                   update(messagesRef, updates);
               }
               setIsMessagesLoading(false);
+          }, (error) => {
+              console.error(`Error fetching messages for ${conversationKey}:`, error);
+              setIsMessagesLoading(false);
           });
           
-          const typingUnsubscribe = onValue(typingRef, (snapshot) => {
+          const typingListener = onValue(typingRef, (snapshot) => {
               const typingData = snapshot.val() || {};
               setTypingStatus(prev => ({ ...prev, [activeContact.id]: typingData[activeContact.id] || false }));
           });
           
           return () => {
-              messagesUnsubscribe();
-              typingUnsubscribe();
+              off(messagesRef, 'value', messagesListener);
+              off(typingRef, 'value', typingListener);
           };
       }
-  }, [activeContact?.id, currentUser, messageCache]);
+  }, [activeContact?.id, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
     if (contactId === AI_CONTACT_ID) {
@@ -193,6 +196,7 @@ export function ChatContainer() {
         return;
     }
     
+    // Add to current user's contact list
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
     const snapshot = await get(currentUserContactsRef);
     const currentContacts = snapshot.val() || [];
@@ -200,6 +204,7 @@ export function ChatContainer() {
       await set(currentUserContactsRef, [...currentContacts, user.phoneNumber]);
     }
 
+    // Add current user to the new contact's list (mutual)
     const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
     const newContactSnapshot = await get(newContactContactsRef);
     const newContactCurrentContacts = newContactSnapshot.val() || [];
@@ -207,12 +212,13 @@ export function ChatContainer() {
         await set(newContactContactsRef, [...newContactCurrentContacts, currentUser.phoneNumber]);
     }
     
+    // Immediately select the new contact for chatting
     const tempContact: Contact = {
         id: user.phoneNumber,
         name: user.name,
         avatar: user.profilePicture || `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
-        online: true,
-        lastMessage: '',
+        online: user.status?.online || false,
+        lastMessage: 'Chat started',
         lastMessageTime: '',
         unreadCount: 0,
         messages: [],
@@ -234,7 +240,8 @@ export function ChatContainer() {
     if (lastMessage.sender === currentUser.phoneNumber || lastMessage.isGenerating) return;
 
     const conversationHistory = fullMessages
-      .filter(m => !m.isGenerating)
+      .slice(-10) // Use last 10 messages for context
+      .filter(m => !m.isGenerating && m.content)
       .map((m) => `${m.sender === currentUser.phoneNumber ? 'User' : contact.name}: ${m.content}`)
       .join('\n');
 
@@ -256,12 +263,24 @@ export function ChatContainer() {
     const currentMessages = aiChatState.messages;
 
     const conversationHistory = currentMessages
-      .filter(m => !m.isGenerating && !m.image)
+      .filter(m => !m.isGenerating && !m.image && m.content)
       .map(m => `${m.sender === currentUser.phoneNumber ? 'User' : 'AI'}: ${m.content}`)
       .join('\n');
 
     const lastMessage = currentMessages[currentMessages.length - 1];
-    if (!lastMessage || lastMessage.sender !== currentUser.phoneNumber || lastMessage.image) return;
+    if (!lastMessage || lastMessage.sender !== currentUser.phoneNumber || !lastMessage.content) return;
+
+    const loadingMessage: Message = {
+      id: Date.now(),
+      content: "Thinking...",
+      sender: AI_CONTACT_ID,
+      timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
+      status: 'read',
+      isGenerating: true,
+    }
+
+    // Add loading message
+    setAiChatState(prev => ({...prev, messages: [...prev.messages, loadingMessage]}));
 
     try {
       const { response } = await generateChatResponse({
@@ -281,7 +300,7 @@ export function ChatContainer() {
         const cleanedMessages = prev.messages.filter(m => !m.isGenerating);
         const updatedMessages = [...cleanedMessages, aiMessage];
         const updatedContact = { ...prev, messages: updatedMessages, lastMessage: response, lastMessageTime: aiMessage.timestamp };
-        setActiveContact(updatedContact);
+        setActiveContact(updatedContact); // Update active contact to re-render chat panel
         return updatedContact;
       });
 
@@ -298,31 +317,31 @@ export function ChatContainer() {
         const cleanedMessages = prev.messages.filter(m => !m.isGenerating);
         const updatedMessages = [...cleanedMessages, errorMessage];
         const updatedContact = { ...prev, messages: updatedMessages };
-        setActiveContact(updatedContact);
+        setActiveContact(updatedContact); // Update active contact
         return updatedContact;
       });
     }
   }, [currentUser, activeContact?.id, aiChatState.messages]);
 
-  const handleSendMessage = (content: string, image?: string, isGenerating?: boolean): ThenableReference | undefined => {
+  const handleSendMessage = (content: string, media?: string, isGenerating?: boolean): ThenableReference | undefined => {
     if (!activeContact || !currentUser) return;
 
-    const messageId = Date.now();
+    const messageId = Date.now(); // Use timestamp for unique ID
     const newMessage: Message = {
       id: messageId,
       content,
       sender: currentUser.phoneNumber,
       timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
       status: 'sent',
-      ...(image && { image }),
+      ...(media && (media.startsWith('data:video') ? { video: media } : { image: media })),
       ...(isGenerating && { isGenerating }),
     };
     
     if (activeContact.id === AI_CONTACT_ID) {
         const updatedMessages = [...aiChatState.messages.filter(m => !m.isGenerating), newMessage];
-        const updatedContact = { ...aiChatState, messages: updatedMessages, lastMessage: content || 'Image', lastMessageTime: newMessage.timestamp };
+        const updatedContact = { ...aiChatState, messages: updatedMessages, lastMessage: content || 'Media', lastMessageTime: newMessage.timestamp };
         setAiChatState(updatedContact);
-        setActiveContact(updatedContact);
+        setActiveContact(updatedContact); // Ensure active contact is updated to trigger re-render
         return undefined;
     } else {
         const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
@@ -331,35 +350,43 @@ export function ChatContainer() {
         
         const recipientUser = allUsers[activeContact.id];
 
-        const dbMessage: any = { 
+        // Create a clean object for the database, removing client-side only properties
+        const { db_key, ...dbMessage } = { 
           ...newMessage, 
           status: 'delivered', // Set to delivered on send
           recipientFcmToken: recipientUser?.fcmToken || null,
           senderName: currentUser.name,
-        }; 
-        if (dbMessage.image === undefined) delete dbMessage.image;
-        if (dbMessage.isGenerating === undefined) delete dbMessage.isGenerating;
-        
-        set(newMessageRef, dbMessage);
+        } as Message & {video?: string};
 
+        if (dbMessage.isGenerating === undefined) {
+             delete dbMessage.isGenerating;
+        }
+
+        set(newMessageRef, dbMessage);
         setSmartReplies([]);
         return newMessageRef;
     }
   };
 
-  const handleUpdateMessage = (dbKey: string, content: string, image?: string, isGenerating?: boolean) => {
+  const handleUpdateMessage = (dbKey: string, content: string, media?: string, isGenerating?: boolean) => {
     if (!activeContact || !currentUser || activeContact.id === AI_CONTACT_ID) return;
     
     const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
     const messageToUpdateRef = ref(db, `messages/${conversationKey}/${dbKey}`);
     
     const updatedMessage: any = { content: content };
-    if (image !== undefined) updatedMessage.image = image;
-    if (isGenerating === false) {
-      updatedMessage.isGenerating = null; // Use null to remove from DB
-    } else if (isGenerating === true) {
-      updatedMessage.isGenerating = true;
+    if (media !== undefined) {
+      if (media.startsWith('data:video')) {
+        updatedMessage.video = media;
+        delete updatedMessage.image;
+      } else {
+        updatedMessage.image = media;
+        delete updatedMessage.video;
+      }
     }
+    
+    // Use null to remove the key from Firebase
+    updatedMessage.isGenerating = isGenerating === true ? true : null;
 
     update(messageToUpdateRef, updatedMessage);
   }
@@ -442,8 +469,8 @@ export function ChatContainer() {
   )
   
   const contactsForList = useMemo(() => [aiChatState, ...userContacts].sort((a, b) => {
-    const timeA = a.lastMessageTime ? new Date(0).setUTCSeconds(new Date(a.lastMessageTime).getTime()) : 0;
-    const timeB = b.lastMessageTime ? new Date(0).setUTCSeconds(new Date(b.lastMessageTime).getTime()) : 0;
+    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
     return timeB - timeA;
   }), [aiChatState, userContacts]);
 
@@ -488,3 +515,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    

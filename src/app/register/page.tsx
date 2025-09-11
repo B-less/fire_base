@@ -83,7 +83,7 @@ export default function RegisterPage() {
       if (snapshot.exists()) {
         toast({
           title: "Registration Failed",
-          description: "This phone number is already registered.",
+          description: "This phone number is already registered. Please try logging in.",
           variant: "destructive",
         });
         setIsLoading(false);
@@ -93,6 +93,10 @@ export default function RegisterPage() {
       const userData: any = {
         name: trimmedName,
         phoneNumber: fullPhoneNumber,
+        status: {
+            online: false,
+            lastSeen: 0,
+        }
       };
 
       if (profilePicture) {
@@ -108,13 +112,13 @@ export default function RegisterPage() {
 
       router.push('/login');
 
-    } catch (error) {
+    } catch (error: any) {
        toast({
           title: "Error",
-          description: "An error occurred during registration. Please try again.",
+          description: error.message || "An error occurred during registration. Please try again.",
           variant: "destructive",
         })
-        console.error(error);
+        console.error("Registration error:", error);
     } finally {
         setIsLoading(false);
     }
@@ -202,7 +206,7 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={!name.trim() || !phoneNumber.trim() || isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Signing Up...' : 'Sign Up'}
             </Button>
@@ -220,3 +224,5 @@ export default function RegisterPage() {
     </main>
   );
 }
+
+    

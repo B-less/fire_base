@@ -30,10 +30,20 @@ export default function LoginPage() {
     setIsLoading(true);
     const trimmedPhoneNumber = phoneNumber.trim();
 
+    if (!trimmedPhoneNumber) {
+        toast({
+            title: "Phone Number Required",
+            description: "Please enter your phone number.",
+            variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+    }
+
     if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
         toast({
             title: "Invalid Phone Number",
-            description: `Please enter a valid ${country.name} phone number.`,
+            description: `Please enter a valid ${country.name} phone number format.`,
             variant: "destructive",
         });
         setIsLoading(false);
@@ -56,13 +66,13 @@ export default function LoginPage() {
           variant: "destructive",
         })
       }
-    } catch (error) {
+    } catch (error: any) {
        toast({
           title: "Error",
-          description: "An error occurred during login. Please try again.",
+          description: error.message || "An error occurred during login. Please try again.",
           variant: "destructive",
         })
-        console.error(error);
+        console.error("Login error:", error);
     } finally {
         setIsLoading(false);
     }
@@ -123,7 +133,7 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={!phoneNumber.trim() || isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
@@ -141,3 +151,5 @@ export default function LoginPage() {
     </main>
   );
 }
+
+    

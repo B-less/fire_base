@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Contact } from '@/lib/types';
+import type { Contact, Message } from '@/lib/types';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
 import { ChatInput } from './chat-input';
@@ -15,8 +15,8 @@ import type { ThenableReference } from 'firebase/database';
 
 interface ChatPanelProps {
   contact: Contact;
-  onSendMessage: (content: string, image?: string, isGenerating?: boolean) => ThenableReference | undefined;
-  onUpdateMessage: (dbKey: string, content: string, image?: string, isGenerating?: boolean) => void;
+  onSendMessage: (content: string, media?: string, isGenerating?: boolean) => ThenableReference | undefined;
+  onUpdateMessage: (dbKey: string, content: string, media?: string, isGenerating?: boolean) => void;
   onDeleteMessage: (messageId: number, dbKey?: string) => void;
   onBack: () => void;
   smartReplies: string[];
@@ -62,10 +62,11 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
       }
     } catch (error) {
       console.error("Error generating image:", error);
-      const failMessage = `Failed to generate image: "${prompt}"`;
+      const failMessage = `Failed to generate image for prompt: "${prompt}"`;
       if(messageDbKey){
-         onUpdateMessage(messageDbKey, failMessage, undefined, false);
+         onUpdateMessage(messageDbKey, failMessage, baseImage, false);
       } else if (isAIChat) {
+        // Find the "generating" message and replace it with a failure message.
         onSendMessage(failMessage, undefined, false);
       }
       toast({
@@ -105,9 +106,9 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
       }
     } catch (error) {
       console.error("Error generating video:", error);
-      const failMessage = `Failed to generate video: "${prompt}"`;
+      const failMessage = `Failed to generate video for prompt: "${prompt}"`;
       if(messageDbKey){
-        onUpdateMessage(messageDbKey, failMessage, undefined, false);
+        onUpdateMessage(messageDbKey, failMessage, baseMedia, false);
       } else if (isAIChat) {
         onSendMessage(failMessage, undefined, false);
       }
@@ -121,7 +122,8 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
 
   const handleSend = (type: 'text' | 'image' | 'video' = 'text') => {
     const trimmedInput = inputText.trim();
-    if (!trimmedInput) return;
+    if (!trimmedInput && type === 'text') return;
+
 
     if (isAIChat) {
       if (type === 'image') {
@@ -166,7 +168,7 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
       <ChatHeader contact={contact} onBack={onBack} />
       <MessageList messages={contact.messages} contactAvatar={contact.avatar} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
       <div className="p-4 pt-2">
-        {!isAIChat && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
+        {!isAIChat && smartReplies.length > 0 && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         <ChatInput
           value={inputText}
           onChange={handleTextChange}
@@ -188,3 +190,5 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     </div>
   );
 }
+
+    

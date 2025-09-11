@@ -59,7 +59,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
 
-  const isVideo = message.image && message.image.startsWith('data:video');
+  const mediaUrl = message.video || message.image;
+  const isVideo = !!message.video;
 
   const handleEditImage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,11 +77,11 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   }
 
   const handleDownload = () => {
-    if (!message.image) return;
+    if (!mediaUrl) return;
     const link = document.createElement('a');
-    link.href = message.image;
-    // Extract extension from MIME type, default to .png
-    const mimeType = message.image.match(/data:(.*);/)?.[1];
+    link.href = mediaUrl;
+    // Extract extension from MIME type, default to .png or .mp4
+    const mimeType = mediaUrl.match(/data:(.*);/)?.[1];
     const extension = mimeType?.split('/')[1] || (isVideo ? 'mp4' : 'png');
     link.download = `chirpchat-media-${message.id}.${extension}`;
     document.body.appendChild(link);
@@ -89,9 +90,9 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   }
 
   const senderIsAI = isAI(message.sender);
-  const canBeDeleted = (message.content || message.image) && (isMyMessage || senderIsAI);
+  const canBeDeleted = (message.content || mediaUrl) && (isMyMessage || senderIsAI);
   const canBeEdited = (isMyMessage || senderIsAI) && message.image && !isVideo && !message.isGenerating;
-  const canBeDownloaded = message.image && !message.isGenerating;
+  const canBeDownloaded = mediaUrl && !message.isGenerating;
 
   return (
     <div
@@ -123,15 +124,15 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
               <p className="text-sm">Generating...</p>
             </div>
           )}
-          {message.image && (
+          {mediaUrl && (
             <div className="relative">
               {isVideo ? (
                 <div className="relative w-full aspect-video rounded-md bg-black flex items-center justify-center">
-                    <video src={message.image} controls className="max-w-full max-h-full rounded-md" />
+                    <video key={mediaUrl} src={mediaUrl} controls className="max-w-full max-h-full rounded-md" />
                 </div>
               ) : (
                 <Image
-                  src={message.image}
+                  src={mediaUrl}
                   alt="Shared media"
                   width={300}
                   height={200}
@@ -236,3 +237,5 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     </div>
   );
 }
+
+    

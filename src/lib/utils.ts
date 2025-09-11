@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -5,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function compressImage(file: File, quality = 0.7, maxWidth = 800): Promise<string> {
+export function compressImage(file: File, quality = 0.8, maxWidth = 800): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -34,8 +35,16 @@ export function compressImage(file: File, quality = 0.7, maxWidth = 800): Promis
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        // Use 'image/webp' for better compression, fallback to 'image/jpeg'
+        const dataUrl = canvas.toDataURL('image/webp', quality);
+        if (dataUrl.length > 10) { // Check if webp is supported
+           resolve(dataUrl);
+        } else {
+           resolve(canvas.toDataURL('image/jpeg', quality));
+        }
       };
     };
   });
 }
+
+    
