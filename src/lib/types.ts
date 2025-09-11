@@ -1,4 +1,5 @@
 
+
 export type Message = {
   id: number;
   content: string;
@@ -21,7 +22,6 @@ export type Contact = {
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
-  messages: Message[];
   lastSeen?: number | string;
   isTyping?: boolean;
 };

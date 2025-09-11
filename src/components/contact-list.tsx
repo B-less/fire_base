@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, Plus, Bot, Settings, Loader2 } from 'lucide-react';
+import { Search, Plus, Bot, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/context/auth-context';
 import {
@@ -38,15 +54,18 @@ import { AdminDashboard } from './admin-dashboard';
 
 
 // IMPORTANT: Change this to your actual phone number with the country code to be the admin.
-const ADMIN_PHONE_NUMBER = '+233504151292'; 
+const ADMIN_PHONE_NUMBER = '+16505551234'; 
 const ADMIN_SECRET_CODE = '!admin';
+
+const AI_CONTACT_ID = 'ai-assistant';
+
 
 interface ContactListProps {
   contacts: Contact[];
   activeContactId: string | null;
   onSelectContact: (id: string) => void;
   onAddContact: (user: User) => void;
-  onStartAIChat: () => void;
+  onDeleteContact: (id: string) => void;
   isLoading: boolean;
 }
 
@@ -218,9 +237,11 @@ const formatTimestamp = (isoString: string) => {
 }
 
 
-export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onStartAIChat, isLoading }: ContactListProps) {
+export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onDeleteContact, isLoading }: ContactListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const { user: currentUser } = useAuth();
   
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,6 +264,21 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     setSearchTerm('');
   }
 
+  const handleDeleteClick = (contact: Contact, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setContactToDelete(contact);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (contactToDelete) {
+        onDeleteContact(contactToDelete.id);
+    }
+    setIsDeleteDialogOpen(false);
+    setContactToDelete(null);
+  };
+
+
   if (showAdminPanel) {
     return <AdminDashboard onBack={handleBackToContacts} />;
   }
@@ -260,18 +296,18 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             key={contact.id}
             onClick={() => onSelectContact(contact.id)}
             className={cn(
-              'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50',
+              'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50 relative group',
               activeContactId === contact.id && 'bg-muted'
             )}
           >
             <div className="relative h-12 w-12 flex-shrink-0">
-              <Avatar className="h-12 w-12">
-                <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
-                <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              {contact.online && (
-                <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-green-500" />
-              )}
+                <Avatar className="h-12 w-12">
+                    <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
+                    <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                {contact.online && (
+                    <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-green-500" />
+                )}
             </div>
             <div className="flex-1 overflow-hidden">
               <div className="flex items-center justify-between">
@@ -287,6 +323,29 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
                 )}
               </div>
             </div>
+             {contact.id !== AI_CONTACT_ID && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-1/2 -translate-y-1/2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <MoreVertical className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem
+                            onClick={(e) => handleDeleteClick(contact, e)}
+                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Delete Chat</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
           </button>
         ));
     }
@@ -308,18 +367,6 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
                    <Plus className="h-5 w-5" />
                 </Button>
              </AddContactDialog>
-             <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                       <Button variant="ghost" size="icon" onClick={onStartAIChat}>
-                          <Bot className="h-5 w-5" />
-                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Chat with AI</p>
-                    </TooltipContent>
-                  </Tooltip>
-              </TooltipProvider>
             <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -352,6 +399,25 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             {renderContent()}
         </div>
       </ScrollArea>
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently delete your chat history with {contactToDelete?.name}. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={confirmDelete}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
