@@ -264,13 +264,15 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
               activeContactId === contact.id && 'bg-muted'
             )}
           >
-            <Avatar className="relative h-12 w-12">
-              <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
-              <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+            <div className="relative h-12 w-12 flex-shrink-0">
+              <Avatar className="h-12 w-12">
+                <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
+                <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
               {contact.online && (
-                <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-green-500 ring-1 ring-background" />
+                <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card bg-green-500" />
               )}
-            </Avatar>
+            </div>
             <div className="flex-1 overflow-hidden">
               <div className="flex items-center justify-between">
                 <p className="truncate font-semibold text-foreground">{contact.name}</p>
@@ -353,5 +355,3 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
-
-    

@@ -44,11 +44,13 @@ export function ChatHeader({ contact, onBack }: ChatHeaderProps) {
         <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
           <DialogTrigger asChild>
             <button className="flex items-center gap-3 text-left" disabled={isAiAssistant}>
-              <Avatar className="h-10 w-10 relative">
-                <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
-                <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+              <div className="relative flex-shrink-0">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
+                  <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
                 {contact.online && <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />}
-              </Avatar>
+              </div>
               <div>
                 <h2 className="font-semibold text-foreground">{contact.name}</h2>
                 <p className="text-sm text-muted-foreground">
