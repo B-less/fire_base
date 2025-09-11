@@ -250,7 +250,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
 
     if (value === ADMIN_SECRET_CODE && currentUser?.phoneNumber === ADMIN_PHONE_NUMBER) {
       setShowAdminPanel(true);
-    } else if (showAdminPanel && value !== ADMIN_SECRET_CODE) {
+    } else if (showAdminPanel) {
       setShowAdminPanel(false);
     }
   };
@@ -311,7 +311,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
               activeContactId === contact.id && 'bg-muted'
             )}
           >
-            <div className="relative h-12 w-12 flex-shrink-0">
+            <div className="relative flex-shrink-0">
                 <Avatar className="h-12 w-12">
                     <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
                     <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
