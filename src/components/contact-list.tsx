@@ -56,13 +56,13 @@ import { AdminDashboard } from './admin-dashboard';
 // =================================================================================
 // IMPORTANT: ADMIN ACCESS SETUP
 //
-// 1. To become an admin, change the placeholder phone number below to the one
-//    you will use to sign up and log in.
+// 1. To become an admin, ensure the phone number below is the one you will use
+//    to sign up and log in.
 // 2. The phone number MUST include the country code (e.g., +1 for the US).
 // 3. After logging in with this number, type '!admin' into the search bar
 //    to open the admin dashboard.
 // =================================================================================
-const ADMIN_PHONE_NUMBER = '+16505551234'; 
+const ADMIN_PHONE_NUMBER = '+233504151292'; 
 const ADMIN_SECRET_CODE = '!admin';
 
 const AI_CONTACT_ID = 'ai-assistant';
