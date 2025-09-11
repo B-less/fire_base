@@ -62,8 +62,10 @@ export function ChatContainer() {
   useEffect(() => {
     if (!currentUser || !Object.keys(allUsers).length) return;
 
-    const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
-    const conversationKeys = currentUserContacts.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
+    const currentUserData = allUsers[currentUser.phoneNumber];
+    if (!currentUserData || !currentUserData.contacts) return;
+    
+    const conversationKeys = currentUserData.contacts.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
 
     const unsubscribers = conversationKeys.map(key => {
       const messagesRef = query(ref(db, `messages/${key}`), limitToLast(1));
@@ -470,7 +472,14 @@ export function ChatContainer() {
     </div>
   )
   
-  const contactsForList = useMemo(() => [aiChatState, ...userContacts], [aiChatState, userContacts]);
+  const contactsForList = useMemo(() => {
+      const sortedUserContacts = [...userContacts].sort((a, b) => {
+        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        return timeB - timeA;
+    });
+    return [aiChatState, ...sortedUserContacts];
+  }, [aiChatState, userContacts]);
 
   return (
     <div className="flex h-full w-full">
@@ -513,5 +522,7 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    
 
     

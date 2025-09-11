@@ -234,13 +234,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     }
   };
 
-  const sortedContacts = [...contacts].sort((a, b) => {
-    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-    return timeB - timeA;
-  });
-
-  const filteredContacts = sortedContacts.filter((contact) =>
+  const filteredContacts = contacts.filter((contact) =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
@@ -257,7 +251,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     if (isLoading) {
         return <ContactListSkeleton />
     }
-    if (contacts.length === 0) {
+    if (contacts.length <= 1 && !searchTerm) { // Only AI chat is there
         return <EmptyContactList onAddContact={onAddContact} />
     }
     if (filteredContacts.length > 0) {
