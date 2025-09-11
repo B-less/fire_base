@@ -34,7 +34,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { db } from '@/lib/firebase';
 import { ref, get, child } from 'firebase/database';
 import { Skeleton } from './ui/skeleton';
-import { InstallPWA } from './install-pwa';
 import { AdminDashboard } from './admin-dashboard';
 
 
@@ -88,7 +87,8 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: Use
         const snapshot = await get(child(dbRef, `users/${fullPhoneNumber.trim()}`));
 
         if (snapshot.exists()) {
-            onAddContact(snapshot.val());
+            const userData = snapshot.val();
+            onAddContact({ ...userData, phoneNumber: fullPhoneNumber.trim()});
             setPhoneNumber('');
             setOpen(false);
         } else {
@@ -277,7 +277,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
                 <p className="text-xs text-muted-foreground">{formatTimestamp(contact.lastMessageTime)}</p>
               </div>
               <div className="flex items-start justify-between gap-2">
-                <p className="truncate text-sm text-muted-foreground">{contact.lastMessage}</p>
+                <p className="truncate text-sm text-muted-foreground">{contact.isTyping ? 'typing...' : contact.lastMessage}</p>
                 {contact.unreadCount > 0 && (
                   <Badge variant="default" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full p-0">
                     {contact.unreadCount}
@@ -350,10 +350,6 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             {renderContent()}
         </div>
       </ScrollArea>
-
-      <div className="p-2 border-t">
-        <InstallPWA />
-      </div>
     </div>
   );
 }

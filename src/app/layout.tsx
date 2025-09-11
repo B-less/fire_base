@@ -10,7 +10,6 @@ import { ThemeProvider } from '@/components/theme-provider';
 export const metadata: Metadata = {
   title: 'ChirpChat',
   description: 'A modern chat application',
-  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
