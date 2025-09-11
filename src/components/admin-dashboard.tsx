@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, off, push, serverTimestamp } from 'firebase/database';
+import { ref, onValue, off, push } from 'firebase/database';
 import type { User, Message, AIUsageLog, AllMessages } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -406,7 +406,5 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         </div>
     );
 }
-
-    
 
     
