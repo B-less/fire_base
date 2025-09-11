@@ -53,9 +53,15 @@ import { Skeleton } from './ui/skeleton';
 import { AdminDashboard } from './admin-dashboard';
 
 
-// IMPORTANT: To become an admin, change this phone number to the one you will use to log in.
-// It must include the country code (e.g., +1 for the US).
-// After logging in with this number, type '!admin' into the search bar to open the dashboard.
+// =================================================================================
+// IMPORTANT: ADMIN ACCESS SETUP
+//
+// 1. To become an admin, change the placeholder phone number below to the one
+//    you will use to sign up and log in.
+// 2. The phone number MUST include the country code (e.g., +1 for the US).
+// 3. After logging in with this number, type '!admin' into the search bar
+//    to open the admin dashboard.
+// =================================================================================
 const ADMIN_PHONE_NUMBER = '+16505551234'; 
 const ADMIN_SECRET_CODE = '!admin';
 
@@ -228,13 +234,14 @@ const formatTimestamp = (isoString: string) => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
-        if (isNaN(date.getTime())) return '';
+        if (isNaN(date.getTime())) return ''; // Return empty if the date is invalid
         return new Intl.DateTimeFormat('en-US', {
             hour: 'numeric',
             minute: 'numeric',
             hour12: true,
         }).format(date);
     } catch (e) {
+        console.error("Invalid timestamp format:", isoString);
         return '';
     }
 }
@@ -247,11 +254,6 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const { user: currentUser } = useAuth();
   
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-  };
-  
   useEffect(() => {
     if (searchTerm === ADMIN_SECRET_CODE && currentUser?.phoneNumber === ADMIN_PHONE_NUMBER) {
       setShowAdminPanel(true);
@@ -263,7 +265,6 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) => {
-        // Ensure that empty or invalid timestamps are sorted to the bottom
         const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
         const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
         if (isNaN(timeA)) return 1;
@@ -409,7 +410,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             placeholder="Search contacts..."
             className="pl-10"
             value={searchTerm}
-            onChange={handleSearchChange}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
@@ -441,5 +442,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
+
+    
 
     
