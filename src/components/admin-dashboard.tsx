@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { ref, onValue, off, push, serverTimestamp } from 'firebase/database';
-import type { User, Message, AIUsageLog } from '@/lib/types';
+import type { User, Message, AIUsageLog, AllMessages } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from './ui/badge';
 
@@ -58,6 +58,7 @@ const featureBadgeVariant = {
 
 export function AdminDashboard({ onBack }: AdminDashboardProps) {
     const [users, setUsers] = useState<User[]>([]);
+    const [allMessages, setAllMessages] = useState<AllMessages>({});
     const [aiUsageLogs, setAiUsageLogs] = useState<AIUsageLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedUsers, setSelectedUsers] = useState<Record<string, boolean>>({});
@@ -67,6 +68,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
     const { toast } = useToast();
 
     useEffect(() => {
+        setIsLoading(true);
         const usersRef = ref(db, 'users');
         const usersListener = onValue(usersRef, (snapshot) => {
             const usersData = snapshot.val();
@@ -77,7 +79,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                 }));
                 setUsers(userList);
             }
-            setIsLoading(false);
         });
 
         const logsRef = ref(db, 'aiUsageLogs');
@@ -92,9 +93,22 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
             }
         });
 
+        const messagesRef = ref(db, 'messages');
+        const messagesListener = onValue(messagesRef, (snapshot) => {
+            setAllMessages(snapshot.val() || {});
+        });
+
+        // Combine loading state management
+        Promise.all([
+            new Promise(resolve => onValue(usersRef, resolve, { onlyOnce: true })),
+            new Promise(resolve => onValue(logsRef, resolve, { onlyOnce: true })),
+            new Promise(resolve => onValue(messagesRef, resolve, { onlyOnce: true })),
+        ]).then(() => setIsLoading(false));
+
         return () => {
             off(usersRef, 'value', usersListener);
             off(logsRef, 'value', logsListener);
+            off(messagesRef, 'value', messagesListener);
         }
     }, []);
 
@@ -175,6 +189,30 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         }
     }).filter(d => d.value > 0);
 
+    const userActivityData = useMemo(() => {
+        const messageCounts: Record<string, number> = {};
+        
+        Object.values(allMessages).forEach(conversation => {
+            Object.values(conversation).forEach(message => {
+                if (message.sender) {
+                    messageCounts[message.sender] = (messageCounts[message.sender] || 0) + 1;
+                }
+            });
+        });
+        
+        const usersMap = new Map(users.map(u => [u.phoneNumber, u.name]));
+
+        return Object.entries(messageCounts)
+            .map(([phoneNumber, count]) => ({
+                name: usersMap.get(phoneNumber) || phoneNumber,
+                messages: count
+            }))
+            .filter(u => u.name !== 'ai-assistant')
+            .sort((a, b) => b.messages - a.messages)
+            .slice(0, 10); // Top 10 users
+
+    }, [allMessages, users]);
+
 
     const selectedCount = Object.values(selectedUsers).filter(Boolean).length;
     const allSelected = users.length > 0 && selectedCount === users.length;
@@ -234,6 +272,28 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                         </Card>
                         
                         <Card className="md:col-span-2">
+                             <CardHeader>
+                                <CardTitle>Most Active Users</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {userActivityData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height={250}>
+                                        <BarChart data={userActivityData} layout="vertical" margin={{ top: 5, right: 20, left: 40, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis type="number" />
+                                            <YAxis dataKey="name" type="category" width={80} />
+                                            <Tooltip />
+                                            <Legend />
+                                            <Bar dataKey="messages" fill="#8884d8" name="Messages Sent" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                     <p className="text-muted-foreground text-center p-8">No user activity data yet.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="md:col-span-3">
                             <CardHeader>
                                 <CardTitle>Recent AI Logs</CardTitle>
                             </CardHeader>
@@ -346,5 +406,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         </div>
     );
 }
+
+    
 
     

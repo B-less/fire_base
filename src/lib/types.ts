@@ -1,4 +1,5 @@
 
+
 export type Message = {
   id: number; // This is a client-side only ID derived from timestamp
   content: string;
@@ -10,6 +11,12 @@ export type Message = {
   isGenerating?: boolean;
   db_key?: string; // The key from Firebase DB
 };
+
+export type AllMessages = {
+    [conversationKey: string]: {
+        [messageKey: string]: Message;
+    }
+}
 
 export type Contact = {
   id: string; // phone number of the contact
@@ -40,5 +47,7 @@ export type AIUsageLog = {
     timestamp: number;
     userId?: string;
 };
+
+    
 
     
