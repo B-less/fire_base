@@ -203,6 +203,21 @@ function ContactListSkeleton() {
     )
 }
 
+const formatTimestamp = (isoString: string) => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        return new Intl.DateTimeFormat('en-US', {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+        }).format(date);
+    } catch (e) {
+        return '';
+    }
+}
+
+
 export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onStartAIChat, isLoading }: ContactListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -259,7 +274,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             <div className="flex-1 overflow-hidden">
               <div className="flex items-center justify-between">
                 <p className="truncate font-semibold text-foreground">{contact.name}</p>
-                <p className="text-xs text-muted-foreground">{contact.lastMessageTime}</p>
+                <p className="text-xs text-muted-foreground">{formatTimestamp(contact.lastMessageTime)}</p>
               </div>
               <div className="flex items-start justify-between gap-2">
                 <p className="truncate text-sm text-muted-foreground">{contact.lastMessage}</p>

@@ -52,6 +52,22 @@ const ReadStatusIcon = ({ status }: { status: Message['status'] }) => {
 
 const isAI = (sender: string) => sender === 'ai-assistant';
 
+const formatTimestamp = (isoString: string) => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        return new Intl.DateTimeFormat('en-US', {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true,
+        }).format(date);
+    } catch (e) {
+        console.error("Invalid timestamp format:", isoString);
+        return '';
+    }
+}
+
+
 export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagine, onDelete }: MessageBubbleProps) {
   const { user: currentUser } = useAuth();
   const isMyMessage = currentUser ? message.sender === currentUser.phoneNumber : false;
@@ -191,7 +207,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
 
           <div className="mt-1 flex items-center justify-end gap-2">
             <span className={cn('text-xs', isMyMessage && !message.isGenerating ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
-              {message.timestamp}
+              {formatTimestamp(message.timestamp)}
             </span>
             {isMyMessage && !message.isGenerating && <ReadStatusIcon status={message.status} />}
           </div>
@@ -237,5 +253,3 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     </div>
   );
 }
-
-    

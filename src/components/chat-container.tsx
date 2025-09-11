@@ -20,7 +20,7 @@ const AI_CONTACT: Contact = {
     avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
     online: true,
     lastMessage: 'Ask me to generate media!',
-    lastMessageTime: '',
+    lastMessageTime: new Date(Date.now() - 60000).toISOString(), // set to 1 minute ago
     unreadCount: 0,
     messages: [],
 };
@@ -110,7 +110,7 @@ export function ChatContainer() {
           avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
           online: contactUser.status?.online || false,
           lastSeen: contactUser.status?.lastSeen,
-          lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : '')) : 'No messages yet',
+          lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : (lastMessage.video ? "Video" : ''))) : 'No messages yet',
           lastMessageTime: lastMessage ? lastMessage.timestamp : '',
           unreadCount: 0, // This would need a more complex query to be accurate
           messages: [], // We use the cache now, so this can be empty
@@ -167,7 +167,7 @@ export function ChatContainer() {
               off(typingRef, 'value', typingListener);
           };
       }
-  }, [activeContact?.id, currentUser?.phoneNumber]);
+  }, [activeContact?.id, currentUser?.phoneNumber, messageCache]);
 
   const handleSelectContact = (contactId: string) => {
     if (contactId === AI_CONTACT_ID) {
@@ -219,7 +219,7 @@ export function ChatContainer() {
         avatar: user.profilePicture || `https://picsum.photos/seed/${user.phoneNumber}/100/100`,
         online: user.status?.online || false,
         lastMessage: 'Chat started',
-        lastMessageTime: '',
+        lastMessageTime: new Date().toISOString(),
         unreadCount: 0,
         messages: [],
     };
@@ -274,7 +274,7 @@ export function ChatContainer() {
       id: Date.now(),
       content: "Thinking...",
       sender: AI_CONTACT_ID,
-      timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
+      timestamp: new Date().toISOString(),
       status: 'read',
       isGenerating: true,
     }
@@ -292,7 +292,7 @@ export function ChatContainer() {
         id: Date.now(),
         content: response,
         sender: AI_CONTACT_ID,
-        timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
+        timestamp: new Date().toISOString(),
         status: 'read',
       };
       
@@ -310,7 +310,7 @@ export function ChatContainer() {
         id: Date.now(),
         content: "Sorry, I couldn't process that request.",
         sender: AI_CONTACT_ID,
-        timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
+        timestamp: new Date().toISOString(),
         status: 'read',
       };
        setAiChatState(prev => {
@@ -331,7 +331,7 @@ export function ChatContainer() {
       id: messageId,
       content,
       sender: currentUser.phoneNumber,
-      timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
+      timestamp: new Date().toISOString(),
       status: 'sent',
       ...(media && (media.startsWith('data:video') ? { video: media } : { image: media })),
       ...(isGenerating && { isGenerating }),
@@ -443,7 +443,7 @@ export function ChatContainer() {
 
     return Object.entries(cachedMessages)
       .map(([key, value]) => ({ ...value, db_key: key }))
-      .sort((a,b) => a.id - b.id);
+      .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [activeContact, currentUser, messageCache, aiChatState.messages]);
 
   useEffect(() => {
@@ -515,5 +515,3 @@ export function ChatContainer() {
     </div>
   );
 }
-
-    
