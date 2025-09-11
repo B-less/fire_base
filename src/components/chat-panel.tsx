@@ -22,9 +22,10 @@ interface ChatPanelProps {
   smartReplies: string[];
   setSmartReplies: (replies: string[]) => void;
   isLoading?: boolean;
+  onTypingChange: (isTyping: boolean) => void;
 }
 
-export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMessage, onBack, smartReplies, setSmartReplies, isLoading = false }: ChatPanelProps) {
+export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMessage, onBack, smartReplies, setSmartReplies, isLoading = false, onTypingChange }: ChatPanelProps) {
   const [inputText, setInputText] = useState('');
   const [mediaFile, setMediaFile] = useState<string | null>(null);
   const { toast } = useToast();
@@ -154,6 +155,12 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     setMediaFile(null);
   }
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value);
+    onTypingChange(e.target.value.length > 0);
+  }
+
+
   return (
     <div className="flex h-full flex-col bg-muted/30">
       <ChatHeader contact={contact} onBack={onBack} />
@@ -162,10 +169,11 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
         {!isAIChat && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         <ChatInput
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={handleTextChange}
           onSend={handleSend}
           onFileSelect={handleFileSelect}
           isAIChat={isAIChat}
+          onTypingChange={onTypingChange}
         />
       </div>
       {mediaFile && (
@@ -180,5 +188,3 @@ export function ChatPanel({ contact, onSendMessage, onUpdateMessage, onDeleteMes
     </div>
   );
 }
-
-    

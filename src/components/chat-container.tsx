@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Contact, Message, User } from '@/lib/types';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
@@ -42,6 +42,7 @@ export function ChatContainer() {
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [messageCache, setMessageCache] = useState<Record<string, Record<string, Message>>>({});
+  const [typingStatus, setTypingStatus] = useState<Record<string, boolean>>({});
 
 
   // Fetch all users once
@@ -62,9 +63,9 @@ export function ChatContainer() {
     const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
     const conversationKeys = currentUserContacts.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
 
-    const listeners = conversationKeys.map(key => {
+    const unsubscribers = conversationKeys.map(key => {
       const messagesRef = query(ref(db, `messages/${key}`), limitToLast(1));
-      const listener = onValue(messagesRef, (snapshot) => {
+      const unsubscribe = onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
           const messageData = snapshot.val();
           const lastMessageKey = Object.keys(messageData)[0];
@@ -72,11 +73,11 @@ export function ChatContainer() {
           setLastMessages(prev => ({ ...prev, [key]: lastMessage }));
         }
       });
-      return { ref: messagesRef, listener };
+      return unsubscribe;
     });
 
     return () => {
-      listeners.forEach(({ ref, listener }) => off(ref, 'value', listener));
+      unsubscribers.forEach(unsubscribe => unsubscribe());
     };
   }, [currentUser, allUsers]);
 
@@ -111,6 +112,7 @@ export function ChatContainer() {
           lastMessageTime: lastMessage ? lastMessage.timestamp : '',
           unreadCount: 0, // This would need a more complex query to be accurate
           messages: [], // We use the cache now, so this can be empty
+          isTyping: typingStatus[contactUser.phoneNumber] || false,
         };
       })
       .filter((c): c is Contact => c !== null);
@@ -119,8 +121,9 @@ export function ChatContainer() {
 
     setIsLoading(false);
 
-  }, [currentUser, allUsers, lastMessages]);
+  }, [currentUser, allUsers, lastMessages, typingStatus]);
 
+  // Listen for messages and typing status for the active conversation
   useEffect(() => {
       if (activeContact?.id && activeContact.id !== AI_CONTACT_ID && currentUser) {
           const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
@@ -132,12 +135,12 @@ export function ChatContainer() {
           }
 
           const messagesRef = ref(db, `messages/${conversationKey}`);
+          const typingRef = ref(db, `conversations/${conversationKey}/typing`);
           
-          const unsubscribe = onValue(messagesRef, (snapshot) => {
+          const messagesUnsubscribe = onValue(messagesRef, (snapshot) => {
               const messagesData = snapshot.val() || {};
               setMessageCache(prev => ({...prev, [conversationKey]: messagesData}));
 
-              // Mark messages as read
               const updates: Record<string, any> = {};
               Object.entries(messagesData).forEach(([key, message]: [string, any]) => {
                   if (message.sender === activeContact.id && message.status !== 'read') {
@@ -149,11 +152,19 @@ export function ChatContainer() {
                   update(messagesRef, updates);
               }
               setIsMessagesLoading(false);
-          }, { onlyOnce: false }); // Ensure it's a persistent listener
+          });
           
-          return () => unsubscribe();
+          const typingUnsubscribe = onValue(typingRef, (snapshot) => {
+              const typingData = snapshot.val() || {};
+              setTypingStatus(prev => ({ ...prev, [activeContact.id]: typingData[activeContact.id] || false }));
+          });
+          
+          return () => {
+              messagesUnsubscribe();
+              typingUnsubscribe();
+          };
       }
-  }, [activeContact?.id, currentUser, messageCache]); // Rerun when active contact changes
+  }, [activeContact?.id, currentUser, messageCache]);
 
   const handleSelectContact = (contactId: string) => {
     if (contactId === AI_CONTACT_ID) {
@@ -167,6 +178,7 @@ export function ChatContainer() {
         if(fullContactData) {
             newActiveContact.online = fullContactData.status?.online || false;
             newActiveContact.lastSeen = fullContactData.status?.lastSeen;
+            newActiveContact.isTyping = typingStatus[contactId] || false;
         }
         setActiveContact(newActiveContact);
     }
@@ -181,7 +193,6 @@ export function ChatContainer() {
         return;
     }
     
-    // Add to current user's contacts in DB
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
     const snapshot = await get(currentUserContactsRef);
     const currentContacts = snapshot.val() || [];
@@ -189,7 +200,6 @@ export function ChatContainer() {
       await set(currentUserContactsRef, [...currentContacts, user.phoneNumber]);
     }
 
-    // Add current user to the new contact's contacts in DB
     const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
     const newContactSnapshot = await get(newContactContactsRef);
     const newContactCurrentContacts = newContactSnapshot.val() || [];
@@ -197,9 +207,6 @@ export function ChatContainer() {
         await set(newContactContactsRef, [...newContactCurrentContacts, currentUser.phoneNumber]);
     }
     
-    // We don't call handleSelectContact here because the useEffect for allUsers will
-    // trigger a re-render and add the new user to the contact list naturally.
-    // We can setActiveContact with a temporary object though, to show the new chat immediately.
     const tempContact: Contact = {
         id: user.phoneNumber,
         name: user.name,
@@ -254,7 +261,6 @@ export function ChatContainer() {
       .join('\n');
 
     const lastMessage = currentMessages[currentMessages.length - 1];
-    // Only respond if the last message was from the user and was not a media generation request
     if (!lastMessage || lastMessage.sender !== currentUser.phoneNumber || lastMessage.image) return;
 
     try {
@@ -275,7 +281,7 @@ export function ChatContainer() {
         const cleanedMessages = prev.messages.filter(m => !m.isGenerating);
         const updatedMessages = [...cleanedMessages, aiMessage];
         const updatedContact = { ...prev, messages: updatedMessages, lastMessage: response, lastMessageTime: aiMessage.timestamp };
-        setActiveContact(updatedContact); // also update active contact
+        setActiveContact(updatedContact);
         return updatedContact;
       });
 
@@ -296,8 +302,7 @@ export function ChatContainer() {
         return updatedContact;
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, activeContact, aiChatState.messages]);
+  }, [currentUser, activeContact?.id, aiChatState.messages]);
 
   const handleSendMessage = (content: string, image?: string, isGenerating?: boolean): ThenableReference | undefined => {
     if (!activeContact || !currentUser) return;
@@ -335,7 +340,7 @@ export function ChatContainer() {
         if (dbMessage.image === undefined) delete dbMessage.image;
         if (dbMessage.isGenerating === undefined) delete dbMessage.isGenerating;
         
-        set(newMessageRef, { ...dbMessage, db_key: newMessageRef.key });
+        set(newMessageRef, dbMessage);
 
         setSmartReplies([]);
         return newMessageRef;
@@ -348,23 +353,15 @@ export function ChatContainer() {
     const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
     const messageToUpdateRef = ref(db, `messages/${conversationKey}/${dbKey}`);
     
-    get(messageToUpdateRef).then((snapshot) => {
-        if (snapshot.exists()) {
-            const dbMessage = snapshot.val();
-            
-            const updatedMessage: any = { ...dbMessage, content: content };
-            
-            if (image !== undefined) updatedMessage.image = image;
+    const updatedMessage: any = { content: content };
+    if (image !== undefined) updatedMessage.image = image;
+    if (isGenerating === false) {
+      updatedMessage.isGenerating = null; // Use null to remove from DB
+    } else if (isGenerating === true) {
+      updatedMessage.isGenerating = true;
+    }
 
-            if (isGenerating === false) {
-              delete updatedMessage.isGenerating;
-            } else if (isGenerating === true) {
-              updatedMessage.isGenerating = true;
-            }
-
-            set(messageToUpdateRef, updatedMessage);
-        }
-    });
+    update(messageToUpdateRef, updatedMessage);
   }
 
   const handleDeleteMessage = (messageId: number, dbKey?: string) => {
@@ -385,6 +382,28 @@ export function ChatContainer() {
         remove(messageRef);
     }
   }
+
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTypingChange = (isTyping: boolean) => {
+    if (!currentUser || !activeContact || activeContact.id === AI_CONTACT_ID) return;
+
+    if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+    }
+
+    const conversationKey = getConversationKey(currentUser.phoneNumber, activeContact.id);
+    const typingRef = ref(db, `conversations/${conversationKey}/typing/${currentUser.phoneNumber}`);
+    
+    if (isTyping) {
+        set(typingRef, true);
+        typingTimeoutRef.current = setTimeout(() => {
+            set(typingRef, null); // Use null to remove from DB
+        }, 2000); // 2 second timeout
+    } else {
+        set(typingRef, null);
+    }
+  };
   
   const currentChatMessages = useMemo(() => {
     if (!activeContact || !currentUser) return [];
@@ -408,8 +427,7 @@ export function ChatContainer() {
         getSmartReplies(activeContact, currentChatMessages);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeContact, currentChatMessages.length]);
+  }, [activeContact, currentChatMessages.length, getAIResponse, getSmartReplies]);
 
 
   const NoContactsView = () => (
@@ -423,7 +441,11 @@ export function ChatContainer() {
     </div>
   )
   
-  const contactsForList = useMemo(() => [aiChatState, ...userContacts], [aiChatState, userContacts]);
+  const contactsForList = useMemo(() => [aiChatState, ...userContacts].sort((a, b) => {
+    const timeA = a.lastMessageTime ? new Date(0).setUTCSeconds(new Date(a.lastMessageTime).getTime()) : 0;
+    const timeB = b.lastMessageTime ? new Date(0).setUTCSeconds(new Date(b.lastMessageTime).getTime()) : 0;
+    return timeB - timeA;
+  }), [aiChatState, userContacts]);
 
   return (
     <div className="flex h-full w-full">
@@ -457,6 +479,7 @@ export function ChatContainer() {
             smartReplies={smartReplies}
             setSmartReplies={setSmartReplies}
             isLoading={isMessagesLoading}
+            onTypingChange={handleTypingChange}
           />
         ) : (
            <NoContactsView />
@@ -465,5 +488,3 @@ export function ChatContainer() {
     </div>
   );
 }
-
-    

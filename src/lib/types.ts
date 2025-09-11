@@ -22,6 +22,7 @@ export type Contact = {
   unreadCount: number;
   messages: Message[];
   lastSeen?: number | string;
+  isTyping?: boolean;
 };
 
 export type User = {

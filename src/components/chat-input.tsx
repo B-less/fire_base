@@ -19,19 +19,27 @@ interface ChatInputProps {
   onSend: (type: 'text' | 'image' | 'video') => void;
   onFileSelect: (url: string) => void;
   isAIChat?: boolean;
+  onTypingChange: (isTyping: boolean) => void;
 }
 
-export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = false }: ChatInputProps) {
+export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = false, onTypingChange }: ChatInputProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    onTypingChange(true);
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSend('text');
+      onTypingChange(false);
     }
   };
+
+  const handleSendClick = (type: 'text' | 'image' | 'video') => {
+      onSend(type);
+      onTypingChange(false);
+  }
   
   const handleImageUploadClick = () => {
     fileInputRef.current?.click();
@@ -80,10 +88,10 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
        {isAIChat && (
         <div className="flex justify-center gap-2 mb-2 px-2">
-            <Button variant="outline" size="sm" onClick={() => onSend('image')} disabled={!value.trim() || isUploading}>
+            <Button variant="outline" size="sm" onClick={() => handleSendClick('image')} disabled={!value.trim() || isUploading}>
                 <ImageIcon className="mr-2 h-4 w-4" /> Generate Image
             </Button>
-            <Button variant="outline" size="sm" onClick={() => onSend('video')} disabled={!value.trim() || isUploading}>
+            <Button variant="outline" size="sm" onClick={() => handleSendClick('video')} disabled={!value.trim() || isUploading}>
                 <Video className="mr-2 h-4 w-4" /> Generate Video
             </Button>
         </div>
@@ -94,6 +102,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
         value={value}
         onChange={onChange}
         onKeyDown={handleKeyDown}
+        onBlur={() => onTypingChange(false)}
         rows={1}
       />
       <input
@@ -126,7 +135,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
         <Button
           size="icon"
           className="h-8 w-8"
-          onClick={() => onSend('text')}
+          onClick={() => handleSendClick('text')}
           disabled={!value.trim() || isUploading}
         >
             <SendHorizontal className="h-4 w-4" />
