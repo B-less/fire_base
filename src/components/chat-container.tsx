@@ -49,12 +49,14 @@ export function ChatContainer() {
 
   // Listen for the LAST message in each conversation for the contact list preview
   useEffect(() => {
-    if (!currentUser?.phoneNumber) return;
+    if (!currentUser?.phoneNumber || !Object.keys(allUsers).length) return;
 
     const currentUserData = allUsers[currentUser.phoneNumber];
     if (!currentUserData) return;
     
+    // Combine user contacts with the static AI contact
     const contactIds = [...(currentUserData.contacts || []), AI_CONTACT_ID];
+    
     const conversationKeys = contactIds.map((contactId: string) => getConversationKey(currentUser.phoneNumber, contactId));
 
     const unsubscribers = conversationKeys.map(key => {
@@ -64,6 +66,7 @@ export function ChatContainer() {
           const messageData = snapshot.val();
           const lastMessageKey = Object.keys(messageData)[0];
           const lastMessage = messageData[lastMessageKey];
+          // This state is ONLY for the contact list preview
           setLastMessages(prev => ({ ...prev, [key]: lastMessage }));
         }
       });
@@ -146,6 +149,7 @@ export function ChatContainer() {
           
           const messagesListener = onValue(messagesRef, (snapshot) => {
               const messagesData = snapshot.val() || {};
+              // Update the cache for this specific conversation
               setMessageCache(prev => ({...prev, [conversationKey]: messagesData}));
 
               const updates: Record<string, any> = {};
@@ -194,13 +198,15 @@ export function ChatContainer() {
         return;
     }
     
+    // Add new contact to current user's list
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
-    const snapshot = await get(currentUserContactsRef);
-    const currentContacts = snapshot.val() || [];
-    if (!currentContacts.includes(user.phoneNumber)) {
-      await set(currentUserContactsRef, [...currentContacts, user.phoneNumber]);
+    const currentUserSnapshot = await get(currentUserContactsRef);
+    const currentUserContacts = currentUserSnapshot.val() || [];
+    if (!currentUserContacts.includes(user.phoneNumber)) {
+      await set(currentUserContactsRef, [...currentUserContacts, user.phoneNumber]);
     }
 
+    // Add current user to the new contact's list
     const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
     const newContactSnapshot = await get(newContactContactsRef);
     const newContactCurrentContacts = newContactSnapshot.val() || [];
@@ -247,8 +253,24 @@ export function ChatContainer() {
     if (!activeContactId) return null;
     if (activeContactId === AI_CONTACT_ID) return aiChatState;
     const user = allUsers[activeContactId];
-    return user || null;
-  }, [activeContactId, allUsers, aiChatState]);
+    if (!user) return null;
+
+    // Create a Contact object for the header, using last message data
+    const conversationKey = getConversationKey(currentUser!.phoneNumber, activeContactId);
+    const lastMessage = lastMessages[conversationKey];
+
+    return {
+        id: user.phoneNumber,
+        name: user.name,
+        avatar: user.profilePicture || `https://picsum.photos/seed/${activeContactId}/100/100`,
+        online: user.status?.online || false,
+        lastSeen: user.status?.lastSeen,
+        isTyping: typingStatus[user.phoneNumber] || false,
+        lastMessage: lastMessage?.content || '', // Not strictly needed for header
+        lastMessageTime: lastMessage?.timestamp || '', // Not strictly needed for header
+        unreadCount: 0,
+    };
+  }, [activeContactId, allUsers, aiChatState, currentUser, lastMessages, typingStatus]);
 
 
   const getSmartReplies = useCallback(async (contact: User, fullMessages: Message[]) => {
@@ -425,13 +447,17 @@ export function ChatContainer() {
 
   useEffect(() => {
     if (activeContactUser && currentChatMessages.length > 0) {
-      if (activeContactUser.phoneNumber === AI_CONTACT_ID) {
+      if (activeContactUser.id === AI_CONTACT_ID) {
         getAIResponse(currentChatMessages);
       } else {
-        getSmartReplies(activeContactUser, currentChatMessages);
+        // Since activeContactUser is a Contact, we need to find the full User object
+        const fullContactUser = allUsers[activeContactUser.id];
+        if (fullContactUser) {
+           getSmartReplies(fullContactUser, currentChatMessages);
+        }
       }
     }
-  }, [activeContactUser, currentChatMessages, getAIResponse, getSmartReplies]);
+  }, [activeContactUser, currentChatMessages, getAIResponse, getSmartReplies, allUsers]);
 
 
   const NoContactsView = () => (

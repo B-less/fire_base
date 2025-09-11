@@ -228,6 +228,7 @@ const formatTimestamp = (isoString: string) => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
+        if (isNaN(date.getTime())) return '';
         return new Intl.DateTimeFormat('en-US', {
             hour: 'numeric',
             minute: 'numeric',
@@ -249,18 +250,24 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
-
-    if (value === ADMIN_SECRET_CODE && currentUser?.phoneNumber === ADMIN_PHONE_NUMBER) {
+  };
+  
+  useEffect(() => {
+    if (searchTerm === ADMIN_SECRET_CODE && currentUser?.phoneNumber === ADMIN_PHONE_NUMBER) {
       setShowAdminPanel(true);
     } else {
       setShowAdminPanel(false);
     }
-  };
+  }, [searchTerm, currentUser?.phoneNumber]);
+
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) => {
+        // Ensure that empty or invalid timestamps are sorted to the bottom
         const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
         const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
         return timeB - timeA;
     });
   }, [contacts]);
