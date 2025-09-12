@@ -265,11 +265,11 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) => {
-        const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-        const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-        if (isNaN(timeA)) return 1;
-        if (isNaN(timeB)) return -1;
-        return timeB - timeA;
+      const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      if (isNaN(timeA)) return 1; // Put contacts with invalid time at the end
+      if (isNaN(timeB)) return -1; // Keep contacts with valid time at the front
+      return timeB - timeA;
     });
   }, [contacts]);
 
@@ -442,6 +442,8 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
+
+    
 
     
 
