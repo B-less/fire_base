@@ -9,6 +9,12 @@ import { ref, set, onValue, off, serverTimestamp, onDisconnect, update } from 'f
 import { getMessaging, getToken } from 'firebase/messaging';
 import { vapidKey } from '@/lib/firebase-env';
 
+// For Median.co integration
+declare global {
+  interface Window {
+    median: any;
+  }
+}
 
 interface AuthContextType {
   user: User | null;
@@ -72,14 +78,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Request notification permission and get FCM token
       const requestNotificationPermission = async () => {
         try {
-          const messaging = getMessaging();
-          const permission = await Notification.requestPermission();
-          if (permission === 'granted') {
-            const currentToken = await getToken(messaging, { vapidKey });
-            if (currentToken) {
-              await update(userRef, { fcmToken: currentToken });
-            } else {
-              console.log('No registration token available. Request permission to generate one.');
+          // Check if running inside Median.co wrapper
+          if (window.median && window.median.android && window.median.android.fcm) {
+             window.median.android.fcm.getRegistrationId(async (token: string) => {
+                if (token) {
+                  console.log("Median FCM Token:", token);
+                  await update(userRef, { fcmToken: token });
+                }
+             });
+          } else {
+            // Fallback for standard web browsers
+            const messaging = getMessaging();
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+              const currentToken = await getToken(messaging, { vapidKey });
+              if (currentToken) {
+                await update(userRef, { fcmToken: currentToken });
+              } else {
+                console.log('No registration token available. Request permission to generate one.');
+              }
             }
           }
         } catch (error) {
