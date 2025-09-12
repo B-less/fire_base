@@ -31,6 +31,7 @@ export function ChatContainer() {
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [messageCache, setMessageCache] = useState<Record<string, Record<string, Message>>>({});
   const [typingStatus, setTypingStatus] = useState<Record<string, boolean>>({});
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
 
@@ -59,14 +60,30 @@ export function ChatContainer() {
     
     const unsubscribers = contactIds.map((contactId: string) => {
       const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-      const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
+      const messagesRef = ref(db, `messages/${conversationKey}`);
+      
       const listener = onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
-          const messageData = snapshot.val();
-          const lastMessageKey = Object.keys(messageData)[0];
-          const lastMessage = messageData[lastMessageKey];
-          // This state is ONLY for the contact list preview
-          setLastMessages(prev => ({ ...prev, [conversationKey]: lastMessage }));
+          const messagesData = snapshot.val();
+          
+          let unread = 0;
+          let lastMsg: Message | null = null;
+          let lastTimestamp = 0;
+
+          Object.values(messagesData).forEach((msg: any) => {
+            if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read') {
+              unread++;
+            }
+             if (new Date(msg.timestamp).getTime() > lastTimestamp) {
+                lastTimestamp = new Date(msg.timestamp).getTime();
+                lastMsg = msg;
+            }
+          });
+          
+          if(lastMsg) {
+             setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
+          }
+          setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
         }
       });
       return () => off(messagesRef, 'value', listener);
@@ -89,9 +106,9 @@ export function ChatContainer() {
         online: true,
         lastMessage: lastMessage?.content || 'Ask me to generate media!',
         lastMessageTime: lastMessage?.timestamp || new Date(Date.now() - 60000).toISOString(),
-        unreadCount: 0,
+        unreadCount: unreadCounts[conversationKey] || 0,
     };
-  }, [currentUser, lastMessages]);
+  }, [currentUser, lastMessages, unreadCounts]);
 
   const userContacts: Contact[] = useMemo(() => {
     if (!currentUser?.phoneNumber || !Object.keys(allUsers).length) {
@@ -119,12 +136,12 @@ export function ChatContainer() {
           lastSeen: contactUser.status?.lastSeen,
           lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : (lastMessage.video ? "Video" : ''))) : 'No messages yet',
           lastMessageTime: lastMessage?.timestamp || '',
-          unreadCount: 0, 
+          unreadCount: unreadCounts[conversationKey] || 0, 
           isTyping: typingStatus[contactUser.phoneNumber] || false,
         };
       })
       .filter((c): c is Contact => c !== null);
-  }, [currentUser?.phoneNumber, allUsers, lastMessages, typingStatus]);
+  }, [currentUser?.phoneNumber, allUsers, lastMessages, typingStatus, unreadCounts]);
 
 
   useEffect(() => {
@@ -154,7 +171,7 @@ export function ChatContainer() {
               const updates: Record<string, any> = {};
               Object.entries(messagesData).forEach(([key, message]: [string, any]) => {
                   if (message.sender === activeContactId && message.status !== 'read') {
-                      updates[`/${key}/status`] = 'read';
+                      updates[`${key}/status`] = 'read';
                   }
               });
 
@@ -366,13 +383,17 @@ export function ChatContainer() {
     const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
     const messagesRef = ref(db, `messages/${conversationKey}`);
     
-    const dbMessage: Omit<Message, 'id' | 'db_key'> = {
+    const recipient = allUsers[activeContactId];
+    
+    const dbMessage: Omit<Message, 'id' | 'db_key'> & {senderName: string, recipientFcmToken?: string} = {
       content,
       sender: currentUser.phoneNumber,
+      senderName: currentUser.name,
       timestamp: new Date().toISOString(),
-      status: 'sent',
+      status: recipient?.status?.online ? 'delivered' : 'sent',
       ...(media && (media.startsWith('data:video') ? { video: media } : { image: media })),
       ...(isGenerating && { isGenerating }),
+      ...(recipient?.fcmToken && { recipientFcmToken: recipient.fcmToken }),
     };
     
     const newMessageRef = push(messagesRef, dbMessage);
@@ -514,5 +535,3 @@ export function ChatContainer() {
     </div>
   );
 }
-
-    

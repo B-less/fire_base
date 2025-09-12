@@ -5,7 +5,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useRouter } from 'next/navigation';
 import type { User } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { ref, set, onValue, off, serverTimestamp, onDisconnect } from 'firebase/database';
+import { ref, set, onValue, off, serverTimestamp, onDisconnect, update } from 'firebase/database';
+import { getMessaging, getToken } from 'firebase/messaging';
+import { vapidKey } from '@/lib/firebase-env';
 
 
 interface AuthContextType {
@@ -46,6 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user?.phoneNumber) {
       const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
+      const userRef = ref(db, `users/${user.phoneNumber}`);
+
       const isOnline = {
         online: true,
         lastSeen: serverTimestamp(),
@@ -59,15 +63,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const listener = onValue(connectedRef, (snap) => {
         if (snap.val() === true) {
-          // We're connected (or reconnected)! Set up our presence state.
           onDisconnect(userStatusRef).set(isOffline).then(() => {
              set(userStatusRef, isOnline);
           });
         }
       });
+      
+      // Request notification permission and get FCM token
+      const requestNotificationPermission = async () => {
+        try {
+          const messaging = getMessaging();
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted') {
+            const currentToken = await getToken(messaging, { vapidKey });
+            if (currentToken) {
+              await update(userRef, { fcmToken: currentToken });
+            } else {
+              console.log('No registration token available. Request permission to generate one.');
+            }
+          }
+        } catch (error) {
+          console.error('An error occurred while retrieving token. ', error);
+        }
+      }
+      
+      requestNotificationPermission();
 
       return () => {
-        // Correctly set offline status on component unmount or user change
         if (user?.phoneNumber) {
             const userStatusOnUnmountRef = ref(db, `users/${user.phoneNumber}/status`);
             set(userStatusOnUnmountRef, isOffline);

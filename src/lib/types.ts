@@ -38,7 +38,8 @@ export type User = {
     status?: {
       online: boolean;
       lastSeen: number | object; // Can be timestamp or server timestamp object
-    }
+    };
+    fcmToken?: string;
 }
 
 export type AIUsageLog = {

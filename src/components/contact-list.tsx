@@ -336,7 +336,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
                 <p className="text-xs text-muted-foreground">{formatTimestamp(contact.lastMessageTime)}</p>
               </div>
               <div className="flex items-start justify-between gap-2">
-                <p className="truncate text-sm text-muted-foreground">{contact.isTyping ? 'typing...' : contact.lastMessage}</p>
+                <p className="truncate text-sm text-muted-foreground">{contact.isTyping ? <span className="italic text-primary">typing...</span> : contact.lastMessage}</p>
                 {contact.unreadCount > 0 && (
                   <Badge variant="default" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full p-0">
                     {contact.unreadCount}
