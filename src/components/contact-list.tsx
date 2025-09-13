@@ -7,7 +7,6 @@ import { Search, Plus, Bot, Settings, Loader2, MoreVertical, Trash2 } from 'luci
 import type { Contact, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,6 +50,7 @@ import { db } from '@/lib/firebase';
 import { ref, get, child } from 'firebase/database';
 import { Skeleton } from './ui/skeleton';
 import { AdminDashboard } from './admin-dashboard';
+import { Virtuoso } from 'react-virtuoso';
 
 
 // =================================================================================
@@ -301,6 +301,67 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     return <AdminDashboard onBack={handleBackToContacts} />;
   }
 
+  const Row = ({ index, data: contact }: { index: number, data: Contact }) => (
+    <div
+      key={contact.id}
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelectContact(contact.id)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelectContact(contact.id)}
+      className={cn(
+        'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50 relative group cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+        activeContactId === contact.id && 'bg-muted'
+      )}
+    >
+      <div className="relative flex-shrink-0">
+          <Avatar className="h-12 w-12">
+              <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
+              <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          {contact.online && (
+             <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-500 ring-2 ring-card" />
+          )}
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <div className="flex items-center justify-between">
+          <p className="truncate font-semibold text-foreground">{contact.name}</p>
+          <p className="text-xs text-muted-foreground">{formatTimestamp(contact.lastMessageTime)}</p>
+        </div>
+        <div className="flex items-start justify-between gap-2">
+          <p className="truncate text-sm text-muted-foreground">{contact.isTyping ? <span className="italic text-primary">typing...</span> : contact.lastMessage}</p>
+          {contact.unreadCount > 0 && (
+            <Badge variant="default" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full p-0">
+              {contact.unreadCount}
+            </Badge>
+          )}
+        </div>
+      </div>
+       {contact.id !== AI_CONTACT_ID && (
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-1/2 -translate-y-1/2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                  >
+                      <MoreVertical className="h-4 w-4" />
+                  </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem
+                      onClick={(e) => handleDeleteClick(contact, e)}
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                  >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Delete Chat</span>
+                  </DropdownMenuItem>
+              </DropdownMenuContent>
+          </DropdownMenu>
+      )}
+    </div>
+  );
+
   const renderContent = () => {
     if (isLoading) {
         return <ContactListSkeleton />
@@ -309,66 +370,13 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
         return <EmptyContactList onAddContact={onAddContact} />
     }
     if (filteredContacts.length > 0) {
-        return filteredContacts.map((contact) => (
-          <div
-            key={contact.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelectContact(contact.id)}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelectContact(contact.id)}
-            className={cn(
-              'flex items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50 relative group cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-              activeContactId === contact.id && 'bg-muted'
-            )}
-          >
-            <div className="relative flex-shrink-0">
-                <Avatar className="h-12 w-12">
-                    <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
-                    <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                {contact.online && (
-                   <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-500 ring-2 ring-card" />
-                )}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <div className="flex items-center justify-between">
-                <p className="truncate font-semibold text-foreground">{contact.name}</p>
-                <p className="text-xs text-muted-foreground">{formatTimestamp(contact.lastMessageTime)}</p>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <p className="truncate text-sm text-muted-foreground">{contact.isTyping ? <span className="italic text-primary">typing...</span> : contact.lastMessage}</p>
-                {contact.unreadCount > 0 && (
-                  <Badge variant="default" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full p-0">
-                    {contact.unreadCount}
-                  </Badge>
-                )}
-              </div>
-            </div>
-             {contact.id !== AI_CONTACT_ID && (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1/2 -translate-y-1/2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <MoreVertical className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenuItem
-                            onClick={(e) => handleDeleteClick(contact, e)}
-                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Delete Chat</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )}
-          </div>
-        ));
+        return (
+          <Virtuoso
+              style={{ flex: 1 }}
+              data={filteredContacts}
+              itemContent={(index, contact) => <Row index={index} data={contact} />}
+          />
+        )
     }
     return (
         <div className="p-4 text-center text-sm text-muted-foreground">
@@ -415,11 +423,10 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
         </div>
       </div>
       
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col">
-            {renderContent()}
-        </div>
-      </ScrollArea>
+      <div className="flex-1 flex flex-col">
+          {renderContent()}
+      </div>
+
        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -442,9 +449,3 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
-
-    
-
-    
-
-    
