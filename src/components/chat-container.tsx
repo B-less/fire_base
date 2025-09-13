@@ -202,7 +202,7 @@ export function ChatContainer() {
               }
           };
       }
-  }, [activeContactId, currentUser?.phoneNumber]);
+  }, [activeContactId, currentUser?.phoneNumber, messageCache]);
 
   const handleSelectContact = (contactId: string) => {
     setActiveContactId(contactId);
@@ -538,5 +538,3 @@ export function ChatContainer() {
     </div>
   );
 }
-
-    
