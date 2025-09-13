@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         off(connectedRef, 'value', listener);
       };
     }
-  }, [user?.phoneNumber]);
+  }, [user]);
 
 
   const login = (phoneNumber: string, name: string) => {
