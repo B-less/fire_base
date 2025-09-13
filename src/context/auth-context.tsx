@@ -50,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
     
-    // Register Service Worker for PWA
-    if ('serviceWorker' in navigator) {
+    // Register Service Worker for PWA, but NOT if inside Median wrapper
+    if ('serviceWorker' in navigator && typeof window.median === 'undefined') {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then(registration => {
           console.log('Service Worker registered with scope:', registration.scope);
