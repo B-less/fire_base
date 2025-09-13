@@ -49,10 +49,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
+    
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(registration => {
+          console.log('Service Worker registered with scope:', registration.scope);
+        }).catch(error => {
+          console.log('Service Worker registration failed:', error);
+        });
+      });
+    }
+
   }, []);
   
   useEffect(() => {
-    if (user?.phoneNumber) {
+    if (user) {
       const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
       const userRef = ref(db, `users/${user.phoneNumber}`);
 
