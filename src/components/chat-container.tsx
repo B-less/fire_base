@@ -202,7 +202,7 @@ export function ChatContainer() {
               }
           };
       }
-  }, [activeContactId, currentUser?.phoneNumber, messageCache]);
+  }, [activeContactId, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
     setActiveContactId(contactId);
@@ -482,7 +482,7 @@ export function ChatContainer() {
         }
       }
     }
-  }, [activeContactUser, currentChatMessages, getAIResponse, getSmartReplies, allUsers]);
+  }, [currentChatMessages, getAIResponse, getSmartReplies, allUsers, activeContactUser]);
 
 
   const NoContactsView = () => (
