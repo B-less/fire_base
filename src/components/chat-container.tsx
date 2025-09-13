@@ -62,7 +62,7 @@ export function ChatContainer() {
       const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
       const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
       
-      const listener = onValue(messagesRef, (snapshot) => {
+      const lastMsgListener = onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
           const messagesData = snapshot.val();
           const lastMsgKey = Object.keys(messagesData)[0];
@@ -87,7 +87,7 @@ export function ChatContainer() {
 
 
       return () => {
-        off(messagesRef, 'value', listener);
+        off(messagesRef, 'value', lastMsgListener);
         off(unreadRef, 'value', unreadListener);
       }
     });
@@ -156,52 +156,53 @@ export function ChatContainer() {
 
   // Listen for messages and typing status for the active conversation
   useEffect(() => {
-      if (activeContactId && currentUser?.phoneNumber) {
-          const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
-          
-          if (!messageCache[conversationKey]) {
-            setIsMessagesLoading(true);
-          }
-
-          const messagesRef = ref(db, `messages/${conversationKey}`);
-          const typingRef = activeContactId !== AI_CONTACT_ID ? ref(db, `conversations/${conversationKey}/typing/${activeContactId}`) : null;
-          
-          const messagesListener = onValue(messagesRef, (snapshot) => {
-              const messagesData = snapshot.val() || {};
-              // Update the cache for this specific conversation
-              setMessageCache(prev => ({...prev, [conversationKey]: messagesData}));
-
-              const updates: Record<string, any> = {};
-              Object.entries(messagesData).forEach(([key, message]: [string, any]) => {
-                  if (message.sender === activeContactId && message.status !== 'read') {
-                      updates[`${key}/status`] = 'read';
-                  }
-              });
-
-              if (Object.keys(updates).length > 0) {
-                  update(messagesRef, updates);
-              }
-              setIsMessagesLoading(false);
-          }, (error) => {
-              console.error(`Error fetching messages for ${conversationKey}:`, error);
-              setIsMessagesLoading(false);
-          });
-          
-          let typingListener: any;
-          if (typingRef) {
-            typingListener = onValue(typingRef, (snapshot) => {
-                const isOpponentTyping = snapshot.val() || false;
-                setTypingStatus(prev => ({ ...prev, [activeContactId]: isOpponentTyping }));
-            });
-          }
-          
-          return () => {
-              off(messagesRef, 'value', messagesListener);
-              if (typingRef && typingListener) {
-                off(typingRef, 'value', typingListener);
-              }
-          };
+      if (!activeContactId || !currentUser?.phoneNumber) return;
+      
+      const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
+      
+      if (!messageCache[conversationKey]) {
+        setIsMessagesLoading(true);
       }
+
+      const messagesRef = ref(db, `messages/${conversationKey}`);
+      const typingRef = activeContactId !== AI_CONTACT_ID ? ref(db, `conversations/${conversationKey}/typing/${activeContactId}`) : null;
+      
+      const messagesListener = onValue(messagesRef, (snapshot) => {
+          const messagesData = snapshot.val() || {};
+          // Update the cache for this specific conversation
+          setMessageCache(prev => ({...prev, [conversationKey]: messagesData}));
+
+          // Mark messages as read
+          const updates: Record<string, any> = {};
+          Object.entries(messagesData).forEach(([key, message]: [string, any]) => {
+              if (message.sender === activeContactId && message.status !== 'read') {
+                  updates[`${key}/status`] = 'read';
+              }
+          });
+
+          if (Object.keys(updates).length > 0) {
+              update(messagesRef, updates);
+          }
+          setIsMessagesLoading(false);
+      }, (error) => {
+          console.error(`Error fetching messages for ${conversationKey}:`, error);
+          setIsMessagesLoading(false);
+      });
+      
+      let typingListener: any;
+      if (typingRef) {
+        typingListener = onValue(typingRef, (snapshot) => {
+            const isOpponentTyping = snapshot.val() || false;
+            setTypingStatus(prev => ({ ...prev, [activeContactId]: isOpponentTyping }));
+        });
+      }
+      
+      return () => {
+          off(messagesRef, 'value', messagesListener);
+          if (typingRef && typingListener) {
+            off(typingRef, 'value', typingListener);
+          }
+      };
   }, [activeContactId, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
