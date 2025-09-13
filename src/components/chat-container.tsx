@@ -48,15 +48,17 @@ export function ChatContainer() {
     return () => off(usersRef, 'value', listener);
   }, [currentUser]);
 
+  const currentUserContactIds = useMemo(() => {
+    if (!currentUser?.phoneNumber || !allUsers[currentUser.phoneNumber]) return [];
+    return allUsers[currentUser.phoneNumber].contacts || [];
+  }, [currentUser?.phoneNumber, allUsers]);
+
   // Listen for the LAST message in each conversation for the contact list preview
   useEffect(() => {
-    if (!currentUser?.phoneNumber || !Object.keys(allUsers).length) return;
-
-    const currentUserData = allUsers[currentUser.phoneNumber];
-    if (!currentUserData) return;
+    if (!currentUser?.phoneNumber) return;
     
     // Combine user contacts with the static AI contact
-    const contactIds = [...(currentUserData.contacts || []), AI_CONTACT_ID];
+    const contactIds = [...currentUserContactIds, AI_CONTACT_ID];
     
     const unsubscribers = contactIds.map((contactId: string) => {
       const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
@@ -95,7 +97,7 @@ export function ChatContainer() {
     return () => {
       unsubscribers.forEach(unsubscribe => unsubscribe());
     };
-  }, [currentUser?.phoneNumber, allUsers]);
+  }, [currentUser?.phoneNumber, currentUserContactIds]);
 
   const aiChatState: Contact = useMemo(() => {
     if (!currentUser) return {} as Contact; // Should not happen if logged in
@@ -539,3 +541,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    
