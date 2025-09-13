@@ -60,33 +60,36 @@ export function ChatContainer() {
     
     const unsubscribers = contactIds.map((contactId: string) => {
       const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-      const messagesRef = ref(db, `messages/${conversationKey}`);
+      const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
       
       const listener = onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
           const messagesData = snapshot.val();
-          
-          let unread = 0;
-          let lastMsg: Message | null = null;
-          let lastTimestamp = 0;
-
-          Object.values(messagesData).forEach((msg: any) => {
-            if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read') {
-              unread++;
-            }
-             if (new Date(msg.timestamp).getTime() > lastTimestamp) {
-                lastTimestamp = new Date(msg.timestamp).getTime();
-                lastMsg = msg;
-            }
-          });
-          
-          if(lastMsg) {
-             setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
-          }
-          setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
+          const lastMsgKey = Object.keys(messagesData)[0];
+          const lastMsg = messagesData[lastMsgKey];
+          setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
         }
       });
-      return () => off(messagesRef, 'value', listener);
+      
+      const unreadRef = ref(db, `messages/${conversationKey}`);
+      const unreadListener = onValue(unreadRef, (snapshot) => {
+          if (snapshot.exists()) {
+              let unread = 0;
+              snapshot.forEach((childSnapshot) => {
+                  const msg = childSnapshot.val();
+                   if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read') {
+                      unread++;
+                   }
+              });
+              setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
+          }
+      });
+
+
+      return () => {
+        off(messagesRef, 'value', listener);
+        off(unreadRef, 'value', unreadListener);
+      }
     });
 
     return () => {
@@ -535,3 +538,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    
