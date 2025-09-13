@@ -35,69 +35,66 @@ export function ChatContainer() {
   const { toast } = useToast();
 
 
-  // Fetch all users once
-  useEffect(() => {
-    if (!currentUser) return;
-    const usersRef = ref(db, 'users');
-    const listener = onValue(usersRef, (snapshot) => {
-      const usersData = snapshot.val() || {};
-      setAllUsers(usersData);
-    }, (error) => {
-      console.error("Error fetching users:", error);
-    });
-    return () => off(usersRef, 'value', listener);
-  }, [currentUser]);
-
-  const currentUserContactIds = useMemo(() => {
-    if (!currentUser?.phoneNumber || !allUsers[currentUser.phoneNumber]) return [];
-    return allUsers[currentUser.phoneNumber].contacts || [];
-  }, [currentUser?.phoneNumber, allUsers]);
-
-  // Listen for the LAST message in each conversation for the contact list preview
+  // Fetch all users and set up listeners for last messages
   useEffect(() => {
     if (!currentUser?.phoneNumber) return;
-    
-    // Combine user contacts with the static AI contact
-    const contactIds = [...currentUserContactIds, AI_CONTACT_ID];
-    
-    const unsubscribers = contactIds.map((contactId: string) => {
-      const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-      const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
-      
-      const lastMsgListener = onValue(messagesRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const messagesData = snapshot.val();
-          const lastMsgKey = Object.keys(messagesData)[0];
-          const lastMsg = messagesData[lastMsgKey];
-          setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
-        }
-      });
-      
-      const unreadRef = ref(db, `messages/${conversationKey}`);
-      const unreadListener = onValue(unreadRef, (snapshot) => {
-          if (snapshot.exists()) {
-              let unread = 0;
-              snapshot.forEach((childSnapshot) => {
-                  const msg = childSnapshot.val();
-                   if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read') {
-                      unread++;
-                   }
-              });
-              setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
-          }
-      });
 
+    setIsLoading(true);
+    const usersRef = ref(db, 'users');
+    
+    const usersListener = onValue(usersRef, (snapshot) => {
+        const usersData = snapshot.val() || {};
+        setAllUsers(usersData);
 
-      return () => {
-        off(messagesRef, 'value', lastMsgListener);
-        off(unreadRef, 'value', unreadListener);
-      }
+        const currentUserContacts = usersData[currentUser.phoneNumber]?.contacts || [];
+        const contactIds = [...currentUserContacts, AI_CONTACT_ID];
+        
+        const lastMsgUnsubscribers = contactIds.map((contactId: string) => {
+          const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
+          const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
+          
+          return onValue(messagesRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const messagesData = snapshot.val();
+              const lastMsgKey = Object.keys(messagesData)[0];
+              const lastMsg = messagesData[lastMsgKey];
+              setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
+            }
+          });
+        });
+
+        const unreadUnsubscribers = contactIds.map((contactId: string) => {
+            const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
+            const unreadRef = ref(db, `messages/${conversationKey}`);
+            return onValue(unreadRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    let unread = 0;
+                    snapshot.forEach((childSnapshot) => {
+                        const msg = childSnapshot.val();
+                         if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read') {
+                            unread++;
+                         }
+                    });
+                    setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
+                }
+            });
+        });
+
+        setIsLoading(false);
+
+        return () => {
+          lastMsgUnsubscribers.forEach(unsubscribe => unsubscribe());
+          unreadUnsubscribers.forEach(unsubscribe => unsubscribe());
+        };
+
+    }, (error) => {
+      console.error("Error fetching users:", error);
+      setIsLoading(false);
     });
 
-    return () => {
-      unsubscribers.forEach(unsubscribe => unsubscribe());
-    };
-  }, [currentUser?.phoneNumber, currentUserContactIds]);
+    return () => off(usersRef, 'value', usersListener);
+  }, [currentUser?.phoneNumber]);
+
 
   const aiChatState: Contact = useMemo(() => {
     if (!currentUser) return {} as Contact; // Should not happen if logged in
@@ -147,13 +144,6 @@ export function ChatContainer() {
       })
       .filter((c): c is Contact => c !== null);
   }, [currentUser?.phoneNumber, allUsers, lastMessages, typingStatus, unreadCounts]);
-
-
-  useEffect(() => {
-    if (currentUser && Object.keys(allUsers).length > 0) {
-        setIsLoading(false);
-    }
-  }, [currentUser, allUsers]);
 
 
   // Listen for messages and typing status for the active conversation
@@ -357,8 +347,7 @@ export function ChatContainer() {
         status: 'read',
       };
       
-      const newMessageRef = push(messagesRef);
-      await set(newMessageRef, aiMessage);
+      const newMessageRef = push(messagesRef, aiMessage);
       
     } catch (error) {
       console.error('Error getting AI response:', error);
@@ -541,5 +530,3 @@ export function ChatContainer() {
     </div>
   );
 }
-
-    
