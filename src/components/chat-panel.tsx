@@ -49,42 +49,47 @@ export function ChatPanel({
     setInputText('');
     setSmartReplies([]);
     
-    let messageRef: ThenableReference | undefined;
-    if (isAIChat) {
-      onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
-    } else {
-      messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true);
-      if (!messageRef || !messageRef.key) {
-          toast({
-              title: "Error",
-              description: "Could not send message. Please try again.",
-              variant: "destructive",
-          });
-          return;
-      }
-    }
-    const messageDbKey = messageRef?.key;
+    const messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
     
-    try {
-      const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
-      if(messageDbKey) {
-        onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
-      } else if (isAIChat) {
-        onSendMessage(prompt, result.imageUrl, false);
-      }
-    } catch (error) {
-      console.error("Error generating image:", error);
-      const failMessage = `Failed to generate image for prompt: "${prompt}"`;
-      if(messageDbKey){
-         onUpdateMessage(messageDbKey, failMessage, baseImage, false);
-      } else if (isAIChat) {
-        onSendMessage(failMessage, undefined, false);
-      }
-      toast({
-        title: "Image Generation Failed",
-        description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
-        variant: "destructive",
-      });
+    if (!isAIChat) {
+        if (!messageRef || !messageRef.key) {
+            toast({
+                title: "Error",
+                description: "Could not send message. Please try again.",
+                variant: "destructive",
+            });
+            return;
+        }
+        
+        const messageDbKey = messageRef.key;
+        
+        try {
+          const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
+          onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
+        } catch (error) {
+          console.error("Error generating image:", error);
+          const failMessage = `Failed to generate image for prompt: "${prompt}"`;
+          onUpdateMessage(messageDbKey, failMessage, baseImage, false);
+          toast({
+            title: "Image Generation Failed",
+            description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
+            variant: "destructive",
+          });
+        }
+    } else {
+        // For AI chat, the flow handles the updates internally
+        try {
+            const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
+            onSendMessage(prompt, result.imageUrl, false);
+        } catch (error) {
+            console.error("Error generating image:", error);
+            onSendMessage(`Failed to generate image for prompt: "${prompt}"`, undefined, false);
+            toast({
+                title: "Image Generation Failed",
+                description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
+                variant: "destructive",
+            });
+        }
     }
   }
 
@@ -92,11 +97,9 @@ export function ChatPanel({
     setInputText('');
     setSmartReplies([]);
     
-    let messageRef: ThenableReference | undefined;
-    if (isAIChat) {
-      onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true)
-    } else {
-       messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
+    const messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
+
+    if (!isAIChat) {
        if (!messageRef || !messageRef.key) {
         toast({
             title: "Error",
@@ -105,29 +108,36 @@ export function ChatPanel({
         });
         return;
       }
-    }
-    const messageDbKey = messageRef?.key;
-    
-    try {
-      const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
-      if(messageDbKey) {
+      
+      const messageDbKey = messageRef.key;
+      
+      try {
+        const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
         onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
-      } else if (isAIChat) {
-        onSendMessage(prompt, result.videoUrl, false);
-      }
-    } catch (error) {
-      console.error("Error generating video:", error);
-      const failMessage = `Failed to generate video for prompt: "${prompt}"`;
-      if(messageDbKey){
+      } catch (error) {
+        console.error("Error generating video:", error);
+        const failMessage = `Failed to generate video for prompt: "${prompt}"`;
         onUpdateMessage(messageDbKey, failMessage, baseMedia, false);
-      } else if (isAIChat) {
-        onSendMessage(failMessage, undefined, false);
+        toast({
+          title: "Video Generation Failed",
+          description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
+          variant: "destructive",
+        });
       }
-      toast({
-        title: "Video Generation Failed",
-        description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
-        variant: "destructive",
-      });
+    } else {
+        // For AI chat, the flow handles the updates internally
+        try {
+            const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
+            onSendMessage(prompt, result.videoUrl, false);
+        } catch (error) {
+            console.error("Error generating video:", error);
+            onSendMessage(`Failed to generate video for prompt: "${prompt}"`, undefined, false);
+            toast({
+                title: "Video Generation Failed",
+                description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
+                variant: "destructive",
+            });
+        }
     }
   }
 
@@ -206,4 +216,3 @@ export function ChatPanel({
   );
 }
 
-    
