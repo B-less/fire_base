@@ -88,6 +88,8 @@ export function ChatContainer() {
                       }
                 });
                 setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
+            } else {
+                setUnreadCounts(prev => ({ ...prev, [conversationKey]: 0 }));
             }
         });
     });
@@ -198,7 +200,7 @@ export function ChatContainer() {
             off(typingRef, 'value', typingListener);
           }
       };
-  }, [activeContactId, currentUser?.phoneNumber]);
+  }, [activeContactId, currentUser?.phoneNumber, messageCache]);
 
   const handleSelectContact = (contactId: string) => {
     setActiveContactId(contactId);
