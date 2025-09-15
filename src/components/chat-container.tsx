@@ -41,59 +41,54 @@ export function ChatContainer() {
 
     setIsLoading(true);
     const usersRef = ref(db, 'users');
+    const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
     
     const usersListener = onValue(usersRef, (snapshot) => {
         const usersData = snapshot.val() || {};
         setAllUsers(usersData);
-
-        const currentUserContacts = usersData[currentUser.phoneNumber]?.contacts || [];
-        const contactIds = [...currentUserContacts, AI_CONTACT_ID];
-        
-        const lastMsgUnsubscribers = contactIds.map((contactId: string) => {
-          const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-          const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
-          
-          return onValue(messagesRef, (snapshot) => {
-            if (snapshot.exists()) {
-              const messagesData = snapshot.val();
-              const lastMsgKey = Object.keys(messagesData)[0];
-              const lastMsg = messagesData[lastMsgKey];
-              setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
-            }
-          });
-        });
-
-        const unreadUnsubscribers = contactIds.map((contactId: string) => {
-            const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-            const unreadRef = ref(db, `messages/${conversationKey}`);
-            return onValue(unreadRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    let unread = 0;
-                    snapshot.forEach((childSnapshot) => {
-                        const msg = childSnapshot.val();
-                         if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read') {
-                            unread++;
-                         }
-                    });
-                    setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
-                }
-            });
-        });
-
-        setIsLoading(false);
-
-        return () => {
-          lastMsgUnsubscribers.forEach(unsubscribe => unsubscribe());
-          unreadUnsubscribers.forEach(unsubscribe => unsubscribe());
-        };
-
-    }, (error) => {
-      console.error("Error fetching users:", error);
-      setIsLoading(false);
+    });
+    
+    const contactIds = [...currentUserContacts, AI_CONTACT_ID];
+    
+    const lastMsgUnsubscribers = contactIds.map((contactId: string) => {
+      const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
+      const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
+      
+      return onValue(messagesRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const messagesData = snapshot.val();
+          const lastMsgKey = Object.keys(messagesData)[0];
+          const lastMsg = messagesData[lastMsgKey];
+          setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
+        }
+      });
     });
 
-    return () => off(usersRef, 'value', usersListener);
-  }, [currentUser?.phoneNumber]);
+    const unreadUnsubscribers = contactIds.map((contactId: string) => {
+        const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
+        const unreadRef = ref(db, `messages/${conversationKey}`);
+        return onValue(unreadRef, (snapshot) => {
+            if (snapshot.exists()) {
+                let unread = 0;
+                snapshot.forEach((childSnapshot) => {
+                    const msg = childSnapshot.val();
+                      if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read' && !msg.isGenerating) {
+                        unread++;
+                      }
+                });
+                setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
+            }
+        });
+    });
+
+    setIsLoading(false);
+
+    return () => {
+      off(usersRef, 'value', usersListener);
+      lastMsgUnsubscribers.forEach(unsubscribe => unsubscribe());
+      unreadUnsubscribers.forEach(unsubscribe => unsubscribe());
+    };
+  }, [currentUser?.phoneNumber, allUsers[currentUser?.phoneNumber as string]?.contacts]);
 
 
   const aiChatState: Contact = useMemo(() => {
