@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Contact, Message, User } from '@/lib/types';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
@@ -23,6 +24,7 @@ const getConversationKey = (user1: string, user2: string) => {
 
 export function ChatContainer() {
   const { user: currentUser } = useAuth();
+  const router = useRouter();
   const [allUsers, setAllUsers] = useState<Record<string, User>>({});
   const [lastMessages, setLastMessages] = useState<Record<string, Message>>({});
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
@@ -41,13 +43,22 @@ export function ChatContainer() {
 
     setIsLoading(true);
     const usersRef = ref(db, 'users');
-    const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
     
     const usersListener = onValue(usersRef, (snapshot) => {
         const usersData = snapshot.val() || {};
         setAllUsers(usersData);
+        setIsLoading(false);
     });
+
+    return () => {
+      off(usersRef, 'value', usersListener);
+    };
+  }, [currentUser?.phoneNumber]);
+
+  useEffect(() => {
+    if (!currentUser?.phoneNumber) return;
     
+    const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
     const contactIds = [...currentUserContacts, AI_CONTACT_ID];
     
     const lastMsgUnsubscribers = contactIds.map((contactId: string) => {
@@ -81,10 +92,7 @@ export function ChatContainer() {
         });
     });
 
-    setIsLoading(false);
-
     return () => {
-      off(usersRef, 'value', usersListener);
       lastMsgUnsubscribers.forEach(unsubscribe => unsubscribe());
       unreadUnsubscribers.forEach(unsubscribe => unsubscribe());
     };
@@ -226,6 +234,10 @@ export function ChatContainer() {
   
   const handleBackToContacts = () => {
     setActiveContactId(null);
+  };
+
+  const handleShowSettings = () => {
+    router.push('/?page=settings');
   };
   
    const handleDeleteContact = async (contactId: string) => {
@@ -496,6 +508,7 @@ export function ChatContainer() {
           onSelectContact={handleSelectContact}
           onAddContact={handleAddContact}
           onDeleteContact={handleDeleteContact}
+          onShowSettings={handleShowSettings}
           isLoading={isLoading}
         />
       </aside>

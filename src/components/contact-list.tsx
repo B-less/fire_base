@@ -2,7 +2,6 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import Link from 'next/link';
 import { Search, Plus, Bot, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -74,6 +73,7 @@ interface ContactListProps {
   onSelectContact: (id: string) => void;
   onAddContact: (user: User) => void;
   onDeleteContact: (id: string) => void;
+  onShowSettings: () => void;
   isLoading: boolean;
 }
 
@@ -247,7 +247,7 @@ const formatTimestamp = (isoString: string) => {
 }
 
 
-export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onDeleteContact, isLoading }: ContactListProps) {
+export function ContactList({ contacts, activeContactId, onSelectContact, onAddContact, onDeleteContact, onShowSettings, isLoading }: ContactListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -399,11 +399,9 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
             <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Link href="/?page=settings">
-                      <Button variant="ghost" size="icon">
-                          <Settings className="h-5 w-5" />
-                      </Button>
-                    </Link>
+                    <Button variant="ghost" size="icon" onClick={onShowSettings}>
+                        <Settings className="h-5 w-5" />
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Settings</p>
