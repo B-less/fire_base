@@ -56,7 +56,7 @@ export function ChatContainer() {
   }, [currentUser?.phoneNumber]);
 
   useEffect(() => {
-    if (!currentUser?.phoneNumber) return;
+    if (!currentUser?.phoneNumber || !allUsers[currentUser.phoneNumber]?.contacts) return;
     
     const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
     const contactIds = [...currentUserContacts, AI_CONTACT_ID];
@@ -98,7 +98,7 @@ export function ChatContainer() {
       lastMsgUnsubscribers.forEach(unsubscribe => unsubscribe());
       unreadUnsubscribers.forEach(unsubscribe => unsubscribe());
     };
-  }, [currentUser?.phoneNumber, allUsers[currentUser?.phoneNumber as string]?.contacts]);
+  }, [currentUser?.phoneNumber, allUsers[currentUser.phoneNumber as string]?.contacts]);
 
 
   const aiChatState: Contact = useMemo(() => {
@@ -200,7 +200,7 @@ export function ChatContainer() {
             off(typingRef, 'value', typingListener);
           }
       };
-  }, [activeContactId, currentUser?.phoneNumber, messageCache]);
+  }, [activeContactId, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
     setActiveContactId(contactId);
@@ -540,3 +540,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    
