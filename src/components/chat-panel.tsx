@@ -49,35 +49,8 @@ export function ChatPanel({
     setInputText('');
     setSmartReplies([]);
     
-    const messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
-    
-    if (!isAIChat) {
-        if (!messageRef || !messageRef.key) {
-            toast({
-                title: "Error",
-                description: "Could not send message. Please try again.",
-                variant: "destructive",
-            });
-            return;
-        }
-        
-        const messageDbKey = messageRef.key;
-        
-        try {
-          const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
-          onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
-        } catch (error) {
-          console.error("Error generating image:", error);
-          const failMessage = `Failed to generate image for prompt: "${prompt}"`;
-          onUpdateMessage(messageDbKey, failMessage, baseImage, false);
-          toast({
-            title: "Image Generation Failed",
-            description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
-            variant: "destructive",
-          });
-        }
-    } else {
-        // For AI chat, the flow handles the updates internally
+    // For AI chat, the flow handles the updates internally
+    if (isAIChat) {
         try {
             const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
             onSendMessage(prompt, result.imageUrl, false);
@@ -90,6 +63,34 @@ export function ChatPanel({
                 variant: "destructive",
             });
         }
+        return;
+    }
+    
+    // For regular chats, we create a temporary message and update it
+    const messageRef = onSendMessage(`Generating image: "${prompt}"...`, baseImage, true)
+    if (!messageRef || !messageRef.key) {
+        toast({
+            title: "Error",
+            description: "Could not send message. Please try again.",
+            variant: "destructive",
+        });
+        return;
+    }
+    
+    const messageDbKey = messageRef.key;
+    
+    try {
+      const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
+      onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
+    } catch (error) {
+      console.error("Error generating image:", error);
+      const failMessage = `Failed to generate image for prompt: "${prompt}"`;
+      onUpdateMessage(messageDbKey, failMessage, baseImage, false);
+      toast({
+        title: "Image Generation Failed",
+        description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -97,35 +98,8 @@ export function ChatPanel({
     setInputText('');
     setSmartReplies([]);
     
-    const messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
-
-    if (!isAIChat) {
-       if (!messageRef || !messageRef.key) {
-        toast({
-            title: "Error",
-            description: "Could not send message. Please try again.",
-            variant: "destructive",
-        });
-        return;
-      }
-      
-      const messageDbKey = messageRef.key;
-      
-      try {
-        const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
-        onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
-      } catch (error) {
-        console.error("Error generating video:", error);
-        const failMessage = `Failed to generate video for prompt: "${prompt}"`;
-        onUpdateMessage(messageDbKey, failMessage, baseMedia, false);
-        toast({
-          title: "Video Generation Failed",
-          description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
-          variant: "destructive",
-        });
-      }
-    } else {
-        // For AI chat, the flow handles the updates internally
+    // For AI chat, the flow handles the updates internally
+    if (isAIChat) {
         try {
             const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
             onSendMessage(prompt, result.videoUrl, false);
@@ -138,6 +112,34 @@ export function ChatPanel({
                 variant: "destructive",
             });
         }
+        return;
+    }
+    
+    // For regular chats, create a temp message
+    const messageRef = onSendMessage(`Generating video: "${prompt}"...`, baseMedia, true);
+    if (!messageRef || !messageRef.key) {
+      toast({
+          title: "Error",
+          description: "Could not send message. Please try again.",
+          variant: "destructive",
+      });
+      return;
+    }
+    
+    const messageDbKey = messageRef.key;
+    
+    try {
+      const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
+      onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
+    } catch (error) {
+      console.error("Error generating video:", error);
+      const failMessage = `Failed to generate video for prompt: "${prompt}"`;
+      onUpdateMessage(messageDbKey, failMessage, baseMedia, false);
+      toast({
+        title: "Video Generation Failed",
+        description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -215,4 +217,3 @@ export function ChatPanel({
     </div>
   );
 }
-
