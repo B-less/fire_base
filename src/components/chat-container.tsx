@@ -56,7 +56,7 @@ export function ChatContainer() {
   }, [currentUser?.phoneNumber]);
 
   useEffect(() => {
-    if (!currentUser?.phoneNumber || !allUsers[currentUser.phoneNumber]?.contacts) return;
+    if (!currentUser?.phoneNumber || !allUsers[currentUser.phoneNumber]) return;
     
     const currentUserContacts = allUsers[currentUser.phoneNumber]?.contacts || [];
     const contactIds = [...currentUserContacts, AI_CONTACT_ID];
@@ -540,5 +540,3 @@ export function ChatContainer() {
     </div>
   );
 }
-
-    
