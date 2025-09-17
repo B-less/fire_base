@@ -44,12 +44,6 @@ export default function LoginPage() {
         return;
     }
 
-    if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
-        toast({ title: "Invalid Phone Number Format", variant: "destructive" });
-        setIsLoading(false);
-        return;
-    }
-
     const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
 
     try {
