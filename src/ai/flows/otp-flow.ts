@@ -62,8 +62,7 @@ const sendOtpFlow = ai.defineFlow(
     try {
       const result = await sms.send({
         to: [phoneNumber],
-        message: `Your ChirpChat verification code is: ${otp}. It will expire in 5 minutes.`,
-        from: 'CHIRPCHAT' 
+        message: `Your ChirpChat verification code is: ${otp}. It will expire in 5 minutes.`
       });
 
       if (result.SMSMessageData.Recipients.every((r: any) => r.statusCode === 101)) {
