@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -13,70 +12,19 @@ import { Flame, Loader2 } from 'lucide-react';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
-import { ref, get, child } from "firebase/database";
+import { sendOtp, verifyOtp } from '@/ai/flows/otp-flow';
 
+type LoginStep = 'phone' | 'otp';
 
 export default function LoginPage() {
+  const [step, setStep] = useState<LoginStep>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
   const { toast } = useToast();
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    const trimmedPhoneNumber = phoneNumber.trim();
-
-    if (!trimmedPhoneNumber) {
-        toast({
-            title: "Phone Number Required",
-            description: "Please enter your phone number.",
-            variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-    }
-
-    if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
-        toast({
-            title: "Invalid Phone Number",
-            description: `Please enter a valid ${country.name} phone number format.`,
-            variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-    }
-
-    const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
-    
-    try {
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, `users/${fullPhoneNumber}`));
-      
-      if (snapshot.exists()) {
-        login(fullPhoneNumber, snapshot.val().name);
-        router.push('/');
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "This phone number is not registered. Please sign up first.",
-          variant: "destructive",
-        })
-      }
-    } catch (error: any) {
-       toast({
-          title: "Error",
-          description: error.message || "An error occurred during login. Please try again.",
-          variant: "destructive",
-        })
-        console.error("Login error:", error);
-    } finally {
-        setIsLoading(false);
-    }
-  };
 
   const handleCountryChange = (value: string) => {
     const selectedCountry = countries.find(c => c.code === value);
@@ -84,6 +32,144 @@ export default function LoginPage() {
       setCountry(selectedCountry);
     }
   };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    const trimmedPhoneNumber = phoneNumber.trim();
+
+    if (!trimmedPhoneNumber) {
+        toast({ title: "Phone Number Required", variant: "destructive" });
+        setIsLoading(false);
+        return;
+    }
+
+    if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
+        toast({ title: "Invalid Phone Number Format", variant: "destructive" });
+        setIsLoading(false);
+        return;
+    }
+
+    const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
+
+    try {
+        const result = await sendOtp({ phoneNumber: fullPhoneNumber });
+        if (result.success) {
+            toast({ title: "OTP Sent", description: "A verification code has been sent to your phone." });
+            setStep('otp');
+        } else {
+            toast({ title: "Failed to Send OTP", description: result.message, variant: "destructive" });
+        }
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message || "An unknown error occurred.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    if (otp.length !== 6) {
+        toast({ title: "Invalid OTP", description: "Please enter the 6-digit code.", variant: "destructive" });
+        setIsLoading(false);
+        return;
+    }
+
+    const fullPhoneNumber = `${country.dial_code}${phoneNumber.trim()}`;
+    
+    try {
+      const result = await verifyOtp({ phoneNumber: fullPhoneNumber, otp });
+
+      if (result.success && result.user) {
+        toast({ title: "Login Successful", description: "Welcome to ChirpChat!" });
+        login(result.user.phoneNumber, result.user.name);
+        router.push('/');
+      } else {
+        toast({ title: "Login Failed", description: result.message, variant: "destructive" });
+      }
+    } catch (error: any) {
+       toast({ title: "Error", description: error.message || "An error occurred during verification.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+  
+  const handleBack = () => {
+    setStep('phone');
+    setOtp('');
+  }
+
+  const renderPhoneStep = () => (
+    <form onSubmit={handleSendOtp} className="space-y-4">
+        <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <div className="flex gap-2">
+                <Select value={country.code} onValueChange={handleCountryChange}>
+                <SelectTrigger className="w-[120px]">
+                    <SelectValue>
+                    <span className="flex items-center gap-2">
+                        <span>{country.flag}</span>
+                        <span>{country.dial_code}</span>
+                    </span>
+                    </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                    {countries.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                        <span className="flex items-center gap-2">
+                        <span>{c.flag}</span>
+                        <span>{c.name} ({c.dial_code})</span>
+                        </span>
+                    </SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+                <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    required
+                    className="flex-1"
+                />
+            </div>
+        </div>
+        <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading ? 'Sending Code...' : 'Send Code'}
+        </Button>
+    </form>
+  );
+
+  const renderOtpStep = () => (
+     <form onSubmit={handleVerifyOtp} className="space-y-4">
+        <div className="space-y-2">
+            <Label htmlFor="otp">Verification Code</Label>
+            <Input
+                id="otp"
+                type="text"
+                maxLength={6}
+                placeholder="Enter 6-digit code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                required
+                className="text-center text-lg tracking-[0.5em]"
+            />
+        </div>
+        <div className="flex flex-col gap-2">
+            <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isLoading ? 'Verifying...' : 'Verify & Sign In'}
+            </Button>
+            <Button variant="link" size="sm" onClick={handleBack} className="text-muted-foreground">
+                Back
+            </Button>
+        </div>
+    </form>
+  );
 
   return (
     <main className="flex h-screen w-full items-center justify-center bg-background p-4">
@@ -94,62 +180,20 @@ export default function LoginPage() {
                 <Flame className="h-8 w-8 text-primary-foreground" />
              </div>
           </div>
-          <CardTitle className="text-2xl">Welcome Back!</CardTitle>
-          <CardDescription>Sign in with your phone number to continue.</CardDescription>
+          <CardTitle className="text-2xl">
+            {step === 'phone' ? 'Welcome!' : 'Enter Code'}
+            </CardTitle>
+          <CardDescription>
+            {step === 'phone' ? 'Sign in or create an account with your phone number.' : `We sent a code to ${country.dial_code}${phoneNumber}`}
+            </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <div className="flex gap-2">
-                 <Select value={country.code} onValueChange={handleCountryChange}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue>
-                        <span className="flex items-center gap-2">
-                          <span>{country.flag}</span>
-                          <span>{country.dial_code}</span>
-                        </span>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          <span className="flex items-center gap-2">
-                            <span>{c.flag}</span>
-                            <span>{c.name} ({c.dial_code})</span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="Enter your number"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  required
-                  className="flex-1"
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLoading ? 'Signing In...' : 'Sign In'}
-            </Button>
-          </form>
+            {step === 'phone' ? renderPhoneStep() : renderOtpStep()}
         </CardContent>
-         <CardFooter className="flex-col items-center justify-center text-sm">
-            <p className="text-muted-foreground">
-              Don't have an account?{' '}
-              <Link href="/register" className="font-semibold text-primary underline-offset-4 hover:underline">
-                Sign up
-              </Link>
-            </p>
+        <CardFooter className="flex-col items-center justify-center text-xs text-center text-muted-foreground pt-4">
+             <p>By continuing, you agree to our Terms of Service and Privacy Policy.</p>
         </CardFooter>
       </Card>
     </main>
   );
 }
-
-    
