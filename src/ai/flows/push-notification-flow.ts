@@ -61,7 +61,6 @@ const sendPushNotificationFlow = ai.defineFlow(
         notification: {
           title: `New message from ${senderName}`,
           body: message || "Sent an image",
-          icon: '/icon-192x192.png',
         },
         token: recipientToken,
       };
