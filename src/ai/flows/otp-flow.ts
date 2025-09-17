@@ -96,7 +96,7 @@ export type VerifyOtpInput = z.infer<typeof VerifyOtpInputSchema>;
 const VerifyOtpOutputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
-  user?: z.any()
+  user: z.any().optional(),
 });
 export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
 
