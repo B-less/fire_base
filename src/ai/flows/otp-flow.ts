@@ -110,12 +110,14 @@ const verifyOtpFlow = ai.defineFlow({
     outputSchema: VerifyOtpOutputSchema,
 }, async ({ phoneNumber, otp }) => {
     const otpRef = ref(db, `otps/${phoneNumber}`);
-    const otpData = (await get(otpRef)).val();
+    const otpDataSnapshot = await get(otpRef);
 
     // 1. Check if OTP record exists
-    if (!otpData) {
+    if (!otpDataSnapshot.exists()) {
         return { success: false, message: 'Invalid or expired OTP. Please try again.' };
     }
+    
+    const otpData = otpDataSnapshot.val();
 
     // 2. Check for expiry
     if (otpData.expires < Date.now()) {
@@ -127,6 +129,7 @@ const verifyOtpFlow = ai.defineFlow({
     const isValid = await bcrypt.compare(otp, otpData.hashedOtp);
 
     if (!isValid) {
+        // Do not clean up immediately, to prevent attackers from discovering valid phone numbers
         return { success: false, message: 'The OTP entered is incorrect.' };
     }
 
@@ -173,7 +176,8 @@ const cleanupExpiredOtpsFlow = ai.defineFlow(
         }
       });
       if(Object.keys(updates).length > 0) {
-        await set(ref(db, 'otps'), updates);
+        // Using update instead of set to remove multiple children at once
+        await update(ref(db, 'otps'), updates);
         console.log(`Cleaned up ${Object.keys(updates).length} expired OTPs.`);
       }
     }
