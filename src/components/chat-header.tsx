@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, MoreVertical, Phone, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, User as UserIcon, Loader2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -29,20 +29,24 @@ const AI_CONTACT_ID = 'ai-assistant';
 export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [contactUser, setContactUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const { user: currentUser } = useAuth();
   
   const isAiAssistant = contactId === AI_CONTACT_ID;
 
   useEffect(() => {
     if (isAiAssistant || !contactId) {
+        setIsLoading(false);
         return;
     };
 
+    setIsLoading(true);
     const userRef = ref(db, `users/${contactId}`);
     const listener = onValue(userRef, (snapshot) => {
         if(snapshot.exists()) {
             setContactUser({ ...snapshot.val(), phoneNumber: contactId });
         }
+        setIsLoading(false);
     });
 
     return () => off(userRef, 'value', listener);
@@ -76,14 +80,37 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
   }, [contactUser, contactId, isAiAssistant]);
 
 
-  if (!contact) {
-    // Render a skeleton or loading state
+  if (isLoading) {
     return (
        <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
          <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
               <ArrowLeft className="h-5 w-5" />
             </Button>
+            <div className="flex items-center gap-3">
+                <div className="relative flex-shrink-0">
+                    <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+                </div>
+                <div>
+                    <div className="h-4 w-24 rounded-md bg-muted animate-pulse mb-1" />
+                    <div className="h-3 w-16 rounded-md bg-muted animate-pulse" />
+                </div>
+            </div>
+         </div>
+         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+       </div>
+    )
+  }
+
+  if (!contact) {
+    // Render a minimal state if contact not found after loading
+    return (
+       <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
+         <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <p className="text-muted-foreground">Chat not found</p>
          </div>
        </div>
     )

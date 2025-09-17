@@ -46,17 +46,23 @@ function MessageListSkeleton() {
 export function MessageList({ messages, contactId, onImagine, onDelete, isLoading = false }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [contactUser, setContactUser] = useState<User | null>(null);
+  const [isContactLoading, setIsContactLoading] = useState(true);
 
   const isAiAssistant = contactId === AI_CONTACT_ID;
 
   useEffect(() => {
-    if (isAiAssistant || !contactId) return;
+    if (isAiAssistant || !contactId) {
+        setIsContactLoading(false);
+        return;
+    }
 
+    setIsContactLoading(true);
     const userRef = ref(db, `users/${contactId}`);
     const listener = onValue(userRef, (snapshot) => {
         if(snapshot.exists()) {
             setContactUser({ ...snapshot.val(), phoneNumber: contactId });
         }
+        setIsContactLoading(false);
     });
 
     return () => off(userRef, 'value', listener);
@@ -77,9 +83,11 @@ export function MessageList({ messages, contactId, onImagine, onDelete, isLoadin
     }
   }, [messages]);
 
+  const combinedLoading = isLoading || (isContactLoading && !isAiAssistant);
+
   return (
     <ScrollArea className="flex-1" ref={scrollAreaRef}>
-      {isLoading ? (
+      {combinedLoading ? (
         <MessageListSkeleton />
       ) : (
         <div className="p-4 space-y-4">
