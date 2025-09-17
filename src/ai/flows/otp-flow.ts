@@ -130,8 +130,6 @@ const verifyOtpFlow = ai.defineFlow({
     const isValid = await bcrypt.compare(otp, otpData.hashedOtp);
 
     if (!isValid) {
-        // To prevent attackers discovering valid phone numbers, don't remove immediately on wrong OTP.
-        // But for a better user experience on a single device, we can remove it.
         await remove(otpRef);
         return { success: false, message: 'The OTP entered is incorrect.' };
     }
