@@ -10,7 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { ref, set, get, remove } from 'firebase/database';
+import { ref, set, get, remove, update } from 'firebase/database';
 import { db } from '@/lib/firebase';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -65,7 +65,8 @@ const sendOtpFlow = ai.defineFlow(
         message: `Your ChirpChat verification code is: ${otp}. It will expire in 5 minutes.`
       });
 
-      if (result.SMSMessageData.Recipients.every((r: any) => r.statusCode === 101)) {
+      // Check if the status code for all recipients indicates success (less than 200)
+      if (result.SMSMessageData.Recipients.every((r: any) => r.statusCode < 200)) {
          // 4. Save OTP to database
         await set(otpRef, {
             hashedOtp,
@@ -129,7 +130,9 @@ const verifyOtpFlow = ai.defineFlow({
     const isValid = await bcrypt.compare(otp, otpData.hashedOtp);
 
     if (!isValid) {
-        // Do not clean up immediately, to prevent attackers from discovering valid phone numbers
+        // To prevent attackers discovering valid phone numbers, don't remove immediately on wrong OTP.
+        // But for a better user experience on a single device, we can remove it.
+        await remove(otpRef);
         return { success: false, message: 'The OTP entered is incorrect.' };
     }
 
