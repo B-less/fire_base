@@ -8,7 +8,7 @@ import type { User, Message, AIUsageLog, AllMessages, UserAccountStatus } from '
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User as UserIcon, Loader2, Send, Bot, ShieldBan, ShieldOff, MoreVertical } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, Loader2, Send, Bot, ShieldBan, ShieldOff, MoreVertical, ShieldCheck } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -174,14 +174,26 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         }
     };
     
-    const handleChangeUserStatus = async (phoneNumber: string, newStatus: UserAccountStatus) => {
+    const handleChangeUserStatus = async (newStatus: UserAccountStatus) => {
+        const selectedPhoneNumbers = Object.keys(selectedUsers).filter(key => selectedUsers[key]);
+         if (selectedPhoneNumbers.length === 0) {
+            toast({ title: "No users selected", description: "Please select users to apply this action.", variant: "destructive" });
+            return;
+        }
+
         try {
-            const userStatusRef = ref(db, `users/${phoneNumber}/status/account`);
-            await set(userStatusRef, newStatus);
-            toast({ title: "User Status Updated", description: `User has been ${newStatus}.` });
+            const updates: Record<string, UserAccountStatus> = {};
+            selectedPhoneNumbers.forEach(phoneNumber => {
+                updates[`users/${phoneNumber}/status/account`] = newStatus;
+            });
+
+            await update(ref(db), updates);
+            
+            toast({ title: "User Status Updated", description: `${selectedPhoneNumbers.length} user(s) have been ${newStatus}.` });
+            setSelectedUsers({});
         } catch (error) {
             console.error("Error updating user status:", error);
-            toast({ title: "Update Error", description: "Could not update the user's status.", variant: "destructive" });
+            toast({ title: "Update Error", description: "Could not update user statuses.", variant: "destructive" });
         }
     };
 
@@ -358,7 +370,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                             {users.map((user) => {
                                 const status = user.status?.account || 'active';
                                 return (
-                                <div key={user.phoneNumber} className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50">
+                                <div key={user.phoneNumber} className={cn("flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50", selectedUsers[user.phoneNumber] && 'bg-muted/80 ring-2 ring-primary')}>
                                     <Checkbox 
                                         id={user.phoneNumber}
                                         checked={!!selectedUsers[user.phoneNumber]}
@@ -384,33 +396,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                                          <Badge variant={accountStatusVariant[status]} className="capitalize w-20 justify-center">
                                             {status}
                                         </Badge>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                {status !== 'banned' && (
-                                                    <DropdownMenuItem onClick={() => handleChangeUserStatus(user.phoneNumber, 'banned')} className="text-destructive focus:text-destructive">
-                                                        <ShieldBan className="mr-2 h-4 w-4" />
-                                                        Ban User
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {status !== 'disabled' && (
-                                                    <DropdownMenuItem onClick={() => handleChangeUserStatus(user.phoneNumber, 'disabled')}>
-                                                        <ShieldOff className="mr-2 h-4 w-4" />
-                                                        Disable User
-                                                    </DropdownMenuItem>
-                                                )}
-                                                 {status !== 'active' && (
-                                                    <DropdownMenuItem onClick={() => handleChangeUserStatus(user.phoneNumber, 'active')}>
-                                                         <UserIcon className="mr-2 h-4 w-4" />
-                                                        Re-activate User
-                                                    </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
                                     </div>
                                 </div>
                             )})}
@@ -420,12 +405,26 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
             </ScrollArea>
              {selectedCount > 0 && (
                 <footer className="p-4 border-t bg-background">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
                         <p className="text-sm font-semibold">{selectedCount} user(s) selected</p>
-                        <Button onClick={() => setIsBroadcastModalOpen(true)}>
-                            <Send className="mr-2 h-4 w-4" />
-                            Send Broadcast
-                        </Button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Button size="sm" onClick={() => setIsBroadcastModalOpen(true)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Send Broadcast
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleChangeUserStatus('active')}>
+                                <ShieldCheck className="mr-2 h-4 w-4" />
+                                Activate
+                            </Button>
+                             <Button size="sm" variant="outline" onClick={() => handleChangeUserStatus('disabled')}>
+                                <ShieldOff className="mr-2 h-4 w-4" />
+                                Disable
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleChangeUserStatus('banned')}>
+                                <ShieldBan className="mr-2 h-4 w-4" />
+                                Ban
+                            </Button>
+                        </div>
                     </div>
                 </footer>
              )}
@@ -456,3 +455,5 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         </div>
     );
 }
+
+    
