@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
 
 
 interface AdminDashboardProps {
@@ -455,5 +456,3 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         </div>
     );
 }
-
-    
