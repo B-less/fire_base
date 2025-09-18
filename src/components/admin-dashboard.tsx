@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, off, push, serverTimestamp, set } from 'firebase/database';
+import { ref, onValue, off, set, push, serverTimestamp } from 'firebase/database';
 import type { User, Message, AIUsageLog, AllMessages } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -35,7 +35,7 @@ const getConversationKey = (user1: string, user2: string) => {
   return [user1, user2].sort().join('-');
 }
 
-const COLORS = {
+const COLORS: Record<string, string> = {
     'chat': '#0088FE',
     'image': '#00C49F',
     'video': '#FFBB28',
@@ -49,7 +49,7 @@ const FEATURE_DISPLAY_NAMES: Record<string, string> = {
     'smart-reply': 'Smart Reply'
 };
 
-const featureBadgeVariant = {
+const featureBadgeVariant: Record<string, any> = {
     'chat': 'default',
     'image': 'secondary',
     'video': 'outline',
@@ -171,13 +171,13 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         return 'Last seen recently';
     }
 
-    const aiUsageData = Object.values(FEATURE_DISPLAY_NAMES).map(name => {
-        const featureKey = Object.keys(FEATURE_DISPLAY_NAMES).find(key => FEATURE_DISPLAY_NAMES[key] === name) || '';
-        return {
+    const aiUsageData = useMemo(() => {
+      return Object.entries(FEATURE_DISPLAY_NAMES).map(([key, name]) => ({
             name,
-            value: aiUsageLogs.filter(log => log.feature === featureKey).length
-        }
-    }).filter(d => d.value > 0);
+            value: aiUsageLogs.filter(log => log.feature === key).length
+      })).filter(d => d.value > 0);
+    }, [aiUsageLogs]);
+
 
     const userActivityData = useMemo(() => {
         const messageCounts: Record<string, number> = {};
@@ -283,7 +283,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                             </CardContent>
                         </Card>
 
-                        <Card className="md:col-span-3">
+                        <Card className="lg:col-span-3">
                             <CardHeader>
                                 <CardTitle>Recent AI Logs</CardTitle>
                             </CardHeader>
@@ -303,7 +303,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                                                 return (
                                                 <TableRow key={log.id}>
                                                     <TableCell>
-                                                        <Badge variant={(featureBadgeVariant[log.feature as keyof typeof featureBadgeVariant] || 'default') as any}>
+                                                        <Badge variant={featureBadgeVariant[log.feature] || 'default'}>
                                                             {FEATURE_DISPLAY_NAMES[log.feature] || log.feature}
                                                         </Badge>
                                                     </TableCell>
