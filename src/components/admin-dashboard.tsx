@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, off, push } from 'firebase/database';
+import { ref, onValue, off, push, serverTimestamp } from 'firebase/database';
 import type { User, Message, AIUsageLog, AllMessages } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -141,25 +141,16 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
             return;
         }
 
-        const aiContactId = 'ai-assistant';
-        const newDbMessage: Omit<Message, 'db_key' | 'id'> = {
-            content: broadcastMessage,
-            sender: aiContactId,
-            timestamp: new Date().toISOString(),
-            status: 'delivered',
-        };
-
         try {
-            const promises = selectedPhoneNumbers.map(phoneNumber => {
-                const conversationKey = getConversationKey(phoneNumber, aiContactId);
-                const messagesRef = ref(db, `messages/${conversationKey}`);
-                const newMessageRef = push(messagesRef);
-                return push(newMessageRef, newDbMessage);
+            const broadcastsRef = ref(db, 'broadcasts');
+            const newBroadcastRef = push(broadcastsRef);
+            await push(newBroadcastRef, {
+                message: broadcastMessage,
+                timestamp: serverTimestamp(),
+                targetCount: selectedPhoneNumbers.length,
             });
-            
-            await Promise.all(promises);
 
-            toast({ title: "Broadcast Sent", description: `Message sent to ${selectedPhoneNumbers.length} user(s).` });
+            toast({ title: "Broadcast Sent", description: `Banner notification sent to ${selectedPhoneNumbers.length} user(s).` });
             setBroadcastMessage('');
             setSelectedUsers({});
             setIsBroadcastModalOpen(false);
@@ -329,6 +320,9 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                         </Card>
 
                         <div className="lg:col-span-3 p-4 space-y-2 border-t mt-4">
+                            <div className="flex items-center justify-between font-semibold p-3 text-lg">
+                                User Management
+                            </div>
                             <div className="flex items-center gap-4 p-3 rounded-lg border bg-muted/50">
                                 <Checkbox 
                                     id="select-all"
@@ -385,7 +379,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                     <DialogHeader>
                         <DialogTitle>Send Broadcast Message</DialogTitle>
                         <DialogDescription>
-                            This message will be sent to all {selectedCount} selected users as a message from the AI Assistant.
+                            This message will be sent as a banner to all {selectedCount} selected users.
                         </DialogDescription>
                     </DialogHeader>
                     <Textarea 

@@ -49,6 +49,11 @@ export type AIUsageLog = {
     userId?: string;
 };
 
+export type BroadcastMessage = {
+    id: string;
+    message: string;
+    timestamp: number;
+};
     
 
     

@@ -13,6 +13,7 @@ import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
 import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
+import { BroadcastBanner } from './broadcast-banner';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -175,12 +176,12 @@ export function ChatContainer() {
           const updates: Record<string, any> = {};
           Object.entries(messagesData).forEach(([key, message]: [string, any]) => {
               if (message.sender === activeContactId && message.status !== 'read') {
-                  updates[`${key}/status`] = 'read';
+                  updates[`messages/${conversationKey}/${key}/status`] = 'read';
               }
           });
 
           if (Object.keys(updates).length > 0) {
-              update(messagesRef, updates);
+              update(ref(db), updates);
           }
           setIsMessagesLoading(false);
       }, (error) => {
@@ -503,45 +504,50 @@ export function ChatContainer() {
   )
   
   return (
-    <div className="flex h-full w-full">
-      <aside
-        className={`h-full w-full flex-shrink-0 transition-all duration-300 md:w-2/5 md:flex-shrink-0 lg:w-1/3 xl:w-1/4 ${
-          activeContactId ? 'hidden md:flex' : 'flex'
-        } flex-col`}
-      >
-        <ContactList
-          contacts={[aiChatState, ...userContacts]}
-          activeContactId={activeContactId}
-          onSelectContact={handleSelectContact}
-          onAddContact={handleAddContact}
-          onDeleteContact={handleDeleteContact}
-          onShowSettings={handleShowSettings}
-          isLoading={isLoading}
-        />
-      </aside>
-      <section
-        className={`h-full flex-1 transition-all duration-300 ${
-          activeContactId ? 'flex' : 'hidden md:flex'
-        } flex-col`}
-      >
-        {activeContactId ? (
-          <ChatPanel
-            key={activeContactId}
-            contactId={activeContactId}
-            messages={currentChatMessages}
-            onSendMessage={handleSendMessage}
-            onUpdateMessage={handleUpdateMessage}
-            onDeleteMessage={handleDeleteMessage}
-            onBack={handleBackToContacts}
-            smartReplies={smartReplies}
-            setSmartReplies={setSmartReplies}
-            isLoading={isMessagesLoading}
-            onTypingChange={handleTypingChange}
+    <div className="flex h-full w-full flex-col">
+       <BroadcastBanner />
+      <div className="flex flex-1 overflow-hidden">
+        <aside
+          className={`h-full w-full flex-shrink-0 transition-all duration-300 md:w-2/5 md:flex-shrink-0 lg:w-1/3 xl:w-1/4 ${
+            activeContactId ? 'hidden md:flex' : 'flex'
+          } flex-col`}
+        >
+          <ContactList
+            contacts={[aiChatState, ...userContacts]}
+            activeContactId={activeContactId}
+            onSelectContact={handleSelectContact}
+            onAddContact={handleAddContact}
+            onDeleteContact={handleDeleteContact}
+            onShowSettings={handleShowSettings}
+            isLoading={isLoading}
           />
-        ) : (
-           <NoContactsView />
-        )}
-      </section>
+        </aside>
+        <section
+          className={`h-full flex-1 transition-all duration-300 ${
+            activeContactId ? 'flex' : 'hidden md:flex'
+          } flex-col`}
+        >
+          {activeContactId ? (
+            <ChatPanel
+              key={activeContactId}
+              contactId={activeContactId}
+              messages={currentChatMessages}
+              onSendMessage={handleSendMessage}
+              onUpdateMessage={handleUpdateMessage}
+              onDeleteMessage={handleDeleteMessage}
+              onBack={handleBackToContacts}
+              smartReplies={smartReplies}
+              setSmartReplies={setSmartReplies}
+              isLoading={isMessagesLoading}
+              onTypingChange={handleTypingChange}
+            />
+          ) : (
+            <NoContactsView />
+          )}
+        </section>
+      </div>
     </div>
   );
 }
+
+    
