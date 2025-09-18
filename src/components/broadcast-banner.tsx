@@ -15,6 +15,13 @@ export function BroadcastBanner() {
   const [broadcast, setBroadcast] = useState<BroadcastMessage | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
+  const handleDismiss = () => {
+    if (broadcast) {
+      localStorage.setItem(`dismissed_broadcast_${broadcast.id}`, 'true');
+    }
+    setIsVisible(false);
+  };
+
   useEffect(() => {
     const broadcastsRef = query(ref(db, 'broadcasts'), limitToLast(1));
 
@@ -37,13 +44,18 @@ export function BroadcastBanner() {
       off(broadcastsRef, 'value', listener);
     };
   }, []);
+  
+  useEffect(() => {
+    if(isVisible && broadcast) {
+      const timer = setTimeout(() => {
+        handleDismiss();
+      }, 15000); // Auto-dismiss after 15 seconds
 
-  const handleDismiss = () => {
-    if (broadcast) {
-      localStorage.setItem(`dismissed_broadcast_${broadcast.id}`, 'true');
+      return () => clearTimeout(timer);
     }
-    setIsVisible(false);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisible, broadcast]);
+
 
   if (!broadcast || !isVisible) {
     return null;
@@ -64,5 +76,3 @@ export function BroadcastBanner() {
     </div>
   );
 }
-
-    

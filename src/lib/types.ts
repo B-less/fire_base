@@ -30,6 +30,8 @@ export type Contact = {
   isTyping?: boolean;
 };
 
+export type UserAccountStatus = 'active' | 'banned' | 'disabled';
+
 export type User = {
     phoneNumber: string;
     name: string;
@@ -38,6 +40,7 @@ export type User = {
     status?: {
       online: boolean;
       lastSeen: number | object; // Can be timestamp or server timestamp object
+      account: UserAccountStatus;
     };
     fcmToken?: string;
 }
@@ -54,6 +57,4 @@ export type BroadcastMessage = {
     message: string;
     timestamp: number;
 };
-    
-
     

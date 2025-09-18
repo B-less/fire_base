@@ -15,6 +15,7 @@ import { db } from '@/lib/firebase';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import AfricasTalking from 'africastalking';
+import type { User } from '@/lib/types';
 
 const SendOtpInputSchema = z.object({
   phoneNumber: z.string().describe('The phone number to send the OTP to, in international format.'),
@@ -130,31 +131,45 @@ const verifyOtpFlow = ai.defineFlow({
     const isValid = await bcrypt.compare(otp, otpData.hashedOtp);
 
     if (!isValid) {
-        await remove(otpRef);
+        // Do not remove on invalid attempt to prevent brute-forcing
         return { success: false, message: 'The OTP entered is incorrect.' };
     }
+    
+    // OTP is valid, now check user status before finalizing
+    const userRef = ref(db, `users/${phoneNumber}`);
+    let userSnapshot = await get(userRef);
+    let userData = userSnapshot.val() as User | null;
+
+    if(userData && userData.status?.account && userData.status.account !== 'active') {
+        if(userData.status.account === 'banned') {
+            await remove(otpRef); // Clean up OTP
+            return { success: false, message: "This account has been banned." };
+        }
+         if(userData.status.account === 'disabled') {
+            await remove(otpRef); // Clean up OTP
+            return { success: false, message: "This account is currently disabled." };
+        }
+    }
+
 
     // 4. OTP is valid, clean up
     await remove(otpRef);
 
     // 5. Check if user exists, if not, create one
-    const userRef = ref(db, `users/${phoneNumber}`);
-    let userSnapshot = await get(userRef);
-
     if (!userSnapshot.exists()) {
         // Simple name generation for new user
         const name = `User${phoneNumber.slice(-4)}`;
-        const newUser = {
+        const newUser: Omit<User, 'phoneNumber'> = {
             name: name,
-            phoneNumber: phoneNumber,
-            status: { online: false, lastSeen: 0 },
+            status: { online: false, lastSeen: 0, account: 'active' },
             contacts: []
         };
         await set(userRef, newUser);
         userSnapshot = await get(userRef);
+        userData = userSnapshot.val();
     }
     
-    const user = { ...userSnapshot.val(), phoneNumber };
+    const user = { ...userData, phoneNumber };
 
     return { success: true, message: 'Phone number verified successfully.', user };
 });

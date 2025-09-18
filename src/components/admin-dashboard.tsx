@@ -3,12 +3,12 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, off, set, push, serverTimestamp } from 'firebase/database';
-import type { User, Message, AIUsageLog, AllMessages } from '@/lib/types';
+import { ref, onValue, off, set, push, serverTimestamp, update } from 'firebase/database';
+import type { User, Message, AIUsageLog, AllMessages, UserAccountStatus } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, User as UserIcon, Loader2, Send, Bot } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, Loader2, Send, Bot, ShieldBan, ShieldOff, MoreVertical } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -19,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -54,6 +60,12 @@ const featureBadgeVariant: Record<string, any> = {
     'image': 'secondary',
     'video': 'outline',
     'smart-reply': 'destructive',
+}
+
+const accountStatusVariant: Record<UserAccountStatus, "default" | "secondary" | "destructive"> = {
+    'active': 'default',
+    'disabled': 'secondary',
+    'banned': 'destructive'
 }
 
 export function AdminDashboard({ onBack }: AdminDashboardProps) {
@@ -162,10 +174,21 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         }
     };
     
+    const handleChangeUserStatus = async (phoneNumber: string, newStatus: UserAccountStatus) => {
+        try {
+            const userStatusRef = ref(db, `users/${phoneNumber}/status/account`);
+            await set(userStatusRef, newStatus);
+            toast({ title: "User Status Updated", description: `User has been ${newStatus}.` });
+        } catch (error) {
+            console.error("Error updating user status:", error);
+            toast({ title: "Update Error", description: "Could not update the user's status.", variant: "destructive" });
+        }
+    };
+
     const lastSeenText = (status?: User['status']) => {
         if (!status) return 'Never seen';
         if (status.online) return <span className="text-green-500 font-semibold">Online</span>;
-        if (typeof status.lastSeen === 'number') {
+        if (typeof status.lastSeen === 'number' && status.lastSeen > 0) {
             return `Last seen ${formatDistanceToNow(new Date(status.lastSeen), { addSuffix: true })}`;
         }
         return 'Last seen recently';
@@ -332,7 +355,9 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                                     {allSelected ? 'Deselect All' : 'Select All'} ({users.length} users)
                                 </label>
                             </div>
-                            {users.map((user) => (
+                            {users.map((user) => {
+                                const status = user.status?.account || 'active';
+                                return (
                                 <div key={user.phoneNumber} className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50">
                                     <Checkbox 
                                         id={user.phoneNumber}
@@ -349,14 +374,46 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                                         <p className="font-semibold">{user.name}</p>
                                         <p className="text-sm text-muted-foreground">{user.phoneNumber}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-muted-foreground">{lastSeenText(user.status)}</p>
-                                        <p className="text-xs text-muted-foreground/70">
-                                           {user.contacts?.length || 0} contacts
-                                        </p>
+                                    <div className="text-right flex items-center gap-4">
+                                        <div className="text-right">
+                                            <p className="text-sm text-muted-foreground">{lastSeenText(user.status)}</p>
+                                            <p className="text-xs text-muted-foreground/70">
+                                               {user.contacts?.length || 0} contacts
+                                            </p>
+                                        </div>
+                                         <Badge variant={accountStatusVariant[status]} className="capitalize w-20 justify-center">
+                                            {status}
+                                        </Badge>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {status !== 'banned' && (
+                                                    <DropdownMenuItem onClick={() => handleChangeUserStatus(user.phoneNumber, 'banned')} className="text-destructive focus:text-destructive">
+                                                        <ShieldBan className="mr-2 h-4 w-4" />
+                                                        Ban User
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {status !== 'disabled' && (
+                                                    <DropdownMenuItem onClick={() => handleChangeUserStatus(user.phoneNumber, 'disabled')}>
+                                                        <ShieldOff className="mr-2 h-4 w-4" />
+                                                        Disable User
+                                                    </DropdownMenuItem>
+                                                )}
+                                                 {status !== 'active' && (
+                                                    <DropdownMenuItem onClick={() => handleChangeUserStatus(user.phoneNumber, 'active')}>
+                                                         <UserIcon className="mr-2 h-4 w-4" />
+                                                        Re-activate User
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </div>
-                            ))}
+                            )})}
                         </div>
                     </div>
                 )}
@@ -399,5 +456,3 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
         </div>
     );
 }
-
-    
