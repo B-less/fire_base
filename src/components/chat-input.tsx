@@ -86,7 +86,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
     : "Type a message...";
 
   return (
-    <div className="relative rounded-lg border bg-card p-2 shadow-sm">
+    <div className="relative rounded-lg border bg-card p-2 shadow-sm flex flex-col">
        {isAIChat && (
         <div className="flex justify-center gap-2 mb-2 px-2">
             <Button variant="outline" size="sm" onClick={() => handleSendClick('image')} disabled={!value.trim()}>
@@ -97,50 +97,52 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
             </Button>
         </div>
        )}
-      <Textarea
-        placeholder={placeholder}
-        className="min-h-[48px] resize-none border-0 bg-transparent p-2 pr-20 shadow-none focus-visible:ring-0"
-        value={value}
-        onChange={onChange}
-        onKeyDown={handleKeyDown}
-        onBlur={() => onTypingChange(false)}
-        rows={1}
-      />
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
-        accept="image/*,video/*"
-        disabled={isUploading}
-      />
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-        {!isAIChat && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading}>
-                  {isUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Paperclip className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Share Media</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-        <Button
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => handleSendClick('text')}
-          disabled={!value.trim() && !isAIChat}
-        >
-            <SendHorizontal className="h-4 w-4" />
-        </Button>
+      <div className="relative flex items-center">
+        <Textarea
+          placeholder={placeholder}
+          className="min-h-[48px] resize-none border-0 bg-transparent p-2 pr-20 shadow-none focus-visible:ring-0"
+          value={value}
+          onChange={onChange}
+          onKeyDown={handleKeyDown}
+          onBlur={() => onTypingChange(false)}
+          rows={1}
+        />
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept="image/*,video/*"
+          disabled={isUploading}
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {!isAIChat && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading}>
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Share Media</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <Button
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleSendClick('text')}
+            disabled={!value.trim() && !isAIChat}
+          >
+              <SendHorizontal className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
