@@ -43,6 +43,17 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
     }
+    
+    // Validate phone number against country pattern
+    if (country.pattern && !country.pattern.test(trimmedPhoneNumber)) {
+        toast({ 
+            title: "Invalid Phone Number", 
+            description: `Please enter a valid ${country.name} phone number.`,
+            variant: "destructive" 
+        });
+        setIsLoading(false);
+        return;
+    }
 
     const fullPhoneNumber = `${country.dial_code}${trimmedPhoneNumber}`;
 
