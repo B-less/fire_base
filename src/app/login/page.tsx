@@ -79,7 +79,12 @@ export default function LoginPage() {
       if (result.success && result.user) {
         toast({ title: "Login Successful", description: "Welcome to ChirpChat!" });
         login(result.user.phoneNumber, result.user.name);
-        router.push('/');
+        
+        if (result.isNewUser) {
+          router.push('/profile-setup');
+        } else {
+          router.push('/');
+        }
       } else {
         toast({ title: "Login Failed", description: result.message, variant: "destructive" });
       }

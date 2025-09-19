@@ -67,7 +67,7 @@ const sendOtpFlow = ai.defineFlow(
       });
 
       // Check if the status code for all recipients indicates success (less than 200)
-      if (result.SMSMessageData.Recipients.every((r: any) => r.statusCode < 200)) {
+       if (result.SMSMessageData.Recipients.every((r: any) => r.statusCode < 200)) {
          // 4. Save OTP to database
         await set(otpRef, {
             hashedOtp,
@@ -98,6 +98,7 @@ const VerifyOtpOutputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
   user: z.any().optional(),
+  isNewUser: z.boolean().optional(),
 });
 export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
 
@@ -139,6 +140,7 @@ const verifyOtpFlow = ai.defineFlow({
     const userRef = ref(db, `users/${phoneNumber}`);
     let userSnapshot = await get(userRef);
     let userData = userSnapshot.val() as User | null;
+    let isNewUser = false;
 
     if(userData && userData.status?.account && userData.status.account !== 'active') {
         if(userData.status.account === 'banned') {
@@ -157,7 +159,8 @@ const verifyOtpFlow = ai.defineFlow({
 
     // 5. Check if user exists, if not, create one
     if (!userSnapshot.exists()) {
-        // Simple name generation for new user
+        isNewUser = true;
+        // Simple name generation for new user, will be updated on profile setup
         const name = `User${phoneNumber.slice(-4)}`;
         const newUser: Omit<User, 'phoneNumber'> = {
             name: name,
@@ -165,13 +168,13 @@ const verifyOtpFlow = ai.defineFlow({
             contacts: []
         };
         await set(userRef, newUser);
-        userSnapshot = await get(userRef);
+        userSnapshot = await get(userRef); // re-fetch user data
         userData = userSnapshot.val();
     }
     
     const user = { ...userData, phoneNumber };
 
-    return { success: true, message: 'Phone number verified successfully.', user };
+    return { success: true, message: 'Phone number verified successfully.', user, isNewUser };
 });
 
 // Optional: A flow to clean up expired OTPs (can be scheduled to run periodically)
