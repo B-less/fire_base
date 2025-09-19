@@ -60,7 +60,7 @@ const sendPushNotificationFlow = ai.defineFlow(
       const payload = {
         notification: {
           title: `New message from ${senderName}`,
-          body: message || "Sent an image",
+          body: message || "Sent you a media file.",
         },
         token: recipientToken,
       };
@@ -79,6 +79,7 @@ const NewMessageSchema = z.object({
     sender: z.string(),
     senderName: z.string(),
     recipientFcmToken: z.string().optional(),
+    isGenerating: z.boolean().optional(),
 });
 
 ai.defineFlow(
@@ -98,7 +99,7 @@ ai.defineFlow(
   },
   async (message) => {
     // The `message` object here is the data written to the database.
-    if (!message.recipientFcmToken || message.content.startsWith("Generating image:")) {
+    if (!message.recipientFcmToken || message.isGenerating === true) {
       // No token or it's a temporary generation message, so don't send a notification.
       return;
     }
