@@ -427,15 +427,7 @@ export function ChatContainer() {
       getAIResponse(newMessages);
     } else if (activeContactId !== AI_CONTACT_ID) {
       setSmartReplies([]);
-      if (media && isGenerating) {
-        // This is an optimistic UI update for user-to-user media sharing.
-        // Once the push is confirmed, update the message to remove the generating flag.
-        newMessageRef.then(() => {
-          update(newMessageRef, { isGenerating: null });
-        });
-      }
     }
-
 
     return newMessageRef;
   };
@@ -574,3 +566,5 @@ export function ChatContainer() {
     </div>
   );
 }
+
+    

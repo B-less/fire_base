@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Contact, Message, User } from '@/lib/types';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MediaStudio } from './media-studio';
 import type { ThenableReference } from 'firebase/database';
 import { useAuth } from '@/context/auth-context';
+import { update } from 'firebase/database';
 
 interface ChatPanelProps {
   contactId: string;
@@ -44,6 +45,16 @@ export function ChatPanel({
   const { toast } = useToast();
   const { user } = useAuth();
   const isAIChat = contactId === 'ai-assistant';
+  
+  // Effect to clean up the component state when it's about to unmount
+  // This is crucial for stopping pending operations, like media upload status updates
+  useEffect(() => {
+    let isMounted = true;
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleImagine = async (prompt: string, baseImage?: string) => {
     setInputText('');
@@ -123,8 +134,15 @@ export function ChatPanel({
       }
     } else {
        if (mediaFile) {
-        // Optimistic UI: send with isGenerating: true for user-to-user media
-        onSendMessage(trimmedInput, mediaFile, true);
+        const messageRef = onSendMessage(trimmedInput || "", mediaFile, true);
+        if (messageRef) {
+          messageRef.then(() => {
+            // Check if the component is still mounted before updating
+            if (document.contains(document.getElementById('chat-panel-root'))) {
+                update(messageRef, { isGenerating: null });
+            }
+          });
+        }
       } else {
         onSendMessage(trimmedInput);
       }
@@ -146,8 +164,15 @@ export function ChatPanel({
   }
   
   const handleStudioSend = (mediaUrl: string) => {
-    // Optimistic UI for media sent from the studio
-    onSendMessage(inputText, mediaUrl, true);
+    const messageRef = onSendMessage(inputText || "", mediaUrl, true);
+    if (messageRef) {
+        messageRef.then(() => {
+            if (document.contains(document.getElementById('chat-panel-root'))) {
+                update(messageRef, { isGenerating: null });
+            }
+        });
+    }
+
     setInputText('');
     setMediaFile(null);
   }
@@ -158,7 +183,7 @@ export function ChatPanel({
   }
 
   return (
-    <div className="flex h-full flex-col bg-muted/30">
+    <div id="chat-panel-root" className="flex h-full flex-col bg-muted/30">
       <ChatHeader contactId={contactId} onBack={onBack} />
       <MessageList messages={messages} contactId={contactId} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
       <div className="p-4 pt-2">
@@ -184,3 +209,5 @@ export function ChatPanel({
     </div>
   );
 }
+
+    
