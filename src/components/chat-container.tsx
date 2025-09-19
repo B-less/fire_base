@@ -526,7 +526,7 @@ export function ChatContainer() {
             onSelectContact={handleSelectContact}
             onAddContact={handleAddContact}
             onDeleteContact={handleDeleteContact}
-            onShowSettings={onShowSettings}
+            onShowSettings={handleShowSettings}
             isLoading={isLoading}
           />
         </aside>
@@ -558,4 +558,3 @@ export function ChatContainer() {
   );
 }
 
-    
