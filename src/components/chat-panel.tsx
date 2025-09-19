@@ -111,8 +111,7 @@ export function ChatPanel({
 
   const handleSend = (type: 'text' | 'image' | 'video' = 'text') => {
     const trimmedInput = inputText.trim();
-    if (!trimmedInput && type === 'text' && !mediaFile) return;
-
+    if (!trimmedInput && !mediaFile) return;
 
     if (isAIChat) {
       if (type === 'image') {
