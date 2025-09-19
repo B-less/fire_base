@@ -56,13 +56,7 @@ const formatTimestamp = (isoString: string) => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
-        // Check if the date is valid. If not, it might be an already formatted time string.
-        if (isNaN(date.getTime())) {
-            // If it's already formatted (e.g., "8:49 PM"), just return it.
-            // This is a fallback and ideally should not be hit with correct data flow.
-            if (isoString.match(/\d{1,2}:\d{2}\s(A|P)M/)) {
-                return isoString;
-            }
+         if (isNaN(date.getTime())) {
             throw new Error('Invalid date');
         }
         return new Intl.DateTimeFormat('en-US', {
