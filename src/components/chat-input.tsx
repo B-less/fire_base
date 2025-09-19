@@ -1,3 +1,4 @@
+
 import { Paperclip, SendHorizontal, Sparkles, Video, ImageIcon } from 'lucide-react';
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -81,17 +82,17 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
 
 
   const placeholder = isAIChat
-    ? "Ask for a new image or video..."
+    ? "Ask me to generate an image or video..."
     : "Type a message...";
 
   return (
     <div className="relative rounded-lg border bg-card p-2 shadow-sm">
        {isAIChat && (
         <div className="flex justify-center gap-2 mb-2 px-2">
-            <Button variant="outline" size="sm" onClick={() => handleSendClick('image')} disabled={!value.trim() || isUploading}>
+            <Button variant="outline" size="sm" onClick={() => handleSendClick('image')} disabled={!value.trim()}>
                 <ImageIcon className="mr-2 h-4 w-4" /> Generate Image
             </Button>
-            <Button variant="outline" size="sm" onClick={() => handleSendClick('video')} disabled={!value.trim() || isUploading}>
+            <Button variant="outline" size="sm" onClick={() => handleSendClick('video')} disabled={!value.trim()}>
                 <Video className="mr-2 h-4 w-4" /> Generate Video
             </Button>
         </div>
@@ -136,7 +137,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
           size="icon"
           className="h-8 w-8"
           onClick={() => handleSendClick('text')}
-          disabled={!value.trim() || isUploading}
+          disabled={!value.trim() && !isAIChat}
         >
             <SendHorizontal className="h-4 w-4" />
         </Button>
