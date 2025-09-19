@@ -407,10 +407,18 @@ export function ChatContainer() {
     const newMessages = [...currentChatMessages, { ...dbMessage, id: Date.now(), db_key: newMessageRef.key! }];
 
     if(activeContactId === AI_CONTACT_ID && dbMessage.content) {
-      getAIResponse(newMessages)
+      getAIResponse(newMessages);
     } else if (activeContactId !== AI_CONTACT_ID) {
       setSmartReplies([]);
+      if (media && isGenerating) {
+        // This is an optimistic UI update for user-to-user media sharing.
+        // Once the push is confirmed, update the message to remove the generating flag.
+        newMessageRef.then(() => {
+          update(newMessageRef, { isGenerating: null });
+        });
+      }
     }
+
 
     return newMessageRef;
   };
@@ -518,7 +526,7 @@ export function ChatContainer() {
             onSelectContact={handleSelectContact}
             onAddContact={handleAddContact}
             onDeleteContact={handleDeleteContact}
-            onShowSettings={handleShowSettings}
+            onShowSettings={onShowSettings}
             isLoading={isLoading}
           />
         </aside>

@@ -124,7 +124,8 @@ export function ChatPanel({
       }
     } else {
        if (mediaFile) {
-        onSendMessage(trimmedInput, mediaFile);
+        // Optimistic UI: send with isGenerating: true for user-to-user media
+        onSendMessage(trimmedInput, mediaFile, true);
       } else {
         onSendMessage(trimmedInput);
       }
@@ -146,7 +147,8 @@ export function ChatPanel({
   }
   
   const handleStudioSend = (mediaUrl: string) => {
-    onSendMessage(inputText, mediaUrl);
+    // Optimistic UI for media sent from the studio
+    onSendMessage(inputText, mediaUrl, true);
     setInputText('');
     setMediaFile(null);
   }
