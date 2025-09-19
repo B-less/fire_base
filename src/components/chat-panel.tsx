@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Contact, Message, User } from '@/lib/types';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
@@ -45,14 +45,12 @@ export function ChatPanel({
   const { toast } = useToast();
   const { user } = useAuth();
   const isAIChat = contactId === 'ai-assistant';
+  const isMounted = useRef(false);
   
-  // Effect to clean up the component state when it's about to unmount
-  // This is crucial for stopping pending operations, like media upload status updates
   useEffect(() => {
-    let isMounted = true;
-    
+    isMounted.current = true;
     return () => {
-      isMounted = false;
+      isMounted.current = false;
     };
   }, []);
 
@@ -75,16 +73,20 @@ export function ChatPanel({
     
     try {
       const result = await generateImage({ prompt, baseImage, userId: user?.phoneNumber });
-      onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
+      if(isMounted.current) {
+        onUpdateMessage(messageDbKey, prompt, result.imageUrl, false);
+      }
     } catch (error) {
       console.error("Error generating image:", error);
       const failMessage = `Failed to generate image for prompt: "${prompt}"`;
-      onUpdateMessage(messageDbKey, failMessage, baseImage, false);
-      toast({
-        title: "Image Generation Failed",
-        description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
-        variant: "destructive",
-      });
+      if(isMounted.current) {
+        onUpdateMessage(messageDbKey, failMessage, baseImage, false);
+        toast({
+          title: "Image Generation Failed",
+          description: "Sorry, I couldn't create an image for that prompt. Please try another one.",
+          variant: "destructive",
+        });
+      }
     }
   }
 
@@ -107,16 +109,20 @@ export function ChatPanel({
     
     try {
       const result = await generateVideo({ prompt, baseMedia, userId: user?.phoneNumber });
-      onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
+      if(isMounted.current) {
+        onUpdateMessage(messageDbKey, prompt, result.videoUrl, false);
+      }
     } catch (error) {
       console.error("Error generating video:", error);
       const failMessage = `Failed to generate video for prompt: "${prompt}"`;
-      onUpdateMessage(messageDbKey, failMessage, baseMedia, false);
-      toast({
-        title: "Video Generation Failed",
-        description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
-        variant: "destructive",
-      });
+      if(isMounted.current) {
+        onUpdateMessage(messageDbKey, failMessage, baseMedia, false);
+        toast({
+          title: "Video Generation Failed",
+          description: "Sorry, I couldn't create a video for that prompt. Please try another one.",
+          variant: "destructive",
+        });
+      }
     }
   }
 
@@ -134,11 +140,10 @@ export function ChatPanel({
       }
     } else {
        if (mediaFile) {
-        const messageRef = onSendMessage(trimmedInput || "", mediaFile, true);
+        const messageRef = onSendMessage(trimmedInput, mediaFile, true);
         if (messageRef) {
           messageRef.then(() => {
-            // Check if the component is still mounted before updating
-            if (document.contains(document.getElementById('chat-panel-root'))) {
+            if (isMounted.current) {
                 update(messageRef, { isGenerating: null });
             }
           });
@@ -164,10 +169,10 @@ export function ChatPanel({
   }
   
   const handleStudioSend = (mediaUrl: string) => {
-    const messageRef = onSendMessage(inputText || "", mediaUrl, true);
+    const messageRef = onSendMessage(inputText, mediaUrl, true);
     if (messageRef) {
         messageRef.then(() => {
-            if (document.contains(document.getElementById('chat-panel-root'))) {
+            if (isMounted.current) {
                 update(messageRef, { isGenerating: null });
             }
         });
@@ -209,5 +214,3 @@ export function ChatPanel({
     </div>
   );
 }
-
-    
