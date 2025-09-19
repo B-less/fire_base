@@ -139,7 +139,7 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
               <div className="relative flex-shrink-0">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={contact.avatar} alt={contact.name} />
-                  <AvatarFallback>{isAiAssistant ? <RobotIcon/> : contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback>{isAiAssistant ? <RobotIcon className="h-6 w-6"/> : contact.name.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 {contact.online && <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />}
               </div>
