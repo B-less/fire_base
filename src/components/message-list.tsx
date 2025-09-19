@@ -69,7 +69,7 @@ export function MessageList({ messages, contactId, onImagine, onDelete, isLoadin
   }, [contactId, isAiAssistant]);
 
   const contactAvatar = useMemo(() => {
-      if (isAiAssistant) return 'https://picsum.photos/seed/ai-robot-abstract-art/100/100';
+      if (isAiAssistant) return '/robot-icon.svg';
       return contactUser?.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`;
   }, [contactUser, contactId, isAiAssistant]);
 
@@ -106,3 +106,5 @@ export function MessageList({ messages, contactId, onImagine, onDelete, isLoadin
     </ScrollArea>
   );
 }
+
+    

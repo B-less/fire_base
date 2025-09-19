@@ -30,6 +30,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from './ui/input';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { RobotIcon } from '@/app/robot-icon';
 
 
 interface MessageBubbleProps {
@@ -122,8 +123,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     >
       {!isMyMessage && (
         <Avatar className={cn('h-8 w-8', !isFirstInGroup && 'invisible')}>
-          <AvatarImage src={contactAvatar} alt="Contact" data-ai-hint={senderIsAI ? "robot abstract" : "person"} />
-          <AvatarFallback>{senderIsAI ? <Bot className="h-4 w-4" /> : 'C'}</AvatarFallback>
+          <AvatarImage src={contactAvatar} alt="Contact" />
+          <AvatarFallback>{senderIsAI ? <RobotIcon className="h-5 w-5" /> : 'C'}</AvatarFallback>
         </Avatar>
       )}
       <Card
@@ -156,7 +157,6 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                   width={300}
                   height={200}
                   className={cn("rounded-md mb-2 object-cover", message.isGenerating && "opacity-50")}
-                  data-ai-hint="abstract landscape"
                 />
               )}
             </div>
@@ -256,3 +256,5 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     </div>
   );
 }
+
+    

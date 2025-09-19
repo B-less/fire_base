@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
 import { BroadcastBanner } from './broadcast-banner';
+import { RobotIcon } from '@/app/robot-icon';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -70,22 +71,23 @@ export function ChatContainer() {
         // This inner function will set up listeners for a given list of contacts
         const setupListeners = (ids: string[]) => {
             const unsubscribers = ids.flatMap(contactId => {
+                if (!currentUser?.phoneNumber) return [];
                 const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
                 const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
                 const unreadRef = ref(db, `messages/${conversationKey}`);
 
-                const lastMsgUnsubscriber = onValue(messagesRef, (msgSnapshot) => {
+                const lastMsgListener = onValue(messagesRef, (msgSnapshot) => {
                     if (msgSnapshot.exists()) {
                         const messagesData = msgSnapshot.val();
                         const lastMsgKey = Object.keys(messagesData)[0];
                         const lastMsg = messagesData[lastMsgKey];
                         setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
                     }
-                });
+                }, () => { /* handle error */ });
 
-                const unreadUnsubscriber = onValue(unreadRef, (unreadSnapshot) => {
+                const unreadListener = onValue(unreadRef, (unreadSnapshot) => {
                     let unread = 0;
-                    if (unreadSnapshot.exists()) {
+                    if (unreadSnapshot.exists() && currentUser?.phoneNumber) {
                         unreadSnapshot.forEach((childSnapshot) => {
                             const msg = childSnapshot.val();
                             if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read' && !msg.isGenerating) {
@@ -94,13 +96,18 @@ export function ChatContainer() {
                         });
                     }
                     setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
-                });
+                }, () => { /* handle error */ });
 
-                return [lastMsgUnsubscriber, unreadUnsubscriber];
+                const listenerRefs = [
+                    { ref: messagesRef, listener: lastMsgListener, type: 'value' as const },
+                    { ref: unreadRef, listener: unreadListener, type: 'value' as const }
+                ];
+                
+                return listenerRefs;
             });
 
             return () => {
-                unsubscribers.forEach(unsubscribe => unsubscribe());
+                unsubscribers.forEach(({ ref, listener, type }) => off(ref, type, listener));
             };
         };
 
@@ -129,7 +136,7 @@ export function ChatContainer() {
     return {
         id: AI_CONTACT_ID,
         name: 'AI Assistant',
-        avatar: 'https://picsum.photos/seed/ai-robot-abstract-art/100/100',
+        avatar: '/robot-icon.svg',
         online: true,
         lastMessage: lastMessage?.content || 'Ask me to generate media!',
         lastMessageTime: lastMessage?.timestamp || new Date(Date.now() - 60000).toISOString(),
@@ -567,4 +574,5 @@ export function ChatContainer() {
   );
 }
 
+    
     
