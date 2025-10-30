@@ -274,7 +274,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
   }, [contacts]);
 
   const filteredContacts = sortedContacts.filter((contact) =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+    contact.name && contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   const handleBackToContacts = () => {
@@ -316,7 +316,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
       <div className="relative flex-shrink-0">
           <Avatar className="h-12 w-12">
               <AvatarImage src={contact.avatar} alt={contact.name} data-ai-hint="person" />
-              <AvatarFallback>{contact.name.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarFallback>{contact.name ? contact.name.charAt(0).toUpperCase() : '?'}</AvatarFallback>
           </Avatar>
           {contact.online && (
              <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-500 ring-2 ring-card" />
