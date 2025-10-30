@@ -47,8 +47,8 @@ import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { db } from '@/lib/firebase';
 import { ref, get, child } from 'firebase/database';
-import { Skeleton } from './ui/skeleton';
-import { AdminDashboard } from './admin-dashboard';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AdminDashboard } from '@/components/admin-dashboard';
 import { Virtuoso } from 'react-virtuoso';
 
 
@@ -447,5 +447,3 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
-
-    
