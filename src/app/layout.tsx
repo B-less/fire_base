@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: 'ChirpChat',
   description: 'A modern chat application',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/robot-icon.svg',
+  },
 };
 
 export default function RootLayout({
@@ -27,9 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/icon-192x192.png" />
-      </head>
+      <head />
       <body className={cn("font-body antialiased", ptSans.variable)}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <AuthProvider>
