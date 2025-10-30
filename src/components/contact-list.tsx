@@ -447,5 +447,4 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     </div>
   );
 }
-
     
