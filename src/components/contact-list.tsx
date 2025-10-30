@@ -265,6 +265,8 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) => {
+      if (!a.name) return 1;
+      if (!b.name) return -1;
       const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
       const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
       if (isNaN(timeA)) return 1; // Put contacts with invalid time at the end

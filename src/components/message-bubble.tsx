@@ -256,5 +256,3 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     </div>
   );
 }
-
-    
