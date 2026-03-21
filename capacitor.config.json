@@ -1,0 +1,9 @@
+{
+  "appId": "com.firebasestudio.app",
+  "appName": "Firebase Studio",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true
+  }
+}

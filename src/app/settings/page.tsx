@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -250,5 +249,3 @@ function GenerateAIPictureDialog({ onGenerate, isLoading }: { onGenerate: (promp
     </Dialog>
   );
 }
-
-    
