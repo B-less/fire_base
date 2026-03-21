@@ -6,6 +6,7 @@ import './globals.css';
 import { AuthProvider } from '@/context/auth-context';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PT_Sans } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 
 const ptSans = PT_Sans({
   subsets: ['latin'],
@@ -38,6 +39,7 @@ export default function RootLayout({
               <Toaster />
             </AuthProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
