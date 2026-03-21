@@ -4,6 +4,7 @@
   "webDir": "public",
   "bundledWebRuntime": false,
   "server": {
-    "cleartext": true
+    "url": "https://chripchat-l1sxx4ome-b-less-projects.vercel.app",
+    "cleartext": false
   }
 }
