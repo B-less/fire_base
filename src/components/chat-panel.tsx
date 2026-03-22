@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Mic, X } from 'lucide-react';
 import type { Contact, Message, User } from '@/lib/types';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
@@ -14,6 +15,7 @@ import { MediaStudio } from './media-studio';
 import type { ThenableReference } from 'firebase/database';
 import { useAuth } from '@/context/auth-context';
 import { update } from 'firebase/database';
+import { Button } from './ui/button';
 
 interface ChatPanelProps {
   contactId: string;
@@ -46,6 +48,7 @@ export function ChatPanel({
   const { user } = useAuth();
   const isAIChat = contactId === 'ai-assistant';
   const isMounted = useRef(false);
+  const isAudioAttachment = mediaFile?.startsWith('data:audio') ?? false;
   
   useEffect(() => {
     isMounted.current = true;
@@ -139,15 +142,8 @@ export function ChatPanel({
         onSendMessage(trimmedInput);
       }
     } else {
-       if (mediaFile) {
-        const messageRef = onSendMessage(trimmedInput, mediaFile, true);
-        if (messageRef) {
-          messageRef.then(() => {
-            if (isMounted.current) {
-                update(messageRef, { isGenerating: null });
-            }
-          });
-        }
+      if (mediaFile) {
+        onSendMessage(trimmedInput, mediaFile);
       } else {
         onSendMessage(trimmedInput);
       }
@@ -169,15 +165,7 @@ export function ChatPanel({
   }
   
   const handleStudioSend = (mediaUrl: string) => {
-    const messageRef = onSendMessage(inputText, mediaUrl, true);
-    if (messageRef) {
-        messageRef.then(() => {
-            if (isMounted.current) {
-                update(messageRef, { isGenerating: null });
-            }
-        });
-    }
-
+    onSendMessage(inputText.trim(), mediaUrl);
     setInputText('');
     setMediaFile(null);
   }
@@ -193,16 +181,31 @@ export function ChatPanel({
       <MessageList messages={messages} contactId={contactId} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
       <div className="p-4 pt-2">
         {!isAIChat && smartReplies.length > 0 && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
+        {isAudioAttachment && mediaFile && (
+          <div className="mb-3 rounded-lg border bg-card p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Mic className="h-4 w-4" />
+                <span>Voice note ready to send</span>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMediaFile(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <audio controls src={mediaFile} className="w-full" />
+          </div>
+        )}
         <ChatInput
           value={inputText}
           onChange={handleTextChange}
           onSend={handleSend}
           onFileSelect={handleFileSelect}
+          hasPendingMedia={!!mediaFile}
           isAIChat={isAIChat}
           onTypingChange={onTypingChange}
         />
       </div>
-      {mediaFile && (
+      {mediaFile && !isAudioAttachment && (
         <MediaStudio 
             mediaUrl={mediaFile}
             onClose={() => setMediaFile(null)}

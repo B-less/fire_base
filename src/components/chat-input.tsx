@@ -1,6 +1,8 @@
 
-import { Paperclip, SendHorizontal, Sparkles, Video, ImageIcon } from 'lucide-react';
-import React, { useState, useRef } from 'react';
+'use client';
+
+import { Paperclip, SendHorizontal, Video, ImageIcon, Mic, Square } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -19,14 +21,78 @@ interface ChatInputProps {
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSend: (type: 'text' | 'image' | 'video') => void;
   onFileSelect: (url: string) => void;
+  hasPendingMedia?: boolean;
   isAIChat?: boolean;
   onTypingChange: (isTyping: boolean) => void;
 }
 
-export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = false, onTypingChange }: ChatInputProps) {
+export function ChatInput({ value, onChange, onSend, onFileSelect, hasPendingMedia = false, isAIChat = false, onTypingChange }: ChatInputProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
+  const [waveFrame, setWaveFrame] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingStartedAtRef = useRef<number | null>(null);
   const { toast } = useToast();
+
+  const stopAudioStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.ondataavailable = null;
+        recorderRef.current.onstop = null;
+        if (recorderRef.current.state !== 'inactive') {
+          recorderRef.current.stop();
+        }
+        recorderRef.current = null;
+      }
+      audioChunksRef.current = [];
+      stopAudioStream();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isRecording) {
+      recordingStartedAtRef.current = null;
+      setRecordingElapsedMs(0);
+      setWaveFrame(0);
+      return;
+    }
+
+    recordingStartedAtRef.current = Date.now();
+    setRecordingElapsedMs(0);
+    setWaveFrame(0);
+
+    const interval = window.setInterval(() => {
+      const startedAt = recordingStartedAtRef.current ?? Date.now();
+      setRecordingElapsedMs(Date.now() - startedAt);
+      setWaveFrame((previous) => previous + 1);
+    }, 150);
+
+    return () => window.clearInterval(interval);
+  }, [isRecording]);
+
+  const formatRecordingTime = (elapsedMs: number) => {
+    const totalSeconds = Math.floor(elapsedMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const waveHeights = Array.from({ length: 14 }, (_, index) => {
+    const phase = (waveFrame + index * 2) % 12;
+    return 8 + Math.abs(6 - phase) * 2.5;
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     onTypingChange(true);
@@ -45,6 +111,97 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
   const handleImageUploadClick = () => {
     fileInputRef.current?.click();
   }
+
+  const handleAudioRecordClick = async () => {
+    if (isRecording) {
+      recorderRef.current?.stop();
+      return;
+    }
+
+    if (typeof window === 'undefined' || typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      toast({
+        title: "Voice Notes Unavailable",
+        description: "This device does not support in-browser audio recording.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    onTypingChange(false);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      const preferredMimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ];
+      const supportedMimeType = preferredMimeTypes.find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
+      const recorder = supportedMimeType ? new MediaRecorder(stream, { mimeType: supportedMimeType }) : new MediaRecorder(stream);
+
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || supportedMimeType || 'audio/webm',
+        });
+
+        recorderRef.current = null;
+        audioChunksRef.current = [];
+        stopAudioStream();
+        setIsRecording(false);
+
+        if (!audioBlob.size) {
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (loadEvent) => {
+          const dataUrl = loadEvent.target?.result as string;
+          onFileSelect(dataUrl);
+        };
+        reader.onerror = () => {
+          toast({
+            title: "Voice Note Error",
+            description: "We recorded the audio, but couldn't prepare it for sending.",
+            variant: "destructive",
+          });
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+      recorder.onerror = () => {
+        recorderRef.current = null;
+        audioChunksRef.current = [];
+        stopAudioStream();
+        setIsRecording(false);
+        toast({
+          title: "Recording Failed",
+          description: "We couldn't record your voice note. Please try again.",
+          variant: "destructive",
+        });
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error starting audio recording:", error);
+      stopAudioStream();
+      setIsRecording(false);
+      toast({
+        title: "Microphone Access Needed",
+        description: "Please allow microphone access to record a voice note.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -97,6 +254,26 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
             </Button>
         </div>
        )}
+      {isRecording && (
+        <div className="mb-2 flex items-center gap-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+            <span className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse" />
+            <span>Recording</span>
+          </div>
+          <div className="flex flex-1 items-end gap-1">
+            {waveHeights.map((height, index) => (
+              <span
+                key={index}
+                className="w-1 rounded-full bg-primary/80 transition-all duration-150"
+                style={{ height: `${height}px` }}
+              />
+            ))}
+          </div>
+          <span className="font-mono text-sm tabular-nums text-foreground">
+            {formatRecordingTime(recordingElapsedMs)}
+          </span>
+        </div>
+      )}
       <div className="relative flex items-center">
         <Textarea
           placeholder={placeholder}
@@ -112,15 +289,15 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
           ref={fileInputRef}
           onChange={handleFileChange}
           className="hidden"
-          accept="image/*,video/*"
-          disabled={isUploading}
+          accept="image/*,video/*,audio/*"
+          disabled={isUploading || isRecording}
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {!isAIChat && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isRecording}>
                     {isUploading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
@@ -132,13 +309,33 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, isAIChat = fa
                   <p>Share Media</p>
                 </TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleAudioRecordClick}
+                    disabled={isUploading}
+                  >
+                    {isRecording ? (
+                      <Square className="h-4 w-4 text-destructive" />
+                    ) : (
+                      <Mic className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isRecording ? 'Stop Recording' : 'Record Voice Note'}</p>
+                </TooltipContent>
+              </Tooltip>
             </TooltipProvider>
           )}
           <Button
             size="icon"
             className="h-8 w-8"
             onClick={() => handleSendClick('text')}
-            disabled={!value.trim() && !isAIChat}
+            disabled={(!value.trim() && !hasPendingMedia && !isAIChat) || isRecording}
           >
               <SendHorizontal className="h-4 w-4" />
           </Button>

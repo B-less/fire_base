@@ -36,6 +36,46 @@ const normalizeContactIds = (value: unknown): string[] => {
   return [];
 };
 
+const getMediaPayload = (media?: string) => {
+  if (!media) {
+    return {};
+  }
+
+  if (media.startsWith('data:audio')) {
+    return { audio: media };
+  }
+
+  if (media.startsWith('data:video') || /\.(mp4|mov|avi|mkv)(?:$|[?#])/i.test(media)) {
+    return { video: media };
+  }
+
+  return { image: media };
+};
+
+const getMessagePreview = (message?: Message) => {
+  if (!message) {
+    return 'No messages yet';
+  }
+
+  if (message.content) {
+    return message.content;
+  }
+
+  if (message.audio) {
+    return 'Voice note';
+  }
+
+  if (message.video) {
+    return 'Video';
+  }
+
+  if (message.image) {
+    return 'Image';
+  }
+
+  return '';
+};
+
 export function ChatContainer() {
   const { user: currentUser } = useAuth();
   const router = useRouter();
@@ -144,7 +184,7 @@ export function ChatContainer() {
         name: 'AI Assistant',
         avatar: '/robot-icon.svg',
         online: true,
-        lastMessage: lastMessage?.content || 'Ask me to generate media!',
+        lastMessage: lastMessage ? getMessagePreview(lastMessage) : 'Ask me to generate media!',
         lastMessageTime: lastMessage?.timestamp || new Date(Date.now() - 60000).toISOString(),
         unreadCount: unreadCounts[conversationKey] || 0,
     };
@@ -175,7 +215,7 @@ export function ChatContainer() {
           avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
           online: contactUser.status?.online || false,
           lastSeen: contactUser.status?.lastSeen,
-          lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : (lastMessage.video ? "Video" : ''))) : 'No messages yet',
+          lastMessage: getMessagePreview(lastMessage),
           lastMessageTime: lastMessage?.timestamp || '',
           unreadCount: unreadCounts[conversationKey] || 0, 
           isTyping: typingStatus[contactId] || false,
@@ -427,7 +467,7 @@ export function ChatContainer() {
       senderName: currentUser.name,
       timestamp: new Date().toISOString(),
       status: recipient?.status?.online ? 'delivered' : 'sent',
-      ...(media && (media.startsWith('data:video') ? { video: media } : { image: media })),
+      ...getMediaPayload(media),
       ...(isGenerating && { isGenerating }),
       ...(recipient?.fcmToken && { recipientFcmToken: recipient.fcmToken }),
     };
@@ -453,13 +493,10 @@ export function ChatContainer() {
     
     const updatedMessage: any = { content: content };
     if (media !== undefined) {
-      if (media.startsWith('data:video')) {
-        updatedMessage.video = media;
-        delete updatedMessage.image;
-      } else {
-        updatedMessage.image = media;
-        delete updatedMessage.video;
-      }
+      updatedMessage.image = null;
+      updatedMessage.video = null;
+      updatedMessage.audio = null;
+      Object.assign(updatedMessage, getMediaPayload(media));
     }
     
     updatedMessage.isGenerating = isGenerating === true ? true : null;

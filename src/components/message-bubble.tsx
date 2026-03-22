@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2, Video, MoreHorizontal, Download } from 'lucide-react';
+import { Check, CheckCheck, Bot, Sparkles, Image as ImageIcon, Trash2, MoreHorizontal, Download, Mic } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
@@ -79,8 +79,9 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
 
-  const mediaUrl = message.video || message.image;
-  const isVideo = !!message.video;
+  const mediaUrl = message.audio || message.video || message.image;
+  const isAudio = !!message.audio;
+  const isVideo = !isAudio && !!message.video;
 
   const handleEditImage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,9 +101,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
     if (!mediaUrl) return;
     const link = document.createElement('a');
     link.href = mediaUrl;
-    // Extract extension from MIME type, default to .png or .mp4
-    const mimeType = mediaUrl.match(/data:(.*);/)?.[1];
-    const extension = mimeType?.split('/')[1] || (isVideo ? 'mp4' : 'png');
+    const mimeType = mediaUrl.match(/^data:([^;,]+)/)?.[1];
+    const extension = mimeType?.split('/')[1] || (isAudio ? 'webm' : isVideo ? 'mp4' : 'png');
     link.download = `chirpchat-media-${message.id}.${extension}`;
     document.body.appendChild(link);
     link.click();
@@ -145,8 +145,16 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
             </div>
           )}
           {mediaUrl && (
-            <div className="relative">
-              {isVideo ? (
+            <div className="relative mb-2">
+              {isAudio ? (
+                <div className="rounded-md border bg-background/70 p-3 text-foreground shadow-sm">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                    <Mic className="h-4 w-4" />
+                    <span>Voice note</span>
+                  </div>
+                  <audio key={mediaUrl} src={mediaUrl} controls className="w-full min-w-[220px]" />
+                </div>
+              ) : isVideo ? (
                 <div className="relative w-full aspect-video rounded-md bg-black flex items-center justify-center">
                     <video key={mediaUrl} src={mediaUrl} controls className="max-w-full max-h-full rounded-md" />
                 </div>
@@ -156,7 +164,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                   alt="Shared media"
                   width={300}
                   height={200}
-                  className={cn("rounded-md mb-2 object-cover", message.isGenerating && "opacity-50")}
+                  className={cn("rounded-md object-cover", message.isGenerating && "opacity-50")}
                 />
               )}
             </div>

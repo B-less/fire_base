@@ -8,6 +8,7 @@ export type Message = {
   status: 'sent' | 'delivered' | 'read';
   image?: string;
   video?: string;
+  audio?: string;
   isGenerating?: boolean;
   db_key?: string; // The key from Firebase DB
 };
