@@ -69,7 +69,7 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
     if (!contactUser) return null;
 
     return {
-        id: contactUser.phoneNumber,
+        id: contactId,
         name: contactUser.name,
         avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
         online: contactUser.status?.online || false,

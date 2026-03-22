@@ -24,6 +24,18 @@ const getConversationKey = (user1: string, user2: string) => {
   return [user1, user2].sort().join('-');
 }
 
+const normalizeContactIds = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((contactId): contactId is string => typeof contactId === 'string');
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.values(value).filter((contactId): contactId is string => typeof contactId === 'string');
+  }
+
+  return [];
+};
+
 export function ChatContainer() {
   const { user: currentUser } = useAuth();
   const router = useRouter();
@@ -60,69 +72,63 @@ export function ChatContainer() {
   useEffect(() => {
     if (!currentUser?.phoneNumber) return;
     
-    // This effect runs once when the current user is available.
-    // It sets up a listener for the current user's contact list.
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
+    let cleanupConversationListeners = () => {};
+
+    const setupConversationListeners = (contactIds: string[]) => {
+      const listenerRefs = contactIds.flatMap((contactId) => {
+        const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
+        const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
+        const unreadRef = ref(db, `messages/${conversationKey}`);
+
+        const lastMsgListener = onValue(messagesRef, (msgSnapshot) => {
+          if (msgSnapshot.exists()) {
+            const messagesData = msgSnapshot.val();
+            const lastMsgKey = Object.keys(messagesData)[0];
+            const lastMsg = messagesData[lastMsgKey];
+            setLastMessages((prev) => ({ ...prev, [conversationKey]: lastMsg as Message }));
+          } else {
+            setLastMessages((prev) => {
+              const next = { ...prev };
+              delete next[conversationKey];
+              return next;
+            });
+          }
+        }, () => { /* handle error */ });
+
+        const unreadListener = onValue(unreadRef, (unreadSnapshot) => {
+          let unread = 0;
+          if (unreadSnapshot.exists()) {
+            unreadSnapshot.forEach((childSnapshot) => {
+              const msg = childSnapshot.val();
+              if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read' && !msg.isGenerating) {
+                unread++;
+              }
+            });
+          }
+          setUnreadCounts((prev) => ({ ...prev, [conversationKey]: unread }));
+        }, () => { /* handle error */ });
+
+        return [
+          { ref: messagesRef, listener: lastMsgListener, type: 'value' as const },
+          { ref: unreadRef, listener: unreadListener, type: 'value' as const },
+        ];
+      });
+
+      return () => {
+        listenerRefs.forEach(({ ref, listener, type }) => off(ref, type, listener));
+      };
+    };
 
     const contactsListener = onValue(currentUserContactsRef, (snapshot) => {
-        const currentUserContacts: string[] = snapshot.val() || [];
-        const contactIds = [...currentUserContacts, AI_CONTACT_ID];
-
-        // This inner function will set up listeners for a given list of contacts
-        const setupListeners = (ids: string[]) => {
-            const unsubscribers = ids.flatMap(contactId => {
-                if (!currentUser?.phoneNumber) return [];
-                const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
-                const messagesRef = query(ref(db, `messages/${conversationKey}`), limitToLast(1));
-                const unreadRef = ref(db, `messages/${conversationKey}`);
-
-                const lastMsgListener = onValue(messagesRef, (msgSnapshot) => {
-                    if (msgSnapshot.exists()) {
-                        const messagesData = msgSnapshot.val();
-                        const lastMsgKey = Object.keys(messagesData)[0];
-                        const lastMsg = messagesData[lastMsgKey];
-                        setLastMessages(prev => ({ ...prev, [conversationKey]: lastMsg as Message }));
-                    }
-                }, () => { /* handle error */ });
-
-                const unreadListener = onValue(unreadRef, (unreadSnapshot) => {
-                    let unread = 0;
-                    if (unreadSnapshot.exists() && currentUser?.phoneNumber) {
-                        unreadSnapshot.forEach((childSnapshot) => {
-                            const msg = childSnapshot.val();
-                            if (msg.sender !== currentUser.phoneNumber && msg.status !== 'read' && !msg.isGenerating) {
-                                unread++;
-                            }
-                        });
-                    }
-                    setUnreadCounts(prev => ({ ...prev, [conversationKey]: unread }));
-                }, () => { /* handle error */ });
-
-                const listenerRefs = [
-                    { ref: messagesRef, listener: lastMsgListener, type: 'value' as const },
-                    { ref: unreadRef, listener: unreadListener, type: 'value' as const }
-                ];
-                
-                return listenerRefs;
-            });
-
-            return () => {
-                unsubscribers.forEach(({ ref, listener, type }) => off(ref, type, listener));
-            };
-        };
-
-        // Setup listeners for the initial contact list
-        const cleanupListeners = setupListeners(contactIds);
-        
-        // Return a cleanup function that will be called when the component unmounts
-        // or when the user changes.
-        return () => {
-            cleanupListeners();
-        };
+        cleanupConversationListeners();
+        const currentUserContacts = normalizeContactIds(snapshot.val());
+        const contactIds = [...new Set([...currentUserContacts, AI_CONTACT_ID])];
+        cleanupConversationListeners = setupConversationListeners(contactIds);
     });
 
     return () => {
-        // Cleanup the listener for the contact list itself.
+        cleanupConversationListeners();
         off(currentUserContactsRef, 'value', contactsListener);
     };
   }, [currentUser?.phoneNumber]);
@@ -150,20 +156,21 @@ export function ChatContainer() {
     }
 
     const currentUserData = allUsers[currentUser.phoneNumber];
-    if (!currentUserData || !currentUserData.contacts) {
+    const currentUserContacts = normalizeContactIds(currentUserData?.contacts);
+
+    if (!currentUserData || currentUserContacts.length === 0) {
       return [];
     }
 
-    return currentUserData.contacts
-      .map((contactId: string) => {
+    return currentUserContacts.flatMap((contactId) => {
         const contactUser = allUsers[contactId];
-        if (!contactUser) return null;
+        if (!contactUser) return [];
 
         const conversationKey = getConversationKey(currentUser.phoneNumber, contactId);
         const lastMessage = lastMessages[conversationKey];
 
-        return {
-          id: contactUser.phoneNumber,
+        return [{
+          id: contactId,
           name: contactUser.name,
           avatar: contactUser.profilePicture || `https://picsum.photos/seed/${contactId}/100/100`,
           online: contactUser.status?.online || false,
@@ -171,10 +178,9 @@ export function ChatContainer() {
           lastMessage: lastMessage ? (lastMessage.content || (lastMessage.image ? "Image" : (lastMessage.video ? "Video" : ''))) : 'No messages yet',
           lastMessageTime: lastMessage?.timestamp || '',
           unreadCount: unreadCounts[conversationKey] || 0, 
-          isTyping: typingStatus[contactUser.phoneNumber] || false,
-        };
-      })
-      .filter((c): c is Contact => c !== null);
+          isTyping: typingStatus[contactId] || false,
+        }];
+      });
   }, [currentUser?.phoneNumber, allUsers, lastMessages, typingStatus, unreadCounts]);
 
 
@@ -245,7 +251,7 @@ export function ChatContainer() {
     // Add new contact to current user's list
     const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
     const currentUserSnapshot = await get(currentUserContactsRef);
-    const currentUserContacts = currentUserSnapshot.val() || [];
+    const currentUserContacts = normalizeContactIds(currentUserSnapshot.val());
     if (!currentUserContacts.includes(user.phoneNumber)) {
       await set(currentUserContactsRef, [...currentUserContacts, user.phoneNumber]);
     }
@@ -253,7 +259,7 @@ export function ChatContainer() {
     // Add current user to the new contact's list
     const newContactContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
     const newContactSnapshot = await get(newContactContactsRef);
-    const newContactCurrentContacts = newContactSnapshot.val() || [];
+    const newContactCurrentContacts = normalizeContactIds(newContactSnapshot.val());
     if (!newContactCurrentContacts.includes(currentUser.phoneNumber)) {
         await set(newContactContactsRef, [...newContactCurrentContacts, currentUser.phoneNumber]);
     }
@@ -276,13 +282,13 @@ export function ChatContainer() {
         // Remove contact from current user's list
         const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
         const currentUserSnapshot = await get(currentUserContactsRef);
-        const currentUserContacts = (currentUserSnapshot.val() || []).filter((id: string) => id !== contactId);
+        const currentUserContacts = normalizeContactIds(currentUserSnapshot.val()).filter((id) => id !== contactId);
         await set(currentUserContactsRef, currentUserContacts);
         
         // Remove current user from the other contact's list
         const otherUserContactsRef = ref(db, `users/${contactId}/contacts`);
         const otherUserSnapshot = await get(otherUserContactsRef);
-        const otherUserContacts = (otherUserSnapshot.val() || []).filter((id: string) => id !== currentUser.phoneNumber);
+        const otherUserContacts = normalizeContactIds(otherUserSnapshot.val()).filter((id) => id !== currentUser.phoneNumber);
         await set(otherUserContactsRef, otherUserContacts);
 
         if (activeContactId === contactId) {
@@ -308,12 +314,12 @@ export function ChatContainer() {
     const lastMessage = lastMessages[conversationKey];
 
     return {
-        id: user.phoneNumber,
+        id: activeContactId,
         name: user.name,
         avatar: user.profilePicture || `https://picsum.photos/seed/${activeContactId}/100/100`,
         online: user.status?.online || false,
         lastSeen: user.status?.lastSeen,
-        isTyping: typingStatus[user.phoneNumber] || false,
+        isTyping: typingStatus[activeContactId] || false,
         lastMessage: lastMessage?.content || '', // Not strictly needed for header
         lastMessageTime: lastMessage?.timestamp || '', // Not strictly needed for header
         unreadCount: 0,

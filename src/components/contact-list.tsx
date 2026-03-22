@@ -71,13 +71,13 @@ interface ContactListProps {
   contacts: Contact[];
   activeContactId: string | null;
   onSelectContact: (id: string) => void;
-  onAddContact: (user: User) => void;
+  onAddContact: (user: User) => Promise<void> | void;
   onDeleteContact: (id: string) => void;
   onShowSettings: () => void;
   isLoading: boolean;
 }
 
-function AddContactDialog({ onAddContact, children }: { onAddContact: (user: User) => void, children: React.ReactNode }) {
+function AddContactDialog({ onAddContact, children }: { onAddContact: (user: User) => Promise<void> | void, children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
@@ -115,7 +115,7 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: Use
 
         if (snapshot.exists()) {
             const userData = snapshot.val();
-            onAddContact({ ...userData, phoneNumber: fullPhoneNumber.trim()});
+            await onAddContact({ ...userData, phoneNumber: fullPhoneNumber.trim()});
             setPhoneNumber('');
             setOpen(false);
         } else {
@@ -196,7 +196,7 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: Use
   )
 }
 
-function EmptyContactList({ onAddContact }: { onAddContact: (user: User) => void }) {
+function EmptyContactList({ onAddContact }: { onAddContact: (user: User) => Promise<void> | void }) {
   return (
     <div className='flex flex-col h-full items-center justify-center p-4 text-center'>
       <div className='flex flex-col items-center gap-4'>
