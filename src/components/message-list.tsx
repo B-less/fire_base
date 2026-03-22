@@ -21,7 +21,7 @@ const AI_CONTACT_ID = 'ai-assistant';
 
 function MessageListSkeleton() {
     return (
-        <div className="p-4 space-y-4">
+        <div className="chat-wallpaper-content p-4 space-y-4">
             <div className="flex items-end gap-2 justify-start">
                 <Skeleton className="h-8 w-8 rounded-full" />
                 <Skeleton className="h-10 w-48 rounded-lg" />
@@ -86,11 +86,11 @@ export function MessageList({ messages, contactId, onImagine, onDelete, isLoadin
   const combinedLoading = isLoading || (isContactLoading && !isAiAssistant);
 
   return (
-    <ScrollArea className="flex-1" ref={scrollAreaRef}>
+    <ScrollArea className="chat-wallpaper flex-1" ref={scrollAreaRef}>
       {combinedLoading ? (
         <MessageListSkeleton />
       ) : (
-        <div className="p-4 space-y-4">
+        <div className="chat-wallpaper-content p-4 space-y-4">
             {messages.map((message, index) => (
             <MessageBubble
                 key={`${message.db_key || message.id}-${index}`}
