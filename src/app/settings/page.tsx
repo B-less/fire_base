@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { useTheme } from 'next-themes';
 import { Switch } from '@/components/ui/switch';
 import type { MedianPermissionState } from '@/lib/median';
 import { getMedianPermissionStatus, getMedianPushInfo, isMedianApp, openMedianAppSettings, requestMedianPushRegistration } from '@/lib/median';
+import type { User } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -59,7 +60,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     }
   }, [user?.phoneNumber]);
 
-  const refreshMedianState = async () => {
+  const refreshMedianState = useCallback(async () => {
     if (!runningInMedian) {
       return;
     }
@@ -78,11 +79,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     } finally {
       setIsRefreshingMedianState(false);
     }
-  };
+  }, [runningInMedian]);
 
   useEffect(() => {
-    refreshMedianState();
-  }, [runningInMedian]);
+    void refreshMedianState();
+  }, [refreshMedianState]);
 
   const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,7 +118,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
     try {
       const userRef = ref(db, `users/${user.phoneNumber}`);
-      const updates: any = { name: trimmedName };
+      const updates: Partial<Pick<User, 'name' | 'profilePicture'>> = { name: trimmedName };
       if (profilePicture) {
         updates.profilePicture = profilePicture;
       }

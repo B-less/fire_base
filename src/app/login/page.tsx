@@ -16,6 +16,9 @@ import { sendOtp, verifyOtp } from '@/ai/flows/otp-flow';
 
 type LoginStep = 'phone' | 'otp';
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export default function LoginPage() {
   const [step, setStep] = useState<LoginStep>('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -65,8 +68,8 @@ export default function LoginPage() {
         } else {
             toast({ title: "Failed to Send OTP", description: result.message, variant: "destructive" });
         }
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message || "An unknown error occurred.", variant: "destructive" });
+    } catch (error: unknown) {
+        toast({ title: "Error", description: getErrorMessage(error, "An unknown error occurred."), variant: "destructive" });
     } finally {
         setIsLoading(false);
     }
@@ -99,8 +102,8 @@ export default function LoginPage() {
       } else {
         toast({ title: "Login Failed", description: result.message, variant: "destructive" });
       }
-    } catch (error: any) {
-       toast({ title: "Error", description: error.message || "An error occurred during verification.", variant: "destructive" });
+    } catch (error: unknown) {
+       toast({ title: "Error", description: getErrorMessage(error, "An error occurred during verification."), variant: "destructive" });
     } finally {
         setIsLoading(false);
     }

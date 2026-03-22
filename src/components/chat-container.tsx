@@ -12,10 +12,9 @@ import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push, get, child, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
+import { ref, onValue, set, push, get, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
 import { BroadcastBanner } from './broadcast-banner';
-import { RobotIcon } from '@/app/robot-icon';
 
 const AI_CONTACT_ID = 'ai-assistant';
 
@@ -87,9 +86,14 @@ export function ChatContainer() {
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [messageCache, setMessageCache] = useState<Record<string, Record<string, Message>>>({});
+  const messageCacheRef = useRef<Record<string, Record<string, Message>>>({});
   const [typingStatus, setTypingStatus] = useState<Record<string, boolean>>({});
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
+
+  useEffect(() => {
+    messageCacheRef.current = messageCache;
+  }, [messageCache]);
 
 
   // Fetch all users and set up listeners for last messages
@@ -231,21 +235,21 @@ export function ChatContainer() {
       
       const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
       
-      if (!messageCache[conversationKey]) {
+      if (!messageCacheRef.current[conversationKey]) {
         setIsMessagesLoading(true);
       }
 
       const messagesRef = ref(db, `messages/${conversationKey}`);
       const typingRef = activeContactId !== AI_CONTACT_ID ? ref(db, `conversations/${conversationKey}/typing/${activeContactId}`) : null;
       
-      const messagesListener = onValue(messagesRef, (snapshot) => {
-          const messagesData = snapshot.val() || {};
+      const detachMessagesListener = onValue(messagesRef, (snapshot) => {
+          const messagesData = (snapshot.val() || {}) as Record<string, Message>;
           // Update the cache for this specific conversation
           setMessageCache(prev => ({...prev, [conversationKey]: messagesData}));
 
           // Mark messages as read
-          const updates: Record<string, any> = {};
-          Object.entries(messagesData).forEach(([key, message]: [string, any]) => {
+          const updates: Record<string, 'read'> = {};
+          Object.entries(messagesData).forEach(([key, message]) => {
               if (message.sender === activeContactId && message.status !== 'read') {
                   updates[`messages/${conversationKey}/${key}/status`] = 'read';
               }
@@ -260,19 +264,17 @@ export function ChatContainer() {
           setIsMessagesLoading(false);
       });
       
-      let typingListener: any;
+      let detachTypingListener: (() => void) | undefined;
       if (typingRef) {
-        typingListener = onValue(typingRef, (snapshot) => {
+        detachTypingListener = onValue(typingRef, (snapshot) => {
             const isOpponentTyping = snapshot.val() || false;
             setTypingStatus(prev => ({ ...prev, [activeContactId]: isOpponentTyping }));
         });
       }
       
       return () => {
-          off(messagesRef, 'value', messagesListener);
-          if (typingRef && typingListener) {
-            off(typingRef, 'value', typingListener);
-          }
+          detachMessagesListener();
+          detachTypingListener?.();
       };
   }, [activeContactId, currentUser?.phoneNumber]);
 
@@ -429,7 +431,7 @@ export function ChatContainer() {
         status: 'read',
       };
       
-      const newMessageRef = push(messagesRef, aiMessage);
+      push(messagesRef, aiMessage);
       
     } catch (error) {
       console.error('Error getting AI response:', error);
@@ -513,7 +515,7 @@ export function ChatContainer() {
     const conversationKey = getConversationKey(currentUser.phoneNumber, activeContactId);
     const messageToUpdateRef = ref(db, `messages/${conversationKey}/${dbKey}`);
     
-    const updatedMessage: any = { content: content };
+    const updatedMessage: Record<string, string | boolean | null> = { content };
     if (media !== undefined) {
       updatedMessage.image = null;
       updatedMessage.video = null;

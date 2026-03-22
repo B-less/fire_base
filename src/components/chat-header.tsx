@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, MoreVertical, Phone, User as UserIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, Loader2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,6 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { ref, onValue, off } from 'firebase/database';
-import { useAuth } from '@/context/auth-context';
 import { RobotIcon } from '@/app/robot-icon';
 
 
@@ -31,7 +30,6 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [contactUser, setContactUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { user: currentUser } = useAuth();
   
   const isAiAssistant = contactId === AI_CONTACT_ID;
 

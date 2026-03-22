@@ -35,6 +35,8 @@ const africasTalking = AfricasTalking({
 });
 
 const sms = africasTalking.SMS;
+const africaTalkingSenderId =
+  process.env.AFRICASTALKING_SENDER_ID || process.env.AFRICASTALKING_FROM;
 
 export async function sendOtp(input: SendOtpInput): Promise<SendOtpOutput> {
   return sendOtpFlow(input);
@@ -60,14 +62,36 @@ const sendOtpFlow = ai.defineFlow(
     const hashedOtp = await bcrypt.hash(otp, 10);
 
     // 3. Send via Africa's Talking
+    if (!africaTalkingSenderId) {
+      console.error("Africa's Talking sender ID is not configured.");
+      return {
+        success: false,
+        message: 'SMS delivery is not configured yet. Please contact support.',
+      };
+    }
+
     try {
       const result = await sms.send({
         to: [phoneNumber],
+        from: africaTalkingSenderId,
         message: `Your ChirpChat verification code is: ${otp}. It will expire in 5 minutes.`
       });
 
+      const smsResult = result as unknown as {
+        SMSMessageData?: {
+          Recipients?: Array<{ statusCode: number }>;
+        };
+        Recipients?: Array<{ statusCode: number }> | { statusCode: number };
+      };
+      const recipients = smsResult.SMSMessageData?.Recipients
+        ?? (Array.isArray(smsResult.Recipients)
+          ? smsResult.Recipients
+          : smsResult.Recipients
+            ? [smsResult.Recipients]
+            : []);
+
       // Check if the status code for all recipients indicates success (less than 200)
-       if (result.SMSMessageData.Recipients.every((r: any) => r.statusCode < 200)) {
+       if (recipients.length > 0 && recipients.every((r) => r.statusCode < 200)) {
          // 4. Save OTP to database
         await set(otpRef, {
             hashedOtp,
@@ -77,7 +101,7 @@ const sendOtpFlow = ai.defineFlow(
 
         return { success: true, message: 'OTP sent successfully.' };
       } else {
-        console.error("Africa's Talking error:", result.SMSMessageData);
+        console.error("Africa's Talking error:", smsResult);
         return { success: false, message: 'Failed to send OTP. Please check the phone number.' };
       }
     } catch (error) {
@@ -105,6 +129,10 @@ export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
 
 export async function verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpOutput> {
     return verifyOtpFlow(input);
+}
+
+export async function cleanupExpiredOtps(): Promise<void> {
+  return cleanupExpiredOtpsFlow();
 }
 
 const verifyOtpFlow = ai.defineFlow({

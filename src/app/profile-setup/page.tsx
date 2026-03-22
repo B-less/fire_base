@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { ref, update } from "firebase/database";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { compressImage } from '@/lib/utils';
+import type { User } from '@/lib/types';
 
 
 export default function ProfileSetupPage() {
@@ -73,7 +74,7 @@ export default function ProfileSetupPage() {
 
     try {
       const userRef = ref(db, `users/${user.phoneNumber}`);
-      const updates: any = { name: trimmedName };
+      const updates: Partial<Pick<User, 'name' | 'profilePicture'>> = { name: trimmedName };
       if (profilePicture) {
         updates.profilePicture = profilePicture;
       }
@@ -99,7 +100,7 @@ export default function ProfileSetupPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Complete Your Profile</CardTitle>
           <CardDescription>
-            Let's set up your name and profile picture.
+            Let&apos;s set up your name and profile picture.
           </CardDescription>
         </CardHeader>
         <CardContent>

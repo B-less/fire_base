@@ -40,10 +40,12 @@ const generateVideoFlow = ai.defineFlow(
     outputSchema: GenerateVideoOutputSchema,
   },
   async ({ prompt, baseMedia, userId }) => {
-    
-    const promptParts = [{ text: prompt }];
+    const promptParts: Array<
+      | { text: string }
+      | { media: { url: string; contentType?: string } }
+    > = [{ text: prompt }];
     if (baseMedia) {
-        const [header, data] = baseMedia.split(',');
+        const [header] = baseMedia.split(',');
         const mimeType = header.match(/:(.*?);/)?.[1];
         promptParts.push({ media: { url: baseMedia, contentType: mimeType } });
     }

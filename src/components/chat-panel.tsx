@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Mic, X } from 'lucide-react';
-import type { Contact, Message, User } from '@/lib/types';
+import type { Message } from '@/lib/types';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
 import { ChatInput } from './chat-input';
@@ -14,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { MediaStudio } from './media-studio';
 import type { ThenableReference } from 'firebase/database';
 import { useAuth } from '@/context/auth-context';
-import { update } from 'firebase/database';
 import { Button } from './ui/button';
 
 interface ChatPanelProps {

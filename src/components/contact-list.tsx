@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { Search, Plus, Bot, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
+import { Search, Plus, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Contact, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -240,7 +240,7 @@ const formatTimestamp = (isoString: string) => {
             minute: 'numeric',
             hour12: true,
         }).format(date);
-    } catch (e) {
+    } catch {
         console.error("Invalid timestamp format:", isoString);
         return '';
     }
@@ -303,7 +303,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
     return <AdminDashboard onBack={handleBackToContacts} />;
   }
 
-  const Row = ({ index, data: contact }: { index: number, data: Contact }) => (
+  const Row = ({ data: contact }: { data: Contact }) => (
     <div
       key={contact.id}
       role="button"
@@ -376,7 +376,7 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
           <Virtuoso
               style={{ flex: 1 }}
               data={filteredContacts}
-              itemContent={(index, contact) => <Row index={index} data={contact} />}
+              itemContent={(_, contact) => <Row data={contact} />}
           />
         )
     }

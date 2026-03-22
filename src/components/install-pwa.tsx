@@ -5,15 +5,21 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 export function InstallPWA() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
+      const promptEvent = e as BeforeInstallPromptEvent;
       // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
+      promptEvent.preventDefault();
       // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
+      setDeferredPrompt(promptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', handler);

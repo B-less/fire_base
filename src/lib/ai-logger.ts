@@ -6,7 +6,7 @@ import { push, ref, serverTimestamp } from 'firebase/database';
 
 export type AIFeature = 'chat' | 'image' | 'video' | 'smart-reply' | 'push-notification';
 
-export async function logAIUsage(feature: AIFeature, metadata: Record<string, any> = {}) {
+export async function logAIUsage(feature: AIFeature, metadata: Record<string, unknown> = {}) {
   try {
     const logRef = ref(db, 'aiUsageLogs');
     await push(logRef, {

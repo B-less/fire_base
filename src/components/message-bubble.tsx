@@ -65,7 +65,7 @@ const formatTimestamp = (isoString: string) => {
             minute: 'numeric',
             hour12: true,
         }).format(date);
-    } catch (e) {
+    } catch {
         console.error("Invalid timestamp format:", isoString);
         return '';
     }

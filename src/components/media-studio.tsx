@@ -4,9 +4,9 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Input } from './ui/input';
-import { Loader2, Sparkles, Send, X } from 'lucide-react';
+import { Loader2, Sparkles, Send } from 'lucide-react';
 import type { GenerateImageInput, GenerateImageOutput } from '@/ai/flows/image-generation-flow';
 import type { GenerateVideoInput, GenerateVideoOutput } from '@/ai/flows/video-generation-flow';
 
