@@ -8,6 +8,7 @@ import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
 import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
+import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
@@ -461,7 +462,13 @@ export function ChatContainer() {
     
     const recipient = allUsers[activeContactId];
     
-    const dbMessage: Omit<Message, 'id' | 'db_key'> & {senderName: string, recipientFcmToken?: string} = {
+    const dbMessage: Omit<Message, 'id' | 'db_key'> & {
+      senderName: string,
+      recipientFcmToken?: string,
+      recipientPushProvider?: User['pushProvider'],
+      recipientOneSignalExternalId?: string,
+      recipientOneSignalSubscriptionId?: string,
+    } = {
       content,
       sender: currentUser.phoneNumber,
       senderName: currentUser.name,
@@ -470,9 +477,24 @@ export function ChatContainer() {
       ...getMediaPayload(media),
       ...(isGenerating && { isGenerating }),
       ...(recipient?.fcmToken && { recipientFcmToken: recipient.fcmToken }),
+      ...(recipient?.pushProvider && { recipientPushProvider: recipient.pushProvider }),
+      ...(recipient?.oneSignalExternalId && { recipientOneSignalExternalId: recipient.oneSignalExternalId }),
+      ...(recipient?.oneSignalSubscriptionId && { recipientOneSignalSubscriptionId: recipient.oneSignalSubscriptionId }),
     };
     
     const newMessageRef = push(messagesRef, dbMessage);
+
+    if (!isGenerating && activeContactId !== AI_CONTACT_ID) {
+      void sendPushNotification({
+        recipientToken: dbMessage.recipientFcmToken,
+        recipientExternalId: dbMessage.recipientOneSignalExternalId,
+        recipientPushProvider: dbMessage.recipientPushProvider,
+        senderName: currentUser.name,
+        message: content,
+      }).catch((error) => {
+        console.error('Failed to send push notification:', error);
+      });
+    }
 
     const newMessages = [...currentChatMessages, { ...dbMessage, id: Date.now(), db_key: newMessageRef.key! }];
 

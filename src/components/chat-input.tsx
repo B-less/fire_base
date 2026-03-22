@@ -14,6 +14,8 @@ import {
 import { Loader2 } from 'lucide-react';
 import { compressImage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import { getMedianPermissionStatus, isMedianApp, openMedianAppSettings } from '@/lib/median';
 
 
 interface ChatInputProps {
@@ -193,11 +195,23 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, hasPendingMed
       setIsRecording(true);
     } catch (error) {
       console.error("Error starting audio recording:", error);
+      const medianPermissionStatus = isMedianApp()
+        ? await getMedianPermissionStatus(['Microphone'])
+        : {};
+      const microphoneBlocked = medianPermissionStatus.Microphone === 'denied';
+
       stopAudioStream();
       setIsRecording(false);
       toast({
-        title: "Microphone Access Needed",
-        description: "Please allow microphone access to record a voice note.",
+        title: microphoneBlocked ? "Microphone Permission Blocked" : "Microphone Access Needed",
+        description: microphoneBlocked
+          ? "Microphone access is denied in the Median app. Open app settings and allow microphone permission."
+          : "Please allow microphone access to record a voice note.",
+        action: microphoneBlocked ? (
+          <ToastAction altText="Open app settings" onClick={openMedianAppSettings}>
+            Settings
+          </ToastAction>
+        ) : undefined,
         variant: "destructive",
       });
     }

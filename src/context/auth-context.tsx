@@ -8,13 +8,7 @@ import { db } from '@/lib/firebase';
 import { ref, set, onValue, off, serverTimestamp, onDisconnect, update } from 'firebase/database';
 import { getMessaging, getToken } from 'firebase/messaging';
 import { vapidKey } from '@/lib/firebase-env';
-
-// For Median.co integration
-declare global {
-  interface Window {
-    median: any;
-  }
-}
+import { isMedianApp, loginMedianPushUser, logoutMedianPushUser, requestMedianPushRegistration } from '@/lib/median';
 
 interface AuthContextType {
   user: User | null;
@@ -90,14 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Request notification permission and get FCM token
       const requestNotificationPermission = async () => {
         try {
-          // Check if running inside Median.co wrapper
-          if (window.median && window.median.android && window.median.android.fcm) {
-             window.median.android.fcm.getRegistrationId(async (token: string) => {
-                if (token) {
-                  console.log("Median FCM Token:", token);
-                  await update(userRef, { fcmToken: token });
-                }
-             });
+          if (isMedianApp()) {
+            await requestMedianPushRegistration();
+            const oneSignalInfo = await loginMedianPushUser(user.phoneNumber);
+
+            await update(userRef, {
+              pushProvider: 'median-onesignal',
+              oneSignalExternalId: user.phoneNumber,
+              oneSignalId: oneSignalInfo?.oneSignalId ?? null,
+              oneSignalSubscriptionId: oneSignalInfo?.subscription?.id ?? null,
+              fcmToken: null,
+            });
           } else {
             // Fallback for standard web browsers
             const messaging = getMessaging();
@@ -105,7 +102,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (permission === 'granted') {
               const currentToken = await getToken(messaging, { vapidKey });
               if (currentToken) {
-                await update(userRef, { fcmToken: currentToken });
+                await update(userRef, {
+                  fcmToken: currentToken,
+                  pushProvider: 'fcm',
+                  oneSignalExternalId: null,
+                  oneSignalId: null,
+                  oneSignalSubscriptionId: null,
+                });
               } else {
                 console.log('No registration token available. Request permission to generate one.');
               }
@@ -145,6 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user?.phoneNumber) {
          const userStatusRef = ref(db, `users/${user.phoneNumber}/status`);
          await set(userStatusRef, { online: false, lastSeen: serverTimestamp() });
+
+         if (isMedianApp()) {
+          await logoutMedianPushUser();
+         }
       }
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);

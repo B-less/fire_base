@@ -1,10 +1,9 @@
 
 'use server';
 /**
- * @fileOverview A flow for sending push notifications via FCM.
+ * @fileOverview A flow for sending push notifications via FCM or OneSignal.
  *
  * - sendPushNotification - A function that sends a push notification.
- * - processMessageAndNotify - A flow that is triggered on a new message to send a notification.
  * - PushNotificationInput - The input type for the sendPushNotification function.
  */
 
@@ -28,11 +27,64 @@ if (!admin.apps.length) {
 const PushNotificationInputSchema = z.object({
   recipientToken: z
     .string()
+    .optional()
     .describe("The FCM token of the device to send the notification to."),
+  recipientExternalId: z
+    .string()
+    .optional()
+    .describe("The OneSignal external id for the recipient user."),
+  recipientPushProvider: z
+    .enum(['fcm', 'median-onesignal'])
+    .optional()
+    .describe("The push provider to use for the notification."),
   senderName: z.string().describe('The name of the user sending the message.'),
   message: z.string().describe('The content of the message.'),
 });
 export type PushNotificationInput = z.infer<typeof PushNotificationInputSchema>;
+
+const sendOneSignalPushNotification = async ({
+  recipientExternalId,
+  senderName,
+  message,
+}: {
+  recipientExternalId: string;
+  senderName: string;
+  message: string;
+}) => {
+  const oneSignalAppId = process.env.ONESIGNAL_APP_ID;
+  const oneSignalApiKey = process.env.ONESIGNAL_API_KEY;
+
+  if (!oneSignalAppId || !oneSignalApiKey) {
+    console.error('OneSignal is not configured. Missing ONESIGNAL_APP_ID or ONESIGNAL_API_KEY.');
+    return;
+  }
+
+  const response = await fetch('https://api.onesignal.com/notifications?c=push', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Key ${oneSignalApiKey}`,
+    },
+    body: JSON.stringify({
+      app_id: oneSignalAppId,
+      include_aliases: {
+        external_id: [recipientExternalId],
+      },
+      target_channel: 'push',
+      headings: {
+        en: `New message from ${senderName}`,
+      },
+      contents: {
+        en: message || 'Sent you a media file.',
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OneSignal push notification failed:', response.status, errorText);
+  }
+};
 
 export async function sendPushNotification(
   input: PushNotificationInput
@@ -46,7 +98,16 @@ const sendPushNotificationFlow = ai.defineFlow(
     inputSchema: PushNotificationInputSchema,
     outputSchema: z.void(),
   },
-  async ({ recipientToken, senderName, message }) => {
+  async ({ recipientToken, recipientExternalId, recipientPushProvider, senderName, message }) => {
+    if (recipientPushProvider === 'median-onesignal' && recipientExternalId) {
+      await sendOneSignalPushNotification({
+        recipientExternalId,
+        senderName,
+        message,
+      });
+      return;
+    }
+
     if (!admin.apps.length) {
       console.error('Firebase Admin SDK not initialized.');
       return;
@@ -74,40 +135,3 @@ const sendPushNotificationFlow = ai.defineFlow(
 );
 
 
-const NewMessageSchema = z.object({
-    content: z.string(),
-    sender: z.string(),
-    senderName: z.string(),
-    recipientFcmToken: z.string().optional(),
-    isGenerating: z.boolean().optional(),
-});
-
-ai.defineFlow(
-  {
-    name: 'processMessageAndNotify',
-    inputSchema: NewMessageSchema,
-    outputSchema: z.void(),
-    trigger: {
-      type: 'firebase',
-      firebase: {
-        eventType: 'google.firebase.database.ref.v1.written',
-        // This path needs to match where your messages are stored.
-        // The {conversationId} and {messageId} are wildcards.
-        ref: 'messages/{conversationId}/{messageId}',
-      },
-    },
-  },
-  async (message) => {
-    // The `message` object here is the data written to the database.
-    if (!message.recipientFcmToken || message.isGenerating === true) {
-      // No token or it's a temporary generation message, so don't send a notification.
-      return;
-    }
-
-    await sendPushNotification({
-      recipientToken: message.recipientFcmToken,
-      senderName: message.senderName,
-      message: message.content,
-    });
-  }
-);

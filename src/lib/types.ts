@@ -44,6 +44,10 @@ export type User = {
       account: UserAccountStatus;
     };
     fcmToken?: string;
+    pushProvider?: 'fcm' | 'median-onesignal';
+    oneSignalId?: string;
+    oneSignalExternalId?: string;
+    oneSignalSubscriptionId?: string;
 }
 
 export type AIUsageLog = {

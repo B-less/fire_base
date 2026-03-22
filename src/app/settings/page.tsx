@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, LogOut, ArrowLeft, Sparkles, Moon, Sun } from 'lucide-react';
+import { Loader2, User as UserIcon, LogOut, ArrowLeft, Sparkles, Moon, Sun, Bell, Mic, ExternalLink, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { ref, update, get } from "firebase/database";
@@ -14,6 +14,8 @@ import { compressImage } from '@/lib/utils';
 import { generateImage } from '@/ai/flows/image-generation-flow';
 import { useTheme } from 'next-themes';
 import { Switch } from '@/components/ui/switch';
+import type { MedianPermissionState } from '@/lib/median';
+import { getMedianPermissionStatus, getMedianPushInfo, isMedianApp, openMedianAppSettings, requestMedianPushRegistration } from '@/lib/median';
 import {
   Dialog,
   DialogContent,
@@ -34,9 +36,14 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRefreshingMedianState, setIsRefreshingMedianState] = useState(false);
+  const [microphonePermission, setMicrophonePermission] = useState<MedianPermissionState>('unknown');
+  const [notificationPermission, setNotificationPermission] = useState<MedianPermissionState>('unknown');
+  const [oneSignalSubscriptionId, setOneSignalSubscriptionId] = useState<string | null>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
+  const runningInMedian = isMedianApp();
 
   // Fetch full user data on component mount
   useEffect(() => {
@@ -51,6 +58,31 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       });
     }
   }, [user?.phoneNumber]);
+
+  const refreshMedianState = async () => {
+    if (!runningInMedian) {
+      return;
+    }
+
+    setIsRefreshingMedianState(true);
+
+    try {
+      const permissions = await getMedianPermissionStatus(['Microphone', 'Notifications']);
+      setMicrophonePermission(permissions.Microphone ?? 'unknown');
+      setNotificationPermission(permissions.Notifications ?? 'unknown');
+
+      const pushInfo = await getMedianPushInfo();
+      setOneSignalSubscriptionId(pushInfo?.subscription?.id ?? null);
+    } catch (error) {
+      console.error('Failed to refresh Median state:', error);
+    } finally {
+      setIsRefreshingMedianState(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshMedianState();
+  }, [runningInMedian]);
 
   const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,6 +150,24 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     }
   }
 
+  const handleEnableMedianNotifications = async () => {
+    try {
+      await requestMedianPushRegistration();
+      await refreshMedianState();
+      toast({
+        title: 'Notifications Requested',
+        description: 'If Android shows a push prompt, allow it to enable native notifications in the Median app.',
+      });
+    } catch (error) {
+      console.error('Failed to request Median notifications:', error);
+      toast({
+        title: 'Could Not Enable Notifications',
+        description: 'Please try again, or open app settings to review notification permission.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-4 p-4 border-b">
@@ -181,6 +231,42 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 />
             </div>
         </div>
+
+        {runningInMedian && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold">Median App</h2>
+              <Button variant="outline" size="sm" onClick={refreshMedianState} disabled={isRefreshingMedianState}>
+                {isRefreshingMedianState ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Refresh
+              </Button>
+            </div>
+
+            <PermissionCard
+              icon={<Mic className="h-4 w-4" />}
+              title="Microphone"
+              description="Voice notes in the wrapper use the native WebRTC microphone permission."
+              status={microphonePermission}
+              actionLabel="Open App Settings"
+              actionIcon={<ExternalLink className="mr-2 h-4 w-4" />}
+              onAction={openMedianAppSettings}
+            />
+
+            <PermissionCard
+              icon={<Bell className="h-4 w-4" />}
+              title="Push Notifications"
+              description={oneSignalSubscriptionId
+                ? `Push is linked to this device. Subscription ID: ${oneSignalSubscriptionId}`
+                : 'Enable native push so the wrapper can receive chat notifications.'}
+              status={notificationPermission}
+              actionLabel="Enable Notifications"
+              actionIcon={<Bell className="mr-2 h-4 w-4" />}
+              onAction={handleEnableMedianNotifications}
+              secondaryActionLabel="App Settings"
+              onSecondaryAction={openMedianAppSettings}
+            />
+          </div>
+        )}
 
         {/* Account Section */}
         <div className="space-y-4">
@@ -247,5 +333,62 @@ function GenerateAIPictureDialog({ onGenerate, isLoading }: { onGenerate: (promp
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PermissionCard({
+  icon,
+  title,
+  description,
+  status,
+  actionLabel,
+  actionIcon,
+  onAction,
+  secondaryActionLabel,
+  onSecondaryAction,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  status: MedianPermissionState;
+  actionLabel: string;
+  actionIcon?: ReactNode;
+  onAction: () => void;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
+}) {
+  const statusTone = status === 'granted'
+    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    : status === 'denied'
+      ? 'bg-destructive/10 text-destructive'
+      : 'bg-muted text-muted-foreground';
+
+  return (
+    <div className="rounded-lg border p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 font-medium">
+            {icon}
+            <span>{title}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${statusTone}`}>
+          {status}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={onAction}>
+          {actionIcon}
+          {actionLabel}
+        </Button>
+        {secondaryActionLabel && onSecondaryAction && (
+          <Button variant="ghost" size="sm" onClick={onSecondaryAction}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            {secondaryActionLabel}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
