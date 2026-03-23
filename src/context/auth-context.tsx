@@ -4,17 +4,18 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@/lib/types';
-import { db } from '@/lib/firebase';
-import { ref, set, onValue, off, serverTimestamp, onDisconnect, update } from 'firebase/database';
+import { auth, db } from '@/lib/firebase';
+import { ref, set, onValue, off, serverTimestamp, onDisconnect, update, get } from 'firebase/database';
 import { getMessaging, getToken } from 'firebase/messaging';
+import { onAuthStateChanged, signInWithCustomToken, signOut } from 'firebase/auth';
 import { vapidKey } from '@/lib/firebase-env';
 import { isMedianApp, loginMedianPushUser, logoutMedianPushUser, requestMedianPushRegistration } from '@/lib/median';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (phoneNumber: string, name: string) => void;
-  logout: () => void;
+  login: (phoneNumber: string, name: string, customToken?: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,23 +28,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedUser && storedUser !== 'undefined' && storedUser !== 'null') {
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch (jsonError) {
-          console.error("Failed to parse user from localStorage", jsonError);
-          localStorage.removeItem(AUTH_STORAGE_KEY);
-        }
-      }
-    } catch (error)
-    {
-      console.error("Could not access localStorage", error);
-    } finally {
-      setLoading(false);
-    }
-    
     // Register Service Worker for PWA, but NOT if inside Median wrapper
     if ('serviceWorker' in navigator && typeof window.median === 'undefined') {
       window.addEventListener('load', () => {
@@ -55,6 +39,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
 
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+        const parsedStoredUser =
+          storedUser && storedUser !== 'undefined' && storedUser !== 'null'
+            ? (JSON.parse(storedUser) as User)
+            : null;
+
+        if (!firebaseUser) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          setUser(null);
+          return;
+        }
+
+        if (parsedStoredUser?.phoneNumber === firebaseUser.uid) {
+          setUser(parsedStoredUser);
+          return;
+        }
+
+        const userSnapshot = await get(ref(db, `users/${firebaseUser.uid}`));
+        if (userSnapshot.exists()) {
+          const userData = { ...(userSnapshot.val() as Omit<User, 'phoneNumber'>), phoneNumber: firebaseUser.uid };
+          localStorage.setItem(
+            AUTH_STORAGE_KEY,
+            JSON.stringify({ phoneNumber: userData.phoneNumber, name: userData.name })
+          );
+          setUser(userData);
+          return;
+        }
+
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setUser(null);
+      } catch (error) {
+        console.error('Could not restore the authenticated user', error);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
   
   useEffect(() => {
@@ -132,14 +160,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
 
-  const login = (phoneNumber: string, name: string) => {
+  const login = async (phoneNumber: string, name: string, customToken?: string) => {
     try {
+      if (customToken) {
+        await signInWithCustomToken(auth, customToken);
+      }
       const userData = { phoneNumber, name };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
       setUser(userData);
       router.push('/');
     } catch (error) {
       console.error("Could not set user in localStorage", error);
+      throw error;
     }
   };
 
@@ -153,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await logoutMedianPushUser();
          }
       }
+      await signOut(auth);
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
       router.push('/login');

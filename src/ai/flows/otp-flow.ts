@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -9,13 +8,12 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-import { ref, set, get, remove, update } from 'firebase/database';
-import { db } from '@/lib/firebase';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import type { User } from '@/lib/types';
+import AfricasTalking from 'africastalking';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import AfricasTalking from 'africastalking';
-import type { User } from '@/lib/types';
+import { z } from 'genkit';
 
 const SendOtpInputSchema = z.object({
   phoneNumber: z.string().describe('The phone number to send the OTP to, in international format.'),
@@ -28,6 +26,20 @@ const SendOtpOutputSchema = z.object({
 });
 export type SendOtpOutput = z.infer<typeof SendOtpOutputSchema>;
 
+const VerifyOtpInputSchema = z.object({
+  phoneNumber: z.string(),
+  otp: z.string().length(6),
+});
+export type VerifyOtpInput = z.infer<typeof VerifyOtpInputSchema>;
+
+const VerifyOtpOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  user: z.any().optional(),
+  isNewUser: z.boolean().optional(),
+  customToken: z.string().optional(),
+});
+export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
 
 const africasTalking = AfricasTalking({
   apiKey: process.env.AFRICASTALKING_APIKEY!,
@@ -42,6 +54,14 @@ export async function sendOtp(input: SendOtpInput): Promise<SendOtpOutput> {
   return sendOtpFlow(input);
 }
 
+export async function verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpOutput> {
+  return verifyOtpFlow(input);
+}
+
+export async function cleanupExpiredOtps(): Promise<void> {
+  return cleanupExpiredOtpsFlow();
+}
+
 const sendOtpFlow = ai.defineFlow(
   {
     name: 'sendOtpFlow',
@@ -49,19 +69,20 @@ const sendOtpFlow = ai.defineFlow(
     outputSchema: SendOtpOutputSchema,
   },
   async ({ phoneNumber }) => {
-    // 1. Rate limit check (simple version: one OTP per minute per number)
-    const otpRef = ref(db, `otps/${phoneNumber}`);
-    const existingOtp = await get(otpRef);
+    const otpRef = adminDb.ref(`otps/${phoneNumber}`);
+    const existingOtp = await otpRef.get();
+
     if (existingOtp.exists() && existingOtp.val().createdAt > Date.now() - 60 * 1000) {
-        return { success: false, message: "An OTP was recently sent. Please wait a minute before trying again." };
+      return {
+        success: false,
+        message: 'An OTP was recently sent. Please wait a minute before trying again.',
+      };
     }
-    
-    // 2. Generate OTP
+
     const otp = crypto.randomInt(100000, 999999).toString();
-    const expires = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+    const expires = Date.now() + 5 * 60 * 1000;
     const hashedOtp = await bcrypt.hash(otp, 10);
 
-    // 3. Send via Africa's Talking
     if (!africaTalkingSenderId) {
       console.error("Africa's Talking sender ID is not configured.");
       return {
@@ -74,7 +95,7 @@ const sendOtpFlow = ai.defineFlow(
       const result = await sms.send({
         to: [phoneNumber],
         from: africaTalkingSenderId,
-        message: `Your ChirpChat verification code is: ${otp}. It will expire in 5 minutes.`
+        message: `Your ChirpChat verification code is: ${otp}. It will expire in 5 minutes.`,
       });
 
       const smsResult = result as unknown as {
@@ -83,27 +104,26 @@ const sendOtpFlow = ai.defineFlow(
         };
         Recipients?: Array<{ statusCode: number }> | { statusCode: number };
       };
-      const recipients = smsResult.SMSMessageData?.Recipients
-        ?? (Array.isArray(smsResult.Recipients)
+      const recipients =
+        smsResult.SMSMessageData?.Recipients ??
+        (Array.isArray(smsResult.Recipients)
           ? smsResult.Recipients
           : smsResult.Recipients
             ? [smsResult.Recipients]
             : []);
 
-      // Check if the status code for all recipients indicates success (less than 200)
-       if (recipients.length > 0 && recipients.every((r) => r.statusCode < 200)) {
-         // 4. Save OTP to database
-        await set(otpRef, {
-            hashedOtp,
-            expires,
-            createdAt: Date.now()
+      if (recipients.length > 0 && recipients.every((recipient) => recipient.statusCode < 200)) {
+        await otpRef.set({
+          hashedOtp,
+          expires,
+          createdAt: Date.now(),
         });
 
         return { success: true, message: 'OTP sent successfully.' };
-      } else {
-        console.error("Africa's Talking error:", smsResult);
-        return { success: false, message: 'Failed to send OTP. Please check the phone number.' };
       }
+
+      console.error("Africa's Talking error:", smsResult);
+      return { success: false, message: 'Failed to send OTP. Please check the phone number.' };
     } catch (error) {
       console.error('Error sending OTP:', error);
       return { success: false, message: 'An unexpected error occurred while sending the OTP.' };
@@ -111,122 +131,104 @@ const sendOtpFlow = ai.defineFlow(
   }
 );
 
-
-const VerifyOtpInputSchema = z.object({
-  phoneNumber: z.string(),
-  otp: z.string().length(6),
-});
-export type VerifyOtpInput = z.infer<typeof VerifyOtpInputSchema>;
-
-const VerifyOtpOutputSchema = z.object({
-  success: z.boolean(),
-  message: z.string(),
-  user: z.any().optional(),
-  isNewUser: z.boolean().optional(),
-});
-export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
-
-
-export async function verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpOutput> {
-    return verifyOtpFlow(input);
-}
-
-export async function cleanupExpiredOtps(): Promise<void> {
-  return cleanupExpiredOtpsFlow();
-}
-
-const verifyOtpFlow = ai.defineFlow({
+const verifyOtpFlow = ai.defineFlow(
+  {
     name: 'verifyOtpFlow',
     inputSchema: VerifyOtpInputSchema,
     outputSchema: VerifyOtpOutputSchema,
-}, async ({ phoneNumber, otp }) => {
-    const otpRef = ref(db, `otps/${phoneNumber}`);
-    const otpDataSnapshot = await get(otpRef);
+  },
+  async ({ phoneNumber, otp }) => {
+    const otpRef = adminDb.ref(`otps/${phoneNumber}`);
+    const otpDataSnapshot = await otpRef.get();
 
-    // 1. Check if OTP record exists
     if (!otpDataSnapshot.exists()) {
-        return { success: false, message: 'Invalid or expired OTP. Please try again.' };
+      return { success: false, message: 'Invalid or expired OTP. Please try again.' };
     }
-    
+
     const otpData = otpDataSnapshot.val();
 
-    // 2. Check for expiry
     if (otpData.expires < Date.now()) {
-        await remove(otpRef); // Clean up expired OTP
-        return { success: false, message: 'OTP has expired. Please request a new one.' };
+      await otpRef.remove();
+      return { success: false, message: 'OTP has expired. Please request a new one.' };
     }
-    
-    // 3. Verify OTP hash
-    const isValid = await bcrypt.compare(otp, otpData.hashedOtp);
 
+    const isValid = await bcrypt.compare(otp, otpData.hashedOtp);
     if (!isValid) {
-        // Do not remove on invalid attempt to prevent brute-forcing
-        return { success: false, message: 'The OTP entered is incorrect.' };
+      return { success: false, message: 'The OTP entered is incorrect.' };
     }
-    
-    // OTP is valid, now check user status before finalizing
-    const userRef = ref(db, `users/${phoneNumber}`);
-    let userSnapshot = await get(userRef);
+
+    const userRef = adminDb.ref(`users/${phoneNumber}`);
+    let userSnapshot = await userRef.get();
     let userData = userSnapshot.val() as User | null;
     let isNewUser = false;
 
-    if(userData && userData.status?.account && userData.status.account !== 'active') {
-        if(userData.status.account === 'banned') {
-            await remove(otpRef); // Clean up OTP
-            return { success: false, message: "This account has been banned." };
-        }
-         if(userData.status.account === 'disabled') {
-            await remove(otpRef); // Clean up OTP
-            return { success: false, message: "This account is currently disabled." };
-        }
+    if (userData?.status?.account && userData.status.account !== 'active') {
+      await otpRef.remove();
+
+      if (userData.status.account === 'banned') {
+        return { success: false, message: 'This account has been banned.' };
+      }
+
+      if (userData.status.account === 'disabled') {
+        return { success: false, message: 'This account is currently disabled.' };
+      }
     }
 
+    await otpRef.remove();
 
-    // 4. OTP is valid, clean up
-    await remove(otpRef);
-
-    // 5. Check if user exists, if not, create one
     if (!userSnapshot.exists()) {
-        isNewUser = true;
-        // Simple name generation for new user, will be updated on profile setup
-        const name = `User${phoneNumber.slice(-4)}`;
-        const newUser: Omit<User, 'phoneNumber'> = {
-            name: name,
-            status: { online: false, lastSeen: 0, account: 'active' },
-            contacts: []
-        };
-        await set(userRef, newUser);
-        userSnapshot = await get(userRef); // re-fetch user data
-        userData = userSnapshot.val();
+      isNewUser = true;
+      const name = `User${phoneNumber.slice(-4)}`;
+      const newUser: Omit<User, 'phoneNumber'> = {
+        name,
+        status: { online: false, lastSeen: 0, account: 'active' },
+        contacts: [],
+      };
+
+      await userRef.set(newUser);
+      userSnapshot = await userRef.get();
+      userData = userSnapshot.val();
     }
-    
+
     const user = { ...userData, phoneNumber };
+    const customToken = await adminAuth.createCustomToken(phoneNumber, {
+      phoneNumber,
+    });
 
-    return { success: true, message: 'Phone number verified successfully.', user, isNewUser };
-});
+    return {
+      success: true,
+      message: 'Phone number verified successfully.',
+      user,
+      isNewUser,
+      customToken,
+    };
+  }
+);
 
-// Optional: A flow to clean up expired OTPs (can be scheduled to run periodically)
 const cleanupExpiredOtpsFlow = ai.defineFlow(
   {
     name: 'cleanupExpiredOtpsFlow',
-    // Could be triggered by a cron job
   },
   async () => {
-    const otpsRef = ref(db, 'otps');
-    const snapshot = await get(otpsRef);
-    if (snapshot.exists()) {
-      const now = Date.now();
-      const updates: Record<string, null> = {};
-      snapshot.forEach(childSnapshot => {
-        if (childSnapshot.val().expires < now) {
-          updates[childSnapshot.key!] = null;
-        }
-      });
-      if(Object.keys(updates).length > 0) {
-        // Using update instead of set to remove multiple children at once
-        await update(ref(db, 'otps'), updates);
-        console.log(`Cleaned up ${Object.keys(updates).length} expired OTPs.`);
+    const otpsRef = adminDb.ref('otps');
+    const snapshot = await otpsRef.get();
+
+    if (!snapshot.exists()) {
+      return;
+    }
+
+    const now = Date.now();
+    const updates: Record<string, null> = {};
+
+    snapshot.forEach((childSnapshot) => {
+      if (childSnapshot.val().expires < now) {
+        updates[childSnapshot.key!] = null;
       }
+    });
+
+    if (Object.keys(updates).length > 0) {
+      await otpsRef.update(updates);
+      console.log(`Cleaned up ${Object.keys(updates).length} expired OTPs.`);
     }
   }
 );

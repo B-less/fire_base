@@ -1,17 +1,16 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
-import { push, ref, serverTimestamp } from 'firebase/database';
+import { admin, adminDb } from '@/lib/firebase-admin';
 
 export type AIFeature = 'chat' | 'image' | 'video' | 'smart-reply' | 'push-notification';
 
 export async function logAIUsage(feature: AIFeature, metadata: Record<string, unknown> = {}) {
   try {
-    const logRef = ref(db, 'aiUsageLogs');
-    await push(logRef, {
+    const logRef = adminDb.ref('aiUsageLogs');
+    await logRef.push({
       feature,
-      timestamp: serverTimestamp(),
+      timestamp: admin.database.ServerValue.TIMESTAMP,
       ...metadata,
     });
   } catch (error) {

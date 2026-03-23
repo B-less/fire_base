@@ -82,7 +82,7 @@ export default function ProfileSetupPage() {
       await update(userRef, updates);
 
       // Update auth context with the new name
-      login(user.phoneNumber, trimmedName);
+      await login(user.phoneNumber, trimmedName);
       
       toast({ title: "Profile created!", description: "Welcome to ChirpChat!" });
       router.push('/');

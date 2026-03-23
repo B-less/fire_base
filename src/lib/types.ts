@@ -37,7 +37,7 @@ export type User = {
     phoneNumber: string;
     name: string;
     profilePicture?: string;
-    contacts?: string[];
+    contacts?: string[] | Record<string, true>;
     status?: {
       online: boolean;
       lastSeen: number | object; // Can be timestamp or server timestamp object
@@ -48,6 +48,16 @@ export type User = {
     oneSignalId?: string;
     oneSignalExternalId?: string;
     oneSignalSubscriptionId?: string;
+}
+
+export type PublicUser = {
+    phoneNumber: string;
+    name: string;
+    profilePicture?: string;
+    status?: {
+      online: boolean;
+      lastSeen: number | object;
+    };
 }
 
 export type AIUsageLog = {

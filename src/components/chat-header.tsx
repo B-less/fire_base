@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, MoreVertical, Phone, Loader2 } from 'lucide-react';
-import type { Contact, User } from '@/lib/types';
+import type { Contact } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,9 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatDistanceToNow } from 'date-fns';
-import { db } from '@/lib/firebase';
-import { ref, onValue, off } from 'firebase/database';
 import { RobotIcon } from '@/app/robot-icon';
+import { type PublicUserProfile, subscribeToPublicUser } from '@/lib/public-user';
 
 
 interface ChatHeaderProps {
@@ -28,7 +27,7 @@ const AI_CONTACT_ID = 'ai-assistant';
 
 export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [contactUser, setContactUser] = useState<User | null>(null);
+  const [contactUser, setContactUser] = useState<PublicUserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const isAiAssistant = contactId === AI_CONTACT_ID;
@@ -40,15 +39,12 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
     };
 
     setIsLoading(true);
-    const userRef = ref(db, `users/${contactId}`);
-    const listener = onValue(userRef, (snapshot) => {
-        if(snapshot.exists()) {
-            setContactUser({ ...snapshot.val(), phoneNumber: contactId });
-        }
-        setIsLoading(false);
+    const unsubscribe = subscribeToPublicUser(contactId, (user) => {
+      setContactUser(user);
+      setIsLoading(false);
     });
 
-    return () => off(userRef, 'value', listener);
+    return () => unsubscribe();
   }, [contactId, isAiAssistant]);
   
   

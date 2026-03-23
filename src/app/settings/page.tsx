@@ -126,7 +126,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       await update(userRef, updates);
 
       // Update auth context
-      login(user.phoneNumber, trimmedName);
+      await login(user.phoneNumber, trimmedName);
       
       toast({ title: "Settings saved successfully!" });
     } catch (error) {

@@ -90,9 +90,9 @@ export default function LoginPage() {
     try {
       const result = await verifyOtp({ phoneNumber: fullPhoneNumber, otp });
 
-      if (result.success && result.user) {
+      if (result.success && result.user && result.customToken) {
         toast({ title: "Login Successful", description: "Welcome to ChirpChat!" });
-        login(result.user.phoneNumber, result.user.name);
+        await login(result.user.phoneNumber, result.user.name, result.customToken);
         
         if (result.isNewUser) {
           router.push('/profile-setup');
@@ -100,7 +100,11 @@ export default function LoginPage() {
           router.push('/');
         }
       } else {
-        toast({ title: "Login Failed", description: result.message, variant: "destructive" });
+        toast({
+          title: "Login Failed",
+          description: result.success ? 'Could not create a secure session. Please try again.' : result.message,
+          variant: "destructive",
+        });
       }
     } catch (error: unknown) {
        toast({ title: "Error", description: getErrorMessage(error, "An error occurred during verification."), variant: "destructive" });

@@ -3,11 +3,10 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Message, User } from '@/lib/types';
+import type { Message } from '@/lib/types';
 import { MessageBubble } from './message-bubble';
 import { Skeleton } from './ui/skeleton';
-import { db } from '@/lib/firebase';
-import { ref, onValue, off } from 'firebase/database';
+import { type PublicUserProfile, subscribeToPublicUser } from '@/lib/public-user';
 
 interface MessageListProps {
   messages: Message[];
@@ -45,7 +44,7 @@ function MessageListSkeleton() {
 
 export function MessageList({ messages, contactId, onImagine, onDelete, isLoading = false }: MessageListProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [contactUser, setContactUser] = useState<User | null>(null);
+  const [contactUser, setContactUser] = useState<PublicUserProfile | null>(null);
   const [isContactLoading, setIsContactLoading] = useState(true);
 
   const isAiAssistant = contactId === AI_CONTACT_ID;
@@ -57,15 +56,12 @@ export function MessageList({ messages, contactId, onImagine, onDelete, isLoadin
     }
 
     setIsContactLoading(true);
-    const userRef = ref(db, `users/${contactId}`);
-    const listener = onValue(userRef, (snapshot) => {
-        if(snapshot.exists()) {
-            setContactUser({ ...snapshot.val(), phoneNumber: contactId });
-        }
-        setIsContactLoading(false);
+    const unsubscribe = subscribeToPublicUser(contactId, (user) => {
+      setContactUser(user);
+      setIsContactLoading(false);
     });
 
-    return () => off(userRef, 'value', listener);
+    return () => unsubscribe();
   }, [contactId, isAiAssistant]);
 
   const contactAvatar = useMemo(() => {

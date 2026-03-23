@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { Search, Plus, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
-import type { Contact, User } from '@/lib/types';
+import type { Contact, PublicUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -45,11 +45,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { db } from '@/lib/firebase';
-import { ref, get, child } from 'firebase/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdminDashboard } from '@/components/admin-dashboard';
 import { Virtuoso } from 'react-virtuoso';
+import { getPublicUser } from '@/lib/public-user';
 
 
 // =================================================================================
@@ -71,13 +70,13 @@ interface ContactListProps {
   contacts: Contact[];
   activeContactId: string | null;
   onSelectContact: (id: string) => void;
-  onAddContact: (user: User) => Promise<void> | void;
+  onAddContact: (user: PublicUser) => Promise<void> | void;
   onDeleteContact: (id: string) => void;
   onShowSettings: () => void;
   isLoading: boolean;
 }
 
-function AddContactDialog({ onAddContact, children }: { onAddContact: (user: User) => Promise<void> | void, children: React.ReactNode }) {
+function AddContactDialog({ onAddContact, children }: { onAddContact: (user: PublicUser) => Promise<void> | void, children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [country, setCountry] = useState(countries.find(c => c.code === 'US')!);
@@ -110,12 +109,10 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: Use
     }
 
     try {
-        const dbRef = ref(db);
-        const snapshot = await get(child(dbRef, `users/${fullPhoneNumber.trim()}`));
+        const user = await getPublicUser(fullPhoneNumber.trim());
 
-        if (snapshot.exists()) {
-            const userData = snapshot.val();
-            await onAddContact({ ...userData, phoneNumber: fullPhoneNumber.trim()});
+        if (user) {
+            await onAddContact(user);
             setPhoneNumber('');
             setOpen(false);
         } else {
@@ -196,7 +193,7 @@ function AddContactDialog({ onAddContact, children }: { onAddContact: (user: Use
   )
 }
 
-function EmptyContactList({ onAddContact }: { onAddContact: (user: User) => Promise<void> | void }) {
+function EmptyContactList({ onAddContact }: { onAddContact: (user: PublicUser) => Promise<void> | void }) {
   return (
     <div className='flex flex-col h-full items-center justify-center p-4 text-center'>
       <div className='flex flex-col items-center gap-4'>

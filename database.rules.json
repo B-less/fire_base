@@ -1,0 +1,113 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    ".info": {
+      ".read": true
+    },
+    "users": {
+      "$phoneNumber": {
+        ".read": "auth != null && auth.uid === $phoneNumber",
+        ".write": "auth != null && auth.uid === $phoneNumber",
+        "name": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+        },
+        "profilePicture": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2000000)"
+        },
+        "contacts": {
+          ".read": "auth != null && auth.uid === $phoneNumber",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          "$contactPhone": {
+            ".validate": "$contactPhone.matches(/^\\+[1-9][0-9]{6,14}$/) && (newData.val() === true || !newData.exists())"
+          }
+        },
+        "status": {
+          ".read": "auth != null && auth.uid === $phoneNumber",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          "online": {
+            ".read": "auth != null",
+            ".validate": "newData.isBoolean()"
+          },
+          "lastSeen": {
+            ".read": "auth != null",
+            ".validate": "newData.isNumber() || newData.val() == now"
+          },
+          "account": {
+            ".validate": "newData.isString() && (newData.val() === 'active' || newData.val() === 'banned' || newData.val() === 'disabled')"
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "fcmToken": {
+          ".read": "auth != null && auth.uid === $phoneNumber",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 4096)"
+        },
+        "pushProvider": {
+          ".read": "auth != null && auth.uid === $phoneNumber",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          ".validate": "!newData.exists() || (newData.isString() && (newData.val() === 'fcm' || newData.val() === 'median-onesignal'))"
+        },
+        "oneSignalId": {
+          ".read": "auth != null && auth.uid === $phoneNumber",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 256)"
+        },
+        "oneSignalExternalId": {
+          ".read": "auth != null && auth.uid === $phoneNumber",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 256)"
+        },
+        "oneSignalSubscriptionId": {
+          ".read": "auth != null && auth.uid === $phoneNumber",
+          ".write": "auth != null && auth.uid === $phoneNumber",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 256)"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "messages": {
+      "$conversationKey": {
+        ".read": "auth != null && ($conversationKey.beginsWith(auth.uid + '-') || $conversationKey.endsWith('-' + auth.uid))",
+        "$messageId": {
+          ".write": "auth != null && ($conversationKey.beginsWith(auth.uid + '-') || $conversationKey.endsWith('-' + auth.uid)) && ($conversationKey.contains('ai-assistant') || (!data.exists() ? newData.child('sender').val() === auth.uid : (!newData.exists() ? data.child('sender').val() === auth.uid : (data.child('sender').val() === auth.uid || (newData.child('sender').val() === data.child('sender').val() && newData.child('timestamp').val() === data.child('timestamp').val() && newData.child('content').val() === data.child('content').val() && newData.child('image').val() === data.child('image').val() && newData.child('video').val() === data.child('video').val() && newData.child('audio').val() === data.child('audio').val() && newData.child('isGenerating').val() === data.child('isGenerating').val() && (newData.child('status').val() === 'delivered' || newData.child('status').val() === 'read'))))))",
+          ".validate": "newData.hasChildren(['content', 'sender', 'timestamp', 'status']) && newData.child('content').isString() && newData.child('content').val().length <= 4000 && newData.child('sender').isString() && (newData.child('sender').val() === 'ai-assistant' || newData.child('sender').val().matches(/^\\+[1-9][0-9]{6,14}$/)) && newData.child('timestamp').isString() && newData.child('status').isString() && (newData.child('status').val() === 'sent' || newData.child('status').val() === 'delivered' || newData.child('status').val() === 'read') && (!newData.child('image').exists() || newData.child('image').isString()) && (!newData.child('video').exists() || newData.child('video').isString()) && (!newData.child('audio').exists() || newData.child('audio').isString()) && (!newData.child('isGenerating').exists() || newData.child('isGenerating').isBoolean())",
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "conversations": {
+      "$conversationKey": {
+        ".read": "auth != null && ($conversationKey.beginsWith(auth.uid + '-') || $conversationKey.endsWith('-' + auth.uid))",
+        "typing": {
+          "$phoneNumber": {
+            ".write": "auth != null && auth.uid === $phoneNumber && ($conversationKey.beginsWith(auth.uid + '-') || $conversationKey.endsWith('-' + auth.uid))",
+            ".validate": "newData.val() === true || !newData.exists()"
+          }
+        }
+      }
+    },
+    "broadcasts": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "otps": {
+      ".read": false,
+      ".write": false
+    },
+    "aiUsageLogs": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
