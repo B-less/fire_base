@@ -91,9 +91,9 @@ export default function LoginPage() {
     try {
       const result = await verifyOtp({ phoneNumber: fullPhoneNumber, otp });
 
-      if (result.success && result.user) {
+      if (result.success && result.user && result.sessionToken) {
         toast({ title: "Login Successful", description: "Welcome to ChirpChat!" });
-        login(result.user.phoneNumber, result.user.name);
+        login(result.user.phoneNumber, result.user.name, result.sessionToken);
         
         if (result.isNewUser) {
           router.push('/profile-setup');
