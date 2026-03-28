@@ -21,8 +21,81 @@ declare global {
         | null
         | undefined;
     };
+    AndroidNativeContacts?: {
+      requestContacts: (callbackId: string) => void;
+    };
+    __nativeContactsResolve?: (callbackId: string, payload: string) => void;
+    __nativeContactsReject?: (callbackId: string, error: string) => void;
   }
 }
+
+const nativeContactsRequests = new Map<
+  string,
+  {
+    resolve: (contacts: NativeContactRecord[]) => void;
+    reject: (error: Error) => void;
+  }
+>();
+let nativeContactsRequestCounter = 0;
+
+const ensureAndroidNativeContactsBridge = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  if (window.NativeContacts || typeof window.AndroidNativeContacts?.requestContacts !== 'function') {
+    return typeof window.NativeContacts?.getContacts === 'function';
+  }
+
+  window.__nativeContactsResolve = (callbackId, payload) => {
+    const pendingRequest = nativeContactsRequests.get(callbackId);
+    if (!pendingRequest) {
+      return;
+    }
+
+    nativeContactsRequests.delete(callbackId);
+
+    try {
+      const parsedPayload = JSON.parse(payload);
+      pendingRequest.resolve(Array.isArray(parsedPayload) ? parsedPayload : []);
+    } catch (error) {
+      pendingRequest.reject(
+        error instanceof Error ? error : new Error('Could not parse contacts payload.')
+      );
+    }
+  };
+
+  window.__nativeContactsReject = (callbackId, error) => {
+    const pendingRequest = nativeContactsRequests.get(callbackId);
+    if (!pendingRequest) {
+      return;
+    }
+
+    nativeContactsRequests.delete(callbackId);
+    pendingRequest.reject(new Error(error || 'Unable to access native contacts.'));
+  };
+
+  window.NativeContacts = {
+    getContacts: () =>
+      new Promise<NativeContactRecord[]>((resolve, reject) => {
+        const callbackId = `native-contact-request-${nativeContactsRequestCounter += 1}`;
+        nativeContactsRequests.set(callbackId, { resolve, reject });
+
+        try {
+          window.AndroidNativeContacts!.requestContacts(callbackId);
+        } catch (error) {
+          nativeContactsRequests.delete(callbackId);
+          reject(
+            error instanceof Error
+              ? error
+              : new Error('Unable to access native contacts.')
+          );
+        }
+      }),
+  };
+
+  return true;
+};
 
 const PHONE_NUMBER_REGEX = /^\+[1-9][0-9]{6,14}$/;
 
@@ -122,7 +195,8 @@ export const normalizeNativeContacts = (
 
 export const isNativeContactsBridgeAvailable = () =>
   typeof window !== 'undefined' &&
-  typeof window.NativeContacts?.getContacts === 'function';
+  (ensureAndroidNativeContactsBridge() ||
+    typeof window.NativeContacts?.getContacts === 'function');
 
 export const normalizeContactIds = (value: unknown): string[] => {
   if (Array.isArray(value)) {
