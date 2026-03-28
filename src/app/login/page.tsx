@@ -189,10 +189,8 @@ export default function LoginPage() {
     <main className="flex h-screen w-full items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mb-4 flex justify-center">
-             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-                <ChirpChatLogo className="h-8 w-8 text-primary-foreground" />
-             </div>
+          <div className="mb-2 flex justify-center">
+             <ChirpChatLogo className="w-64 max-w-full" />
           </div>
           <CardTitle className="text-2xl">
             {step === 'phone' ? 'Welcome!' : 'Enter Code'}
