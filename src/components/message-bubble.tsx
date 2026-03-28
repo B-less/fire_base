@@ -128,9 +128,9 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           <AvatarFallback>{senderIsAI ? <RobotIcon className="h-5 w-5" /> : 'C'}</AvatarFallback>
         </Avatar>
       )}
-      <Card
+        <Card
         className={cn(
-          'group relative w-fit max-w-[82%] p-0 shadow-md sm:max-w-[75%] lg:max-w-[68%]',
+          'group relative w-fit max-w-[70%] p-0 shadow-md sm:max-w-[62%] lg:max-w-[55%]',
           isMyMessage
             ? 'rounded-br-none bg-primary text-primary-foreground'
             : 'rounded-bl-none bg-card text-card-foreground',
@@ -138,7 +138,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           senderIsAI && 'bg-secondary text-secondary-foreground rounded-bl-none'
         )}
       >
-        <CardContent className={cn('relative px-3 py-2.5', useCompactTextLayout ? 'pb-6' : 'pb-2.5')}>
+        <CardContent className={cn('relative px-2.5 py-2', useCompactTextLayout ? 'pb-5' : 'pb-2')}>
           {message.isGenerating && (
             <div className="flex items-center gap-2 mb-2">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -171,7 +171,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
             </div>
           )}
           {message.content && (
-            <div className={cn('flex items-start gap-2', useCompactTextLayout && 'pr-16')}>
+            <div className={cn('flex items-start gap-2', useCompactTextLayout && 'pr-14')}>
                {(senderIsAI && !isMyMessage) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
               <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
             </div>
@@ -218,7 +218,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
             )}
 
           {useCompactTextLayout ? (
-            <div className="absolute bottom-2 right-3 flex items-center gap-1.5">
+            <div className="absolute bottom-1.5 right-2.5 flex items-center gap-1">
               <span className={cn('text-[11px]', isMyMessage ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
                 {formatTimestamp(message.timestamp)}
               </span>
