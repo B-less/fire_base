@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Check, CheckCheck, Bot, Sparkles, Trash2, Download, Mic, Copy, Share2, MoreHorizontal } from 'lucide-react';
+import { Check, CheckCheck, Bot, Sparkles, Trash2, Download, Mic, Copy, Share2, MoreHorizontal, Pause, Play, Volume2 } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/lib/types';
@@ -77,6 +77,121 @@ const dataUrlToFile = (dataUrl: string, filename: string) => {
   }
 
   return new File([bytes], filename, { type: mime });
+}
+
+const formatAudioTime = (seconds: number) => {
+  const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+function VoiceNotePlayer({ src, isMyMessage }: { src: string; isMyMessage: boolean }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration || 0);
+    };
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime || 0);
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+    const handlePause = () => setIsPlaying(false);
+    const handlePlay = () => setIsPlaying(true);
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('play', handlePlay);
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('play', handlePlay);
+    };
+  }, [src]);
+
+  const togglePlayback = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+      return;
+    }
+
+    try {
+      await audio.play();
+    } catch {
+      setIsPlaying(false);
+    }
+  };
+
+  const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const nextTime = Number(event.target.value);
+    audio.currentTime = nextTime;
+    setCurrentTime(nextTime);
+  };
+
+  return (
+    <div
+      className={cn(
+        'w-[14rem] rounded-2xl px-2.5 py-2 shadow-inner',
+        isMyMessage ? 'bg-primary-foreground/10' : 'bg-background/70'
+      )}
+    >
+      <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <Mic className="h-4 w-4" />
+        <span>Voice note</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={togglePlayback}
+          className={cn(
+            'h-8 w-8 rounded-full',
+            isMyMessage ? 'hover:bg-primary-foreground/15' : 'hover:bg-muted'
+          )}
+        >
+          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+        </Button>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={Math.min(currentTime, duration || 0)}
+            onChange={handleSeek}
+            className="h-1.5 flex-1 cursor-pointer accent-sky-500"
+          />
+          <span className="w-9 text-right text-[11px] tabular-nums opacity-80">
+            {formatAudioTime(isPlaying ? currentTime : duration)}
+          </span>
+        </div>
+        <Volume2 className="h-4 w-4 opacity-70" />
+      </div>
+    </div>
+  );
 }
 
 
@@ -263,13 +378,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                 {mediaUrl && (
                   <div className="relative mb-2">
                     {isAudio ? (
-                      <div className="rounded-xl border bg-background/70 p-3 text-foreground shadow-sm">
-                        <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                          <Mic className="h-4 w-4" />
-                          <span>Voice note</span>
-                        </div>
-                        <audio key={mediaUrl} src={mediaUrl} controls className="w-full min-w-[220px]" />
-                      </div>
+                      <VoiceNotePlayer src={mediaUrl} isMyMessage={isMyMessage} />
                     ) : isVideo ? (
                       <div className="relative flex aspect-video w-full items-center justify-center rounded-xl bg-black">
                           <video key={mediaUrl} src={mediaUrl} controls className="max-h-full max-w-full rounded-xl" />
