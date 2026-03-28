@@ -110,6 +110,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   }
 
   const senderIsAI = isAI(message.sender);
+  const useCompactTextLayout = !!message.content && !mediaUrl && !message.isGenerating;
   const canBeDeleted = (isMyMessage || senderIsAI) && (message.content || mediaUrl) && !message.isGenerating;
   const canBeEdited = (isMyMessage || senderIsAI) && message.image && !isVideo && !message.isGenerating;
   const canBeDownloaded = mediaUrl && !message.isGenerating;
@@ -129,7 +130,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
       )}
       <Card
         className={cn(
-          'max-w-xs md:max-w-md lg:max-w-lg p-0 shadow-md group relative',
+          'group relative w-fit max-w-[82%] p-0 shadow-md sm:max-w-[75%] lg:max-w-[68%]',
           isMyMessage
             ? 'rounded-br-none bg-primary text-primary-foreground'
             : 'rounded-bl-none bg-card text-card-foreground',
@@ -137,7 +138,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           senderIsAI && 'bg-secondary text-secondary-foreground rounded-bl-none'
         )}
       >
-        <CardContent className="p-3">
+        <CardContent className={cn('relative px-3 py-2.5', useCompactTextLayout ? 'pb-6' : 'pb-2.5')}>
           {message.isGenerating && (
             <div className="flex items-center gap-2 mb-2">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -170,9 +171,9 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
             </div>
           )}
           {message.content && (
-            <div className="flex items-start gap-2">
+            <div className={cn('flex items-start gap-2', useCompactTextLayout && 'pr-16')}>
                {(senderIsAI && !isMyMessage) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
             </div>
           )}
 
@@ -216,12 +217,21 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
               </DropdownMenu>
             )}
 
-          <div className="mt-1 flex items-center justify-end gap-2">
-            <span className={cn('text-xs', isMyMessage && !message.isGenerating ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
-              {formatTimestamp(message.timestamp)}
-            </span>
-            {isMyMessage && !message.isGenerating && <ReadStatusIcon status={message.status} />}
-          </div>
+          {useCompactTextLayout ? (
+            <div className="absolute bottom-2 right-3 flex items-center gap-1.5">
+              <span className={cn('text-[11px]', isMyMessage ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
+                {formatTimestamp(message.timestamp)}
+              </span>
+              {isMyMessage && <ReadStatusIcon status={message.status} />}
+            </div>
+          ) : (
+            <div className="mt-1 flex items-center justify-end gap-2">
+              <span className={cn('text-xs', isMyMessage && !message.isGenerating ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
+                {formatTimestamp(message.timestamp)}
+              </span>
+              {isMyMessage && !message.isGenerating && <ReadStatusIcon status={message.status} />}
+            </div>
+          )}
         </CardContent>
       </Card>
       
