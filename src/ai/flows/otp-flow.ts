@@ -12,6 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { ref, set, get, remove, update } from 'firebase/database';
 import { db } from '@/lib/firebase';
+import { adminAuth } from '@/lib/firebase-admin';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import AfricasTalking from 'africastalking';
@@ -123,6 +124,7 @@ const VerifyOtpOutputSchema = z.object({
   message: z.string(),
   user: z.any().optional(),
   isNewUser: z.boolean().optional(),
+  customToken: z.string().optional(),
 });
 export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
 
@@ -204,8 +206,15 @@ const verifyOtpFlow = ai.defineFlow({
     }
     
     const user = { ...userData, phoneNumber };
+    const customToken = await adminAuth.createCustomToken(phoneNumber);
 
-    return { success: true, message: 'Phone number verified successfully.', user, isNewUser };
+    return {
+      success: true,
+      message: 'Phone number verified successfully.',
+      user,
+      isNewUser,
+      customToken,
+    };
 });
 
 // Optional: A flow to clean up expired OTPs (can be scheduled to run periodically)

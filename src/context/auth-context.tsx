@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import type { User } from '@/lib/types';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { ref, set, onValue, off, serverTimestamp, onDisconnect, update } from 'firebase/database';
 import { getMessaging, getToken } from 'firebase/messaging';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { vapidKey } from '@/lib/firebase-env';
 import { isMedianApp, loginMedianPushUser, logoutMedianPushUser, requestMedianPushRegistration } from '@/lib/median';
 import { encodePushTokenKey } from '@/lib/push';
@@ -59,6 +60,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
 
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        try {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+        } catch (error) {
+          console.error('Could not clear user from localStorage', error);
+        }
+        setUser(null);
+        setLoading(false);
+      }
+    });
+
+    return unsubscribe;
   }, []);
   
   useEffect(() => {
@@ -221,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await logoutMedianPushUser();
          }
       }
+      await signOut(auth);
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
       router.push('/login');
