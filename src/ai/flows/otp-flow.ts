@@ -196,6 +196,9 @@ const verifyOtpFlow = ai.defineFlow({
             contacts: []
         };
         await set(userRef, newUser);
+        await set(ref(db, `publicUsers/${phoneNumber}`), {
+          name,
+        });
         userSnapshot = await get(userRef); // re-fetch user data
         userData = userSnapshot.val();
     }

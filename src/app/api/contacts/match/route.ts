@@ -9,17 +9,13 @@ const MatchContactsRequestSchema = z.object({
   phones: z.array(z.string()).max(1000),
 });
 
-const buildMatchedContact = (
-  phone: string,
-  value: unknown
-): MatchedContact | null => {
+const buildMatchedContact = (phone: string, value: unknown): MatchedContact | null => {
   if (!value || typeof value !== 'object') {
     return null;
   }
 
   const user = value as {
     name?: unknown;
-    profilePicture?: unknown;
   };
 
   if (typeof user.name !== 'string' || !user.name.trim()) {
@@ -30,9 +26,28 @@ const buildMatchedContact = (
     id: phone,
     name: user.name.trim(),
     phone,
-    profilePicture:
-      typeof user.profilePicture === 'string' ? user.profilePicture : undefined,
   };
+};
+
+const hydrateLegacyPublicUser = async (phone: string): Promise<MatchedContact | null> => {
+  const nameSnapshot = await adminDb.ref(`users/${phone}/name`).get();
+  const name = nameSnapshot.val();
+
+  if (typeof name !== 'string' || !name.trim()) {
+    return null;
+  }
+
+  const matchedUser = {
+    id: phone,
+    name: name.trim(),
+    phone,
+  };
+
+  await adminDb.ref(`publicUsers/${phone}`).set({
+    name: matchedUser.name,
+  });
+
+  return matchedUser;
 };
 
 export async function POST(request: Request) {
@@ -59,20 +74,37 @@ export async function POST(request: Request) {
       return NextResponse.json([]);
     }
 
-    const matchedUsers = await Promise.all(
-      phones.map(async (phone) => {
-        const snapshot = await adminDb.ref(`users/${phone}`).get();
-        if (!snapshot.exists()) {
-          return null;
-        }
+    const publicUsersSnapshot = await adminDb.ref('publicUsers').get();
+    const publicUsers = publicUsersSnapshot.exists()
+      ? (publicUsersSnapshot.val() as Record<string, unknown>)
+      : {};
 
-        return buildMatchedContact(phone, snapshot.val());
-      })
-    );
+    const matchedUsers = new Map<string, MatchedContact>();
+    const missingPhones: string[] = [];
+
+    phones.forEach((phone) => {
+      const match = buildMatchedContact(phone, publicUsers[phone]);
+      if (match) {
+        matchedUsers.set(phone, match);
+      } else {
+        missingPhones.push(phone);
+      }
+    });
+
+    if (missingPhones.length > 0) {
+      const hydratedMatches = await Promise.all(
+        missingPhones.map((phone) => hydrateLegacyPublicUser(phone))
+      );
+
+      hydratedMatches.forEach((match) => {
+        if (match) {
+          matchedUsers.set(match.phone, match);
+        }
+      });
+    }
 
     return NextResponse.json(
-      matchedUsers
-        .filter((user): user is MatchedContact => user !== null)
+      Array.from(matchedUsers.values())
         .sort((left, right) => left.name.localeCompare(right.name))
     );
   } catch (error) {

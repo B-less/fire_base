@@ -74,12 +74,16 @@ export default function ProfileSetupPage() {
 
     try {
       const userRef = ref(db, `users/${user.phoneNumber}`);
+      const publicUserRef = ref(db, `publicUsers/${user.phoneNumber}`);
       const updates: Partial<Pick<User, 'name' | 'profilePicture'>> = { name: trimmedName };
       if (profilePicture) {
         updates.profilePicture = profilePicture;
       }
       
-      await update(userRef, updates);
+      await Promise.all([
+        update(userRef, updates),
+        update(publicUserRef, { name: trimmedName }),
+      ]);
 
       // Update auth context with the new name
       await login(user.phoneNumber, trimmedName);
