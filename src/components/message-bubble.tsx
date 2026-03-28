@@ -151,7 +151,7 @@ function VoiceNotePlayer({ src, isMyMessage }: { src: string; isMyMessage: boole
   };
 
   return (
-    <div className="w-[12.5rem] sm:w-[13.5rem]">
+    <div className="w-[9.5rem] sm:w-[10.5rem]">
       <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
       <div className="mb-1.5 flex items-center gap-2 text-[13px] font-medium opacity-85">
         <Mic className="h-3.5 w-3.5" />
@@ -337,6 +337,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   const canBeDownloaded = mediaUrl && !message.isGenerating;
   const canBeCopied = !!message.content && !message.isGenerating;
   const canBeShared = (!!message.content || !!mediaUrl) && !message.isGenerating;
+  const isPrimaryBubble = !isMyMessage && !senderIsAI && !message.isGenerating;
 
   return (
     <div
@@ -371,8 +372,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                 'group relative w-fit border-transparent p-0 shadow-[0_8px_22px_rgba(15,23,42,0.16)] transition-all duration-200 dark:shadow-[0_10px_24px_rgba(0,0,0,0.35)]',
                 bubbleWidthClass,
                 isMyMessage
-                  ? 'rounded-2xl rounded-br-md bg-primary text-primary-foreground'
-                  : 'rounded-2xl rounded-bl-md bg-card text-card-foreground',
+                  ? 'rounded-2xl rounded-br-md bg-card text-card-foreground'
+                  : 'rounded-2xl rounded-bl-md bg-primary text-primary-foreground',
                 message.isGenerating && 'bg-muted text-muted-foreground',
                 senderIsAI && 'rounded-2xl rounded-bl-md bg-secondary text-secondary-foreground',
                 isActionsOpen && 'scale-[1.01] ring-2 ring-primary/25 ring-offset-2 ring-offset-background'
@@ -425,7 +426,9 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                     }}
                     className={cn(
                       'absolute right-1.5 top-1.5 h-6 w-6 rounded-full opacity-0 transition-opacity group-hover:opacity-100',
-                      isMyMessage ? 'text-primary-foreground/80 hover:bg-primary/70 hover:text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                      isPrimaryBubble
+                        ? 'text-primary-foreground/80 hover:bg-primary/70 hover:text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
                     )}
                   >
                     <MoreHorizontal className="h-3.5 w-3.5" />
@@ -434,14 +437,14 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
 
                 {useCompactMetaLayout ? (
                   <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
-                    <span className={cn('text-[10px]', isMyMessage ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
+                    <span className={cn('text-[10px]', isPrimaryBubble ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
                       {formatTimestamp(message.timestamp)}
                     </span>
                     {isMyMessage && <ReadStatusIcon status={message.status} />}
                   </div>
                 ) : (
                   <div className="mt-1 flex items-center justify-end gap-2">
-                    <span className={cn('text-xs', isMyMessage && !message.isGenerating ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
+                    <span className={cn('text-xs', isPrimaryBubble ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
                       {formatTimestamp(message.timestamp)}
                     </span>
                     {isMyMessage && !message.isGenerating && <ReadStatusIcon status={message.status} />}
