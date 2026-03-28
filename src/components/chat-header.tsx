@@ -77,14 +77,14 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
 
   if (isLoading) {
     return (
-       <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
+       <div className="flex items-center justify-between border-b bg-card px-3 py-2 shadow-sm">
          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
-              <ArrowLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 md:hidden">
+              <ArrowLeft className="h-4.5 w-4.5" />
             </Button>
             <div className="flex items-center gap-3">
                 <div className="relative flex-shrink-0">
-                    <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+                    <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
                 </div>
                 <div>
                     <div className="h-4 w-24 rounded-md bg-muted animate-pulse mb-1" />
@@ -100,10 +100,10 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
   if (!contact) {
     // Render a minimal state if contact not found after loading
     return (
-       <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
+       <div className="flex items-center justify-between border-b bg-card px-3 py-2 shadow-sm">
          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
-              <ArrowLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 md:hidden">
+              <ArrowLeft className="h-4.5 w-4.5" />
             </Button>
             <p className="text-muted-foreground">Chat not found</p>
          </div>
@@ -121,25 +121,25 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
   }
 
   return (
-    <div className="flex items-center justify-between border-b bg-card p-3 shadow-sm">
+    <div className="flex items-center justify-between border-b bg-card px-3 py-2 shadow-sm">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
-          <ArrowLeft className="h-5 w-5" />
+        <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 md:hidden">
+          <ArrowLeft className="h-4.5 w-4.5" />
         </Button>
         
         <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
           <DialogTrigger asChild>
             <button className="flex items-center gap-3 text-left" disabled={isAiAssistant}>
               <div className="relative flex-shrink-0">
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-9 w-9">
                   <AvatarImage src={contact.avatar} alt={contact.name} />
                   <AvatarFallback>{isAiAssistant ? <RobotIcon className="h-6 w-6"/> : contact.name.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 {contact.online && <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />}
               </div>
               <div>
-                <h2 className="font-semibold text-foreground">{contact.name}</h2>
-                <p className="text-sm text-muted-foreground">
+                <h2 className="text-sm font-semibold leading-tight text-foreground">{contact.name}</h2>
+                <p className="text-xs text-muted-foreground">
                    {contact.isTyping ? <span className="italic text-primary">typing...</span> : lastSeenText()}
                 </p>
               </div>
@@ -168,8 +168,8 @@ export function ChatHeader({ contactId, onBack }: ChatHeaderProps) {
         </Dialog>
 
       </div>
-      <Button variant="ghost" size="icon">
-        <MoreVertical className="h-5 w-5 text-muted-foreground" />
+      <Button variant="ghost" size="icon" className="h-8 w-8">
+        <MoreVertical className="h-4.5 w-4.5 text-muted-foreground" />
       </Button>
     </div>
   );

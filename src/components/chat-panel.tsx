@@ -178,16 +178,16 @@ export function ChatPanel({
     <div id="chat-panel-root" className="flex h-full flex-col bg-muted/30">
       <ChatHeader contactId={contactId} onBack={onBack} />
       <MessageList messages={messages} contactId={contactId} onImagine={handleImagine} onDelete={onDeleteMessage} isLoading={isLoading} />
-      <div className="p-4 pt-2">
+      <div className="p-2.5 pt-1.5 sm:p-3 sm:pt-2">
         {!isAIChat && smartReplies.length > 0 && <SmartReplySuggestions suggestions={smartReplies} onSelectReply={handleSelectReply} />}
         {isAudioAttachment && mediaFile && (
-          <div className="mb-3 rounded-lg border bg-card p-3 shadow-sm">
+          <div className="mb-2.5 rounded-2xl border bg-card px-3 py-2.5 shadow-sm">
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Mic className="h-4 w-4" />
                 <span>Voice note ready to send</span>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMediaFile(null)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMediaFile(null)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>

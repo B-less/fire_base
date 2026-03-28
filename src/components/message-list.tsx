@@ -20,23 +20,23 @@ const AI_CONTACT_ID = 'ai-assistant';
 
 function MessageListSkeleton() {
     return (
-        <div className="chat-wallpaper-content p-4 space-y-4">
+        <div className="chat-wallpaper-content p-3 space-y-2.5 sm:p-4 sm:space-y-3">
             <div className="flex items-end gap-2 justify-start">
                 <Skeleton className="h-8 w-8 rounded-full" />
-                <Skeleton className="h-10 w-48 rounded-lg" />
+                <Skeleton className="h-9 w-36 rounded-2xl" />
             </div>
              <div className="flex items-end gap-2 justify-end">
-                <Skeleton className="h-10 w-32 rounded-lg" />
+                <Skeleton className="h-9 w-24 rounded-2xl" />
             </div>
              <div className="flex items-end gap-2 justify-start">
                 <Skeleton className="h-8 w-8 rounded-full" />
-                <Skeleton className="h-14 w-64 rounded-lg" />
+                <Skeleton className="h-12 w-44 rounded-2xl" />
             </div>
             <div className="flex items-end gap-2 justify-end">
-                <Skeleton className="h-10 w-40 rounded-lg" />
+                <Skeleton className="h-9 w-28 rounded-2xl" />
             </div>
              <div className="flex items-end gap-2 justify-end">
-                <Skeleton className="h-12 w-24 rounded-lg" />
+                <Skeleton className="h-10 w-20 rounded-2xl" />
             </div>
         </div>
     )
@@ -86,7 +86,7 @@ export function MessageList({ messages, contactId, onImagine, onDelete, isLoadin
       {combinedLoading ? (
         <MessageListSkeleton />
       ) : (
-        <div className="chat-wallpaper-content p-4 space-y-4">
+        <div className="chat-wallpaper-content p-3 space-y-2 sm:p-4 sm:space-y-2.5">
             {messages.map((message, index) => (
             <MessageBubble
                 key={`${message.db_key || message.id}-${index}`}

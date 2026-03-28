@@ -257,19 +257,19 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, hasPendingMed
     : "Type a message...";
 
   return (
-    <div className="relative rounded-lg border bg-card p-2 shadow-sm flex flex-col">
+    <div className="relative flex flex-col rounded-[1.5rem] border bg-card/95 p-1.5 shadow-sm backdrop-blur">
        {isAIChat && (
-        <div className="flex justify-center gap-2 mb-2 px-2">
-            <Button variant="outline" size="sm" onClick={() => handleSendClick('image')} disabled={!value.trim()}>
+        <div className="mb-1.5 flex justify-center gap-1.5 px-1">
+            <Button variant="outline" size="sm" className="h-8 rounded-full px-3 text-xs" onClick={() => handleSendClick('image')} disabled={!value.trim()}>
                 <ImageIcon className="mr-2 h-4 w-4" /> Generate Image
             </Button>
-            <Button variant="outline" size="sm" onClick={() => handleSendClick('video')} disabled={!value.trim()}>
+            <Button variant="outline" size="sm" className="h-8 rounded-full px-3 text-xs" onClick={() => handleSendClick('video')} disabled={!value.trim()}>
                 <Video className="mr-2 h-4 w-4" /> Generate Video
             </Button>
         </div>
        )}
       {isRecording && (
-        <div className="mb-2 flex items-center gap-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2">
+        <div className="mb-1.5 flex items-center gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-2">
           <div className="flex items-center gap-2 text-sm font-medium text-destructive">
             <span className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse" />
             <span>Recording</span>
@@ -291,7 +291,7 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, hasPendingMed
       <div className="relative flex items-center">
         <Textarea
           placeholder={placeholder}
-          className="min-h-[48px] resize-none border-0 bg-transparent p-2 pr-20 shadow-none focus-visible:ring-0"
+          className="min-h-[42px] resize-none border-0 bg-transparent px-3 py-2 pr-28 text-[15px] leading-5 shadow-none focus-visible:ring-0"
           value={value}
           onChange={onChange}
           onKeyDown={handleKeyDown}
@@ -311,11 +311,11 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, hasPendingMed
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleImageUploadClick} disabled={isUploading || isRecording}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={handleImageUploadClick} disabled={isUploading || isRecording}>
                     {isUploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
                   </Button>
                 </TooltipTrigger>
@@ -328,14 +328,14 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, hasPendingMed
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-7 w-7 rounded-full"
                     onClick={handleAudioRecordClick}
                     disabled={isUploading}
                   >
                     {isRecording ? (
-                      <Square className="h-4 w-4 text-destructive" />
+                      <Square className="h-3.5 w-3.5 text-destructive" />
                     ) : (
-                      <Mic className="h-4 w-4 text-muted-foreground" />
+                      <Mic className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
                   </Button>
                 </TooltipTrigger>
@@ -347,11 +347,11 @@ export function ChatInput({ value, onChange, onSend, onFileSelect, hasPendingMed
           )}
           <Button
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
             onClick={() => handleSendClick('text')}
             disabled={(!value.trim() && !hasPendingMedia && !isAIChat) || isRecording}
           >
-              <SendHorizontal className="h-4 w-4" />
+              <SendHorizontal className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>

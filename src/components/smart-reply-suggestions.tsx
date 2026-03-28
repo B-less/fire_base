@@ -11,13 +11,13 @@ export function SmartReplySuggestions({ suggestions, onSelectReply }: SmartReply
   }
 
   return (
-    <div className="mb-2 flex flex-wrap gap-2">
+    <div className="mb-2 flex flex-wrap gap-1.5">
       {suggestions.map((suggestion, index) => (
         <Button
           key={index}
           variant="outline"
           size="sm"
-          className="h-auto py-1 px-3 text-sm"
+          className="h-auto rounded-full px-3 py-1 text-xs shadow-sm"
           onClick={() => onSelectReply(suggestion)}
         >
           {suggestion}
