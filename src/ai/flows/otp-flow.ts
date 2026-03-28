@@ -123,25 +123,8 @@ const VerifyOtpOutputSchema = z.object({
   message: z.string(),
   user: z.any().optional(),
   isNewUser: z.boolean().optional(),
-  sessionToken: z.string().optional(),
 });
 export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
-
-const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
-
-const createSessionToken = async (phoneNumber: string) => {
-  const sessionId = crypto.randomUUID();
-  const secret = crypto.randomBytes(32).toString('hex');
-  const hash = crypto.createHash('sha256').update(secret).digest('hex');
-
-  await set(ref(db, `sessions/${phoneNumber}/${sessionId}`), {
-    hash,
-    createdAt: Date.now(),
-    expires: Date.now() + SESSION_DURATION_MS,
-  });
-
-  return `${phoneNumber}:${sessionId}.${secret}`;
-};
 
 
 export async function verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpOutput> {
@@ -218,15 +201,8 @@ const verifyOtpFlow = ai.defineFlow({
     }
     
     const user = { ...userData, phoneNumber };
-    const sessionToken = await createSessionToken(phoneNumber);
 
-    return {
-      success: true,
-      message: 'Phone number verified successfully.',
-      user,
-      isNewUser,
-      sessionToken,
-    };
+    return { success: true, message: 'Phone number verified successfully.', user, isNewUser };
 });
 
 // Optional: A flow to clean up expired OTPs (can be scheduled to run periodically)

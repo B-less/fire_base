@@ -16,8 +16,7 @@ import { encodePushTokenKey } from '@/lib/push';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  sessionToken: string | null;
-  login: (phoneNumber: string, name: string, sessionToken?: string | null) => void;
+  login: (phoneNumber: string, name: string) => void;
   logout: () => void;
 }
 
@@ -26,15 +25,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'chirpchat_user';
 const PUSH_TOKEN_STORAGE_KEY = 'chirpchat_push_token';
 
-type StoredAuthUser = {
-  phoneNumber: string;
-  name: string;
-  sessionToken?: string | null;
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -43,12 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
       if (storedUser && storedUser !== 'undefined' && storedUser !== 'null') {
         try {
-          const parsedUser = JSON.parse(storedUser) as StoredAuthUser;
-          setUser({
-            phoneNumber: parsedUser.phoneNumber,
-            name: parsedUser.name,
-          });
-          setSessionToken(parsedUser.sessionToken ?? null);
+          setUser(JSON.parse(storedUser));
         } catch (jsonError) {
           console.error("Failed to parse user from localStorage", jsonError);
           localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -205,16 +192,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, router]);
 
 
-  const login = (phoneNumber: string, name: string, nextSessionToken?: string | null) => {
+  const login = (phoneNumber: string, name: string) => {
     try {
-      const userData: StoredAuthUser = {
-        phoneNumber,
-        name,
-        sessionToken: nextSessionToken ?? sessionToken ?? null,
-      };
+      const userData = { phoneNumber, name };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
-      setUser({ phoneNumber, name });
-      setSessionToken(userData.sessionToken ?? null);
+      setUser(userData);
       router.push('/');
     } catch (error) {
       console.error("Could not set user in localStorage", error);
@@ -241,14 +223,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
-      setSessionToken(null);
       router.push('/login');
     } catch (error) {
       console.error("Could not remove user from localStorage", error);
     }
   };
 
-  const value = { user, loading, sessionToken, login, logout };
+  const value = { user, loading, login, logout };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
