@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Flame, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { countries } from '@/lib/countries';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { sendOtp, verifyOtp } from '@/ai/flows/otp-flow';
+import { ChirpChatLogo } from '@/components/chirpchat-logo';
 
 type LoginStep = 'phone' | 'otp';
 
@@ -190,7 +191,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-                <Flame className="h-8 w-8 text-primary-foreground" />
+                <ChirpChatLogo className="h-8 w-8 text-primary-foreground" />
              </div>
           </div>
           <CardTitle className="text-2xl">
