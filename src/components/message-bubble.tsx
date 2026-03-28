@@ -151,7 +151,7 @@ function VoiceNotePlayer({ src, isMyMessage }: { src: string; isMyMessage: boole
   };
 
   return (
-    <div className="w-[14.5rem] sm:w-[15.5rem]">
+    <div className="w-[12.5rem] sm:w-[13.5rem]">
       <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
       <div className="mb-1.5 flex items-center gap-2 text-[13px] font-medium opacity-85">
         <Mic className="h-3.5 w-3.5" />
@@ -328,7 +328,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   const useCompactTextLayout = !!message.content && !mediaUrl && !message.isGenerating;
   const useCompactMetaLayout = useCompactTextLayout || isAudio;
   const bubbleWidthClass = isAudio
-    ? 'w-[17.5rem] max-w-[17.5rem] sm:w-[18.5rem] sm:max-w-[18.5rem]'
+    ? 'w-[15rem] max-w-[15rem] sm:w-[16rem] sm:max-w-[16rem]'
     : useCompactTextLayout
       ? 'max-w-[15rem] sm:max-w-[17rem] lg:max-w-[19rem]'
       : 'max-w-[70%] sm:max-w-[62%] lg:max-w-[55%]';
