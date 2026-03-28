@@ -322,39 +322,42 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
 
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      if (idToken) {
-        const result = await addContact({
-          idToken,
-          contactPhoneNumber: user.phoneNumber,
-        });
-
-        if (!result.success) {
-          throw new Error(result.message);
-        }
-
-        setCurrentUserContacts((prev) =>
-          prev.includes(user.phoneNumber) ? prev : [...prev, user.phoneNumber]
-        );
-        openChat(user.phoneNumber);
-        return;
+      if (!idToken) {
+        throw new Error('Your session expired. Please sign in again.');
       }
+
+      const result = await addContact({
+        idToken,
+        contactPhoneNumber: user.phoneNumber,
+      });
+
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      setContactUsers((prev) => ({
+        ...prev,
+        [user.phoneNumber]: user,
+      }));
+      setCurrentUserContacts((prev) =>
+        prev.includes(user.phoneNumber) ? prev : [...prev, user.phoneNumber]
+      );
+      openChat(user.phoneNumber);
+      toast({
+        title: 'Contact added',
+        description: `${user.name} is now in your chats.`,
+      });
     } catch (error) {
       console.error('Error adding contact:', error);
+      toast({
+        title: 'Could not add contact',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Please try again in a moment.',
+        variant: 'destructive',
+      });
     }
-
-    setContactUsers((prev) => ({
-      ...prev,
-      [user.phoneNumber]: user,
-    }));
-    setCurrentUserContacts((prev) =>
-      prev.includes(user.phoneNumber) ? prev : [...prev, user.phoneNumber]
-    );
-    openChat(user.phoneNumber);
-    toast({
-      title: 'Chat opened',
-      description:
-        'We opened the chat directly. If it does not stay in your list yet, sync again after sign-in refresh.',
-    });
   };
   
   const handleBackToContacts = () => {
