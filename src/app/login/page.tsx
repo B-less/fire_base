@@ -14,8 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { sendOtp, verifyOtp } from '@/ai/flows/otp-flow';
 import { ChirpChatLogo } from '@/components/chirpchat-logo';
-import { signInWithCustomToken } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 
 type LoginStep = 'phone' | 'otp';
 
@@ -93,10 +91,9 @@ export default function LoginPage() {
     try {
       const result = await verifyOtp({ phoneNumber: fullPhoneNumber, otp });
 
-      if (result.success && result.user && result.customToken) {
-        await signInWithCustomToken(auth, result.customToken);
+      if (result.success && result.user && result.sessionToken) {
         toast({ title: "Login Successful", description: "Welcome to ChirpChat!" });
-        login(result.user.phoneNumber, result.user.name);
+        login(result.user.phoneNumber, result.user.name, result.sessionToken);
         
         if (result.isNewUser) {
           router.push('/profile-setup');

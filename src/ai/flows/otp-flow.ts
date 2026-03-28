@@ -12,7 +12,6 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { ref, set, get, remove, update } from 'firebase/database';
 import { db } from '@/lib/firebase';
-import { adminAuth } from '@/lib/firebase-admin';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import AfricasTalking from 'africastalking';
@@ -124,9 +123,25 @@ const VerifyOtpOutputSchema = z.object({
   message: z.string(),
   user: z.any().optional(),
   isNewUser: z.boolean().optional(),
-  customToken: z.string().optional(),
+  sessionToken: z.string().optional(),
 });
 export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
+
+const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+
+const createSessionToken = async (phoneNumber: string) => {
+  const sessionId = crypto.randomUUID();
+  const secret = crypto.randomBytes(32).toString('hex');
+  const hash = crypto.createHash('sha256').update(secret).digest('hex');
+
+  await set(ref(db, `sessions/${phoneNumber}/${sessionId}`), {
+    hash,
+    createdAt: Date.now(),
+    expires: Date.now() + SESSION_DURATION_MS,
+  });
+
+  return `${phoneNumber}:${sessionId}.${secret}`;
+};
 
 
 export async function verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpOutput> {
@@ -206,14 +221,14 @@ const verifyOtpFlow = ai.defineFlow({
     }
     
     const user = { ...userData, phoneNumber };
-    const customToken = await adminAuth.createCustomToken(phoneNumber);
+    const sessionToken = await createSessionToken(phoneNumber);
 
     return {
       success: true,
       message: 'Phone number verified successfully.',
       user,
       isNewUser,
-      customToken,
+      sessionToken,
     };
 });
 
