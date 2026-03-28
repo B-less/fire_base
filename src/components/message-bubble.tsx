@@ -151,7 +151,7 @@ function VoiceNotePlayer({ src, isMyMessage }: { src: string; isMyMessage: boole
   };
 
   return (
-    <div className="w-[9.5rem] sm:w-[10.5rem]">
+    <div className="w-[5.5rem] sm:w-[4.5rem]">
       <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
       <div className="mb-1.5 flex items-center gap-2 text-[13px] font-medium opacity-85">
         <Mic className="h-3.5 w-3.5" />
@@ -209,12 +209,14 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mediaUrl = message.audio || message.video || message.image;
   const isAudio = !!message.audio;
   const isVideo = !isAudio && !!message.video;
+  const hasVisualMedia = !isAudio && !!mediaUrl;
 
   useEffect(() => {
     return () => {
@@ -329,6 +331,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
   const useCompactMetaLayout = useCompactTextLayout || isAudio;
   const bubbleWidthClass = isAudio
     ? 'w-[15rem] max-w-[15rem] sm:w-[16rem] sm:max-w-[16rem]'
+    : hasVisualMedia
+      ? 'w-[min(15rem,calc(100vw-8rem))] max-w-full sm:w-[17rem] md:w-[18.5rem]'
     : useCompactTextLayout
       ? 'max-w-[15rem] sm:max-w-[17rem] lg:max-w-[19rem]'
       : 'max-w-[70%] sm:max-w-[62%] lg:max-w-[55%]';
@@ -391,17 +395,46 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                     {isAudio ? (
                       <VoiceNotePlayer src={mediaUrl} isMyMessage={isMyMessage} />
                     ) : isVideo ? (
-                      <div className="relative flex aspect-video w-full items-center justify-center rounded-xl bg-black">
-                          <video key={mediaUrl} src={mediaUrl} controls className="max-h-full max-w-full rounded-xl" />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsMediaViewerOpen(true)}
+                        className="relative block w-full overflow-hidden rounded-[1.1rem] bg-black text-left ring-offset-background transition-transform duration-200 hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      >
+                        <div className="relative aspect-video w-full">
+                          <video
+                            key={mediaUrl}
+                            src={mediaUrl}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/20" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white shadow-lg">
+                              <Play className="h-5 w-5 fill-current" />
+                            </span>
+                          </div>
+                        </div>
+                      </button>
                     ) : (
-                      <Image
-                        src={mediaUrl}
-                        alt="Shared media"
-                        width={300}
-                        height={200}
-                        className={cn("rounded-xl object-cover", message.isGenerating && "opacity-50")}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsMediaViewerOpen(true)}
+                        className="block w-full overflow-hidden rounded-[1.1rem] text-left ring-offset-background transition-transform duration-200 hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      >
+                        <Image
+                          src={mediaUrl}
+                          alt="Shared media"
+                          width={720}
+                          height={900}
+                          unoptimized
+                          className={cn(
+                            "h-auto max-h-[min(54vh,25rem)] w-full rounded-[1.1rem] object-cover",
+                            message.isGenerating && "opacity-50"
+                          )}
+                        />
+                      </button>
                     )}
                   </div>
                 )}
@@ -558,6 +591,38 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isMediaViewerOpen} onOpenChange={setIsMediaViewerOpen}>
+        <DialogContent className="max-w-[min(100vw-1rem,56rem)] border-0 bg-black/95 p-0 text-white shadow-2xl sm:rounded-2xl [&>button]:right-3 [&>button]:top-3 [&>button]:rounded-full [&>button]:bg-black/45 [&>button]:p-1 [&>button]:text-white [&>button]:opacity-100 [&>button]:ring-0 [&>button]:ring-offset-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{isVideo ? 'Video viewer' : 'Image viewer'}</DialogTitle>
+            <DialogDescription>
+              Opens the shared media in a larger view.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-[14rem] max-h-[85vh] items-center justify-center p-2 sm:p-4">
+            {isVideo && mediaUrl ? (
+              <video
+                key={`${mediaUrl}-viewer`}
+                src={mediaUrl}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-[80vh] w-auto max-w-full rounded-xl bg-black"
+              />
+            ) : mediaUrl ? (
+              <Image
+                src={mediaUrl}
+                alt="Shared media"
+                width={1400}
+                height={1400}
+                unoptimized
+                className="max-h-[80vh] h-auto w-auto max-w-full rounded-xl object-contain"
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
