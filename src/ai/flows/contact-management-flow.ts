@@ -52,6 +52,16 @@ const getCallerPhoneNumber = async ({
   idToken,
   sessionToken,
 }: Pick<ContactMutationInput, 'idToken' | 'sessionToken'>) => {
+  if (sessionToken) {
+    try {
+      return await getCallerPhoneNumberFromSession(sessionToken);
+    } catch (error) {
+      if (!idToken) {
+        throw error;
+      }
+    }
+  }
+
   if (idToken) {
     try {
       const decodedToken = await adminAuth.verifyIdToken(idToken);
@@ -59,7 +69,7 @@ const getCallerPhoneNumber = async ({
         return decodedToken.uid;
       }
     } catch {
-      // Fall back to app session token if available.
+      // Fall through to the final error below if no valid session token is available.
     }
   }
 
@@ -88,12 +98,12 @@ const addContactFlow = ai.defineFlow(
 
     const callerRef = adminDb.ref(`users/${callerPhoneNumber}/contacts`);
     const contactRef = adminDb.ref(`users/${contactPhoneNumber}/contacts`);
-    const contactUserRef = adminDb.ref(`users/${contactPhoneNumber}`);
+    const contactPublicUserRef = adminDb.ref(`publicUsers/${contactPhoneNumber}/name`);
 
     const [callerSnapshot, contactSnapshot, contactUserSnapshot] = await Promise.all([
       callerRef.get(),
       contactRef.get(),
-      contactUserRef.get(),
+      contactPublicUserRef.get(),
     ]);
 
     if (!contactUserSnapshot.exists()) {

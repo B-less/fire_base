@@ -321,7 +321,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     }
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = sessionToken ? undefined : await auth.currentUser?.getIdToken();
       if (!idToken && !sessionToken) {
         throw new Error('Your session expired. Please sign in again.');
       }
@@ -374,7 +374,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     if (!currentUser) return;
     
     try {
-        const idToken = await auth.currentUser?.getIdToken();
+        const idToken = sessionToken ? undefined : await auth.currentUser?.getIdToken();
         if (!idToken && !sessionToken) {
           throw new Error('Your session expired. Please sign in again.');
         }
