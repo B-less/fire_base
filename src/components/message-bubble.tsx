@@ -91,6 +91,7 @@ function VoiceNotePlayer({ src, isMyMessage }: { src: string; isMyMessage: boole
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const progressPercent = duration > 0 ? Math.min((currentTime / duration) * 100, 100) : 0;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -150,15 +151,10 @@ function VoiceNotePlayer({ src, isMyMessage }: { src: string; isMyMessage: boole
   };
 
   return (
-    <div
-      className={cn(
-        'w-[14rem] rounded-2xl px-2.5 py-2 shadow-inner',
-        isMyMessage ? 'bg-primary-foreground/10' : 'bg-background/70'
-      )}
-    >
+    <div className="w-[14.5rem] sm:w-[15.5rem]">
       <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
-      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-        <Mic className="h-4 w-4" />
+      <div className="mb-1.5 flex items-center gap-2 text-[13px] font-medium opacity-85">
+        <Mic className="h-3.5 w-3.5" />
         <span>Voice note</span>
       </div>
       <div className="flex items-center gap-2">
@@ -168,27 +164,38 @@ function VoiceNotePlayer({ src, isMyMessage }: { src: string; isMyMessage: boole
           size="icon"
           onClick={togglePlayback}
           className={cn(
-            'h-8 w-8 rounded-full',
+            'h-8 w-8 rounded-full border border-current/10',
             isMyMessage ? 'hover:bg-primary-foreground/15' : 'hover:bg-muted'
           )}
         >
-          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+          {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 fill-current" />}
         </Button>
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            step={0.1}
-            value={Math.min(currentTime, duration || 0)}
-            onChange={handleSeek}
-            className="h-1.5 flex-1 cursor-pointer accent-sky-500"
-          />
+          <div className="relative flex-1">
+            <div className={cn('h-1.5 rounded-full', isMyMessage ? 'bg-primary-foreground/20' : 'bg-muted-foreground/15')} />
+            <div
+              className="absolute left-0 top-0 h-1.5 rounded-full bg-sky-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+            <div
+              className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-background bg-sky-500 shadow-sm"
+              style={{ left: `calc(${progressPercent}% - 0.4375rem)` }}
+            />
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={Math.min(currentTime, duration || 0)}
+              onChange={handleSeek}
+              className="absolute inset-0 h-3.5 w-full cursor-pointer opacity-0"
+            />
+          </div>
           <span className="w-9 text-right text-[11px] tabular-nums opacity-80">
             {formatAudioTime(isPlaying ? currentTime : duration)}
           </span>
         </div>
-        <Volume2 className="h-4 w-4 opacity-70" />
+        <Volume2 className="h-3.5 w-3.5 opacity-70" />
       </div>
     </div>
   );
@@ -319,9 +326,12 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
 
   const senderIsAI = isAI(message.sender);
   const useCompactTextLayout = !!message.content && !mediaUrl && !message.isGenerating;
-  const bubbleWidthClass = useCompactTextLayout
-    ? 'max-w-[15rem] sm:max-w-[17rem] lg:max-w-[19rem]'
-    : 'max-w-[70%] sm:max-w-[62%] lg:max-w-[55%]';
+  const useCompactMetaLayout = useCompactTextLayout || isAudio;
+  const bubbleWidthClass = isAudio
+    ? 'w-[17.5rem] max-w-[17.5rem] sm:w-[18.5rem] sm:max-w-[18.5rem]'
+    : useCompactTextLayout
+      ? 'max-w-[15rem] sm:max-w-[17rem] lg:max-w-[19rem]'
+      : 'max-w-[70%] sm:max-w-[62%] lg:max-w-[55%]';
   const canBeDeleted = (isMyMessage || senderIsAI) && (message.content || mediaUrl) && !message.isGenerating;
   const canBeEdited = (isMyMessage || senderIsAI) && message.image && !isVideo && !message.isGenerating;
   const canBeDownloaded = mediaUrl && !message.isGenerating;
@@ -368,7 +378,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                 isActionsOpen && 'scale-[1.01] ring-2 ring-primary/25 ring-offset-2 ring-offset-background'
               )}
             >
-              <CardContent className={cn('relative px-2.5 py-1.5', useCompactTextLayout ? 'pb-5' : 'pb-2')}>
+              <CardContent className={cn('relative px-2.5 py-1.5', useCompactMetaLayout ? 'pb-5' : 'pb-2')}>
                 {message.isGenerating && (
                   <div className="mb-2 flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -422,7 +432,7 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
                   </Button>
                 )}
 
-                {useCompactTextLayout ? (
+                {useCompactMetaLayout ? (
                   <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
                     <span className={cn('text-[10px]', isMyMessage ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
                       {formatTimestamp(message.timestamp)}
