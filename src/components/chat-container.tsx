@@ -68,7 +68,7 @@ const getMessagePreview = (message?: Message) => {
 };
 
 export function ChatContainer({ initialContactId }: { initialContactId?: string | null }) {
-  const { user: currentUser, sessionToken } = useAuth();
+  const { user: currentUser } = useAuth();
   const router = useRouter();
   const [contactUsers, setContactUsers] = useState<Record<string, PublicUser>>({});
   const [currentUserContacts, setCurrentUserContacts] = useState<string[]>([]);
@@ -321,14 +321,13 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     }
 
     try {
-      const idToken = sessionToken ? undefined : await auth.currentUser?.getIdToken();
-      if (!idToken && !sessionToken) {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
         throw new Error('Your session expired. Please sign in again.');
       }
 
       const result = await addContact({
-        idToken: idToken ?? undefined,
-        sessionToken: sessionToken ?? undefined,
+        idToken,
         contactPhoneNumber: user.phoneNumber,
       });
 
@@ -374,14 +373,13 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     if (!currentUser) return;
     
     try {
-        const idToken = sessionToken ? undefined : await auth.currentUser?.getIdToken();
-        if (!idToken && !sessionToken) {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) {
           throw new Error('Your session expired. Please sign in again.');
         }
 
         const result = await removeContact({
-          idToken: idToken ?? undefined,
-          sessionToken: sessionToken ?? undefined,
+          idToken,
           contactPhoneNumber: contactId,
         });
 

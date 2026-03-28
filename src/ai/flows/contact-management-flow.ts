@@ -4,11 +4,9 @@ import { ai } from '@/ai/genkit';
 import { toContactMap } from '@/lib/contacts';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { z } from 'genkit';
-import crypto from 'crypto';
 
 const ContactMutationInputSchema = z.object({
-  idToken: z.string().min(1).optional(),
-  sessionToken: z.string().min(1).optional(),
+  idToken: z.string().min(1),
   contactPhoneNumber: z.string().regex(/^\+[1-9][0-9]{6,14}$/),
 });
 
@@ -20,64 +18,13 @@ const ContactMutationOutputSchema = z.object({
 type ContactMutationInput = z.infer<typeof ContactMutationInputSchema>;
 type ContactMutationOutput = z.infer<typeof ContactMutationOutputSchema>;
 
-const getCallerPhoneNumberFromSession = async (sessionToken: string) => {
-  const [phoneNumber, tokenPayload] = sessionToken.split(':');
-  const [sessionId, secret] = tokenPayload?.split('.') ?? [];
-
-  if (!phoneNumber || !sessionId || !secret || !/^\+[1-9][0-9]{6,14}$/.test(phoneNumber)) {
+const getCallerPhoneNumber = async (idToken: string) => {
+  const decodedToken = await adminAuth.verifyIdToken(idToken);
+  if (!decodedToken.uid || !/^\+[1-9][0-9]{6,14}$/.test(decodedToken.uid)) {
     throw new Error('Invalid authenticated user.');
   }
 
-  const sessionSnapshot = await adminDb.ref(`sessions/${phoneNumber}/${sessionId}`).get();
-  if (!sessionSnapshot.exists()) {
-    throw new Error('Your session expired. Please sign in again.');
-  }
-
-  const sessionData = sessionSnapshot.val() as { hash?: string; expires?: number } | null;
-  const expectedHash = crypto.createHash('sha256').update(secret).digest('hex');
-
-  if (!sessionData?.hash || sessionData.hash !== expectedHash) {
-    throw new Error('Invalid authenticated user.');
-  }
-
-  if (!sessionData.expires || sessionData.expires < Date.now()) {
-    await adminDb.ref(`sessions/${phoneNumber}/${sessionId}`).remove();
-    throw new Error('Your session expired. Please sign in again.');
-  }
-
-  return phoneNumber;
-};
-
-const getCallerPhoneNumber = async ({
-  idToken,
-  sessionToken,
-}: Pick<ContactMutationInput, 'idToken' | 'sessionToken'>) => {
-  if (sessionToken) {
-    try {
-      return await getCallerPhoneNumberFromSession(sessionToken);
-    } catch (error) {
-      if (!idToken) {
-        throw error;
-      }
-    }
-  }
-
-  if (idToken) {
-    try {
-      const decodedToken = await adminAuth.verifyIdToken(idToken);
-      if (decodedToken.uid && /^\+[1-9][0-9]{6,14}$/.test(decodedToken.uid)) {
-        return decodedToken.uid;
-      }
-    } catch {
-      // Fall through to the final error below if no valid session token is available.
-    }
-  }
-
-  if (sessionToken) {
-    return getCallerPhoneNumberFromSession(sessionToken);
-  }
-
-  throw new Error('Your session expired. Please sign in again.');
+  return decodedToken.uid;
 };
 
 const toNodeValue = (contacts: Record<string, true>) =>
@@ -89,8 +36,8 @@ const addContactFlow = ai.defineFlow(
     inputSchema: ContactMutationInputSchema,
     outputSchema: ContactMutationOutputSchema,
   },
-  async ({ idToken, sessionToken, contactPhoneNumber }) => {
-    const callerPhoneNumber = await getCallerPhoneNumber({ idToken, sessionToken });
+  async ({ idToken, contactPhoneNumber }) => {
+    const callerPhoneNumber = await getCallerPhoneNumber(idToken);
 
     if (callerPhoneNumber === contactPhoneNumber) {
       return { success: false, message: 'You cannot add yourself as a contact.' };
@@ -98,12 +45,12 @@ const addContactFlow = ai.defineFlow(
 
     const callerRef = adminDb.ref(`users/${callerPhoneNumber}/contacts`);
     const contactRef = adminDb.ref(`users/${contactPhoneNumber}/contacts`);
-    const contactPublicUserRef = adminDb.ref(`publicUsers/${contactPhoneNumber}/name`);
+    const contactUserRef = adminDb.ref(`users/${contactPhoneNumber}`);
 
     const [callerSnapshot, contactSnapshot, contactUserSnapshot] = await Promise.all([
       callerRef.get(),
       contactRef.get(),
-      contactPublicUserRef.get(),
+      contactUserRef.get(),
     ]);
 
     if (!contactUserSnapshot.exists()) {
@@ -131,8 +78,8 @@ const removeContactFlow = ai.defineFlow(
     inputSchema: ContactMutationInputSchema,
     outputSchema: ContactMutationOutputSchema,
   },
-  async ({ idToken, sessionToken, contactPhoneNumber }) => {
-    const callerPhoneNumber = await getCallerPhoneNumber({ idToken, sessionToken });
+  async ({ idToken, contactPhoneNumber }) => {
+    const callerPhoneNumber = await getCallerPhoneNumber(idToken);
 
     const callerRef = adminDb.ref(`users/${callerPhoneNumber}/contacts`);
     const contactRef = adminDb.ref(`users/${contactPhoneNumber}/contacts`);
