@@ -332,6 +332,9 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
           throw new Error(result.message);
         }
 
+        setCurrentUserContacts((prev) =>
+          prev.includes(user.phoneNumber) ? prev : [...prev, user.phoneNumber]
+        );
         openChat(user.phoneNumber);
         return;
       }
@@ -343,6 +346,9 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
       ...prev,
       [user.phoneNumber]: user,
     }));
+    setCurrentUserContacts((prev) =>
+      prev.includes(user.phoneNumber) ? prev : [...prev, user.phoneNumber]
+    );
     openChat(user.phoneNumber);
     toast({
       title: 'Chat opened',

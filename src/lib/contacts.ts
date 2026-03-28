@@ -1,3 +1,5 @@
+import { countries } from '@/lib/countries';
+
 export type NativeContactRecord = {
   name?: string | null;
   phone?: string | null;
@@ -14,6 +16,8 @@ declare global {
       getContacts: () =>
         | Promise<NativeContactRecord[]>
         | NativeContactRecord[]
+        | Promise<string>
+        | string
         | null
         | undefined;
     };
@@ -26,6 +30,30 @@ const isPhoneNumber = (value: unknown): value is string =>
   typeof value === 'string' && PHONE_NUMBER_REGEX.test(value);
 
 export const normalizePhoneNumber = (value: unknown): string | null => {
+  return normalizePhoneNumberForRegion(value);
+};
+
+export const inferDialCodeFromPhoneNumber = (phoneNumber: string): string | null => {
+  const compactPhone = phoneNumber.replace(/\D/g, '');
+  if (!compactPhone) {
+    return null;
+  }
+
+  const sortedDialCodes = [...countries]
+    .map((country) => country.dial_code)
+    .sort((left, right) => right.length - left.length);
+
+  const matchedDialCode = sortedDialCodes.find((dialCode) =>
+    compactPhone.startsWith(dialCode.replace('+', ''))
+  );
+
+  return matchedDialCode ?? null;
+};
+
+export const normalizePhoneNumberForRegion = (
+  value: unknown,
+  defaultDialCode?: string | null
+): string | null => {
   if (typeof value !== 'string') {
     return null;
   }
@@ -39,20 +67,41 @@ export const normalizePhoneNumber = (value: unknown): string | null => {
   const withInternationalPrefix = compact.startsWith('00')
     ? `+${compact.slice(2)}`
     : compact;
-  const normalized = withInternationalPrefix.startsWith('+')
+  const digitsOnly = withInternationalPrefix.replace(/\D/g, '');
+  const normalizedDefaultDialCode =
+    typeof defaultDialCode === 'string' && defaultDialCode.startsWith('+')
+      ? defaultDialCode
+      : null;
+
+  let normalized = withInternationalPrefix.startsWith('+')
     ? `+${withInternationalPrefix.slice(1).replace(/\D/g, '')}`
-    : withInternationalPrefix.replace(/\D/g, '');
+    : digitsOnly;
+
+  if (!normalized.startsWith('+') && normalizedDefaultDialCode) {
+    const defaultDigits = normalizedDefaultDialCode.replace('+', '');
+    if (normalized.startsWith(defaultDigits)) {
+      normalized = `+${normalized}`;
+    } else if (normalized.startsWith('0')) {
+      normalized = `${normalizedDefaultDialCode}${normalized.slice(1)}`;
+    } else {
+      normalized = `${normalizedDefaultDialCode}${normalized}`;
+    }
+  }
 
   return isPhoneNumber(normalized) ? normalized : null;
 };
 
 export const normalizeNativeContacts = (
-  contacts: NativeContactRecord[]
+  contacts: NativeContactRecord[],
+  defaultDialCode?: string | null
 ): NormalizedNativeContact[] => {
   const dedupedContacts = new Map<string, string>();
 
   contacts.forEach((contact) => {
-    const normalizedPhone = normalizePhoneNumber(contact.phone);
+    const normalizedPhone = normalizePhoneNumberForRegion(
+      contact.phone,
+      defaultDialCode
+    );
     if (!normalizedPhone) {
       return;
     }

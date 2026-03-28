@@ -6,6 +6,7 @@ import { Loader2, RefreshCw, Users } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import {
+  inferDialCodeFromPhoneNumber,
   isNativeContactsBridgeAvailable,
   normalizeNativeContacts,
 } from '@/lib/contacts';
@@ -104,10 +105,25 @@ export function ContactSyncDialog({
 
     try {
       const rawContacts = await window.NativeContacts!.getContacts();
-      const contactList = Array.isArray(rawContacts) ? rawContacts : [];
-      const normalizedContacts = normalizeNativeContacts(contactList).filter(
-        (contact) => contact.phone !== user?.phoneNumber
-      );
+      const contactList = Array.isArray(rawContacts)
+        ? rawContacts
+        : typeof rawContacts === 'string'
+          ? (() => {
+              try {
+                const parsedContacts = JSON.parse(rawContacts);
+                return Array.isArray(parsedContacts) ? parsedContacts : [];
+              } catch {
+                return [];
+              }
+            })()
+          : [];
+      const defaultDialCode = user?.phoneNumber
+        ? inferDialCodeFromPhoneNumber(user.phoneNumber)
+        : null;
+      const normalizedContacts = normalizeNativeContacts(
+        contactList,
+        defaultDialCode
+      ).filter((contact) => contact.phone !== user?.phoneNumber);
 
       if (normalizedContacts.length === 0) {
         setMatches([]);
