@@ -43,12 +43,12 @@ interface MessageBubbleProps {
 
 const ReadStatusIcon = ({ status }: { status: Message['status'] }) => {
   if (status === 'read') {
-    return <CheckCheck className="h-4 w-4 text-blue-500" />;
+    return <CheckCheck className="h-3.5 w-3.5 text-blue-500" />;
   }
   if (status === 'delivered') {
-    return <CheckCheck className="h-4 w-4 text-muted-foreground" />;
+    return <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />;
   }
-  return <Check className="h-4 w-4 text-muted-foreground" />;
+  return <Check className="h-3.5 w-3.5 text-muted-foreground" />;
 };
 
 const isAI = (sender: string) => sender === 'ai-assistant';
@@ -111,6 +111,9 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
 
   const senderIsAI = isAI(message.sender);
   const useCompactTextLayout = !!message.content && !mediaUrl && !message.isGenerating;
+  const bubbleWidthClass = useCompactTextLayout
+    ? 'max-w-[18rem] sm:max-w-[20rem] lg:max-w-[22rem]'
+    : 'max-w-[70%] sm:max-w-[62%] lg:max-w-[55%]';
   const canBeDeleted = (isMyMessage || senderIsAI) && (message.content || mediaUrl) && !message.isGenerating;
   const canBeEdited = (isMyMessage || senderIsAI) && message.image && !isVideo && !message.isGenerating;
   const canBeDownloaded = mediaUrl && !message.isGenerating;
@@ -128,17 +131,18 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
           <AvatarFallback>{senderIsAI ? <RobotIcon className="h-5 w-5" /> : 'C'}</AvatarFallback>
         </Avatar>
       )}
-        <Card
+      <Card
         className={cn(
-          'group relative w-fit max-w-[70%] p-0 shadow-md sm:max-w-[62%] lg:max-w-[55%]',
+          'group relative w-fit border-transparent p-0 shadow-sm',
+          bubbleWidthClass,
           isMyMessage
-            ? 'rounded-br-none bg-primary text-primary-foreground'
-            : 'rounded-bl-none bg-card text-card-foreground',
+            ? 'rounded-2xl rounded-br-md bg-primary text-primary-foreground'
+            : 'rounded-2xl rounded-bl-md bg-card text-card-foreground',
           message.isGenerating && 'bg-muted text-muted-foreground',
-          senderIsAI && 'bg-secondary text-secondary-foreground rounded-bl-none'
+          senderIsAI && 'rounded-2xl rounded-bl-md bg-secondary text-secondary-foreground'
         )}
       >
-        <CardContent className={cn('relative px-2.5 py-2', useCompactTextLayout ? 'pb-5' : 'pb-2')}>
+        <CardContent className={cn('relative px-2.5 py-1.5', useCompactTextLayout ? 'pb-5' : 'pb-2')}>
           {message.isGenerating && (
             <div className="flex items-center gap-2 mb-2">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -171,9 +175,9 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
             </div>
           )}
           {message.content && (
-            <div className={cn('flex items-start gap-2', useCompactTextLayout && 'pr-14')}>
+            <div className={cn('flex items-start gap-1.5', useCompactTextLayout && 'pr-12')}>
                {(senderIsAI && !isMyMessage) && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-              <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.35]">{message.content}</p>
             </div>
           )}
 
@@ -218,8 +222,8 @@ export function MessageBubble({ message, contactAvatar, isFirstInGroup, onImagin
             )}
 
           {useCompactTextLayout ? (
-            <div className="absolute bottom-1.5 right-2.5 flex items-center gap-1">
-              <span className={cn('text-[11px]', isMyMessage ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
+            <div className="absolute bottom-1.5 right-2 flex items-center gap-1">
+              <span className={cn('text-[10px]', isMyMessage ? 'text-primary-foreground/70' : 'text-muted-foreground', senderIsAI && 'text-secondary-foreground/70')}>
                 {formatTimestamp(message.timestamp)}
               </span>
               {isMyMessage && <ReadStatusIcon status={message.status} />}
