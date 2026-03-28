@@ -12,6 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { ref, set, get, remove, update } from 'firebase/database';
 import { db } from '@/lib/firebase';
+import { adminAuth } from '@/lib/firebase-admin';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import AfricasTalking from 'africastalking';
@@ -124,6 +125,7 @@ const VerifyOtpOutputSchema = z.object({
   user: z.any().optional(),
   isNewUser: z.boolean().optional(),
   sessionToken: z.string().optional(),
+  customToken: z.string().optional(),
 });
 export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
 
@@ -222,6 +224,13 @@ const verifyOtpFlow = ai.defineFlow({
     
     const user = { ...userData, phoneNumber };
     const sessionToken = await createSessionToken(phoneNumber);
+    let customToken: string | undefined;
+
+    try {
+      customToken = await adminAuth.createCustomToken(phoneNumber);
+    } catch (error) {
+      console.warn('Could not mint Firebase custom token for OTP login.', error);
+    }
 
     return {
       success: true,
@@ -229,6 +238,7 @@ const verifyOtpFlow = ai.defineFlow({
       user,
       isNewUser,
       sessionToken,
+      customToken,
     };
 });
 
