@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { Search, Plus, Settings, Loader2, MoreVertical, Trash2 } from 'lucide-react';
+import { Search, Plus, Settings, Loader2, MoreVertical, Trash2, Users } from 'lucide-react';
 import type { Contact, PublicUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AdminDashboard } from '@/components/admin-dashboard';
 import { Virtuoso } from 'react-virtuoso';
 import { getPublicUser } from '@/lib/public-user';
+import { ContactSyncDialog } from '@/components/contact-sync-dialog';
 
 
 // =================================================================================
@@ -390,6 +391,16 @@ export function ContactList({ contacts, activeContactId, onSelectContact, onAddC
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">ChirpChat</h1>
           <div className="flex items-center gap-1">
+            <ContactSyncDialog
+              existingContactIds={contacts
+                .map((contact) => contact.id)
+                .filter((contactId) => contactId !== AI_CONTACT_ID)}
+              onOpenChat={onAddContact}
+            >
+              <Button variant="ghost" size="icon" aria-label="Sync contacts">
+                <Users className="h-5 w-5" />
+              </Button>
+            </ContactSyncDialog>
              <AddContactDialog onAddContact={onAddContact}>
                 <Button variant="ghost" size="icon">
                    <Plus className="h-5 w-5" />

@@ -14,7 +14,7 @@ import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db, auth } from '@/lib/firebase';
 import { normalizeContactIds } from '@/lib/contacts';
-import { subscribeToPublicUser } from '@/lib/public-user';
+import { getPublicUser, subscribeToPublicUser } from '@/lib/public-user';
 import { ref, onValue, set, push, get, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
 import { BroadcastBanner } from './broadcast-banner';
@@ -84,6 +84,15 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   const { toast } = useToast();
   const initialContactAppliedRef = useRef(false);
 
+  const openChat = useCallback(
+    (contactId: string) => {
+      setActiveContactId(contactId);
+      setSmartReplies([]);
+      router.push(`/?contact=${encodeURIComponent(contactId)}`);
+    },
+    [router]
+  );
+
   useEffect(() => {
     messageCacheRef.current = messageCache;
   }, [messageCache]);
@@ -109,7 +118,12 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   useEffect(() => {
     const uniqueContactIds = [...new Set(currentUserContacts)];
     setContactUsers((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([contactId]) => uniqueContactIds.includes(contactId)))
+      Object.fromEntries(
+        Object.entries(prev).filter(
+          ([contactId]) =>
+            uniqueContactIds.includes(contactId) || contactId === activeContactId
+        )
+      )
     );
 
     const cleanups = uniqueContactIds.map((contactId) =>
@@ -129,7 +143,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     return () => {
       cleanups.forEach((cleanup) => cleanup());
     };
-  }, [currentUserContacts]);
+  }, [activeContactId, currentUserContacts]);
 
   useEffect(() => {
     if (!currentUser?.phoneNumber) return;
@@ -208,11 +222,22 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   }, [currentUser, lastMessages, unreadCounts]);
 
   const userContacts: Contact[] = useMemo(() => {
-    if (!currentUser?.phoneNumber || currentUserContacts.length === 0) {
+    if (!currentUser?.phoneNumber) {
       return [];
     }
 
-    return currentUserContacts.flatMap((contactId) => {
+    const visibleContactIds = [...currentUserContacts];
+    if (
+      activeContactId &&
+      activeContactId !== AI_CONTACT_ID &&
+      activeContactId !== currentUser.phoneNumber &&
+      !visibleContactIds.includes(activeContactId) &&
+      contactUsers[activeContactId]
+    ) {
+      visibleContactIds.unshift(activeContactId);
+    }
+
+    return visibleContactIds.flatMap((contactId) => {
         const contactUser = contactUsers[contactId];
         if (!contactUser) return [];
 
@@ -231,7 +256,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
           isTyping: typingStatus[contactId] || false,
         }];
       });
-  }, [currentUser?.phoneNumber, currentUserContacts, contactUsers, lastMessages, typingStatus, unreadCounts]);
+  }, [activeContactId, currentUser?.phoneNumber, currentUserContacts, contactUsers, lastMessages, typingStatus, unreadCounts]);
 
 
   // Listen for messages and typing status for the active conversation
@@ -284,46 +309,51 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   }, [activeContactId, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
-    setActiveContactId(contactId);
-    setSmartReplies([]);
+    openChat(contactId);
   };
 
   const handleAddContact = async (user: PublicUser) => {
     if (!currentUser) return;
     
     if(userContacts.some(c => c.id === user.phoneNumber)) {
-        handleSelectContact(user.phoneNumber);
+        openChat(user.phoneNumber);
         return;
     }
 
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        throw new Error('Your session expired. Please sign in again.');
+      if (idToken) {
+        const result = await addContact({
+          idToken,
+          contactPhoneNumber: user.phoneNumber,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        openChat(user.phoneNumber);
+        return;
       }
-
-      const result = await addContact({
-        idToken,
-        contactPhoneNumber: user.phoneNumber,
-      });
-
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-
-      handleSelectContact(user.phoneNumber);
     } catch (error) {
       console.error('Error adding contact:', error);
-      toast({
-        title: 'Could Not Add Contact',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      });
     }
+
+    setContactUsers((prev) => ({
+      ...prev,
+      [user.phoneNumber]: user,
+    }));
+    openChat(user.phoneNumber);
+    toast({
+      title: 'Chat opened',
+      description:
+        'We opened the chat directly. If it does not stay in your list yet, sync again after sign-in refresh.',
+    });
   };
   
   const handleBackToContacts = () => {
     setActiveContactId(null);
+    router.push('/');
   };
 
   const handleShowSettings = () => {
@@ -350,6 +380,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
 
         if (activeContactId === contactId) {
             setActiveContactId(null);
+            router.push('/');
         }
 
         toast({ title: "Chat Deleted", description: "The chat has been successfully deleted." });
@@ -589,6 +620,23 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
 
     const availableIds = new Set([...currentUserContacts, AI_CONTACT_ID]);
     if (!availableIds.has(initialContactId)) {
+      if (initialContactId === currentUser.phoneNumber) {
+        initialContactAppliedRef.current = true;
+        return;
+      }
+
+      void getPublicUser(initialContactId).then((user) => {
+        if (!user) {
+          return;
+        }
+
+        setContactUsers((prev) => ({
+          ...prev,
+          [initialContactId]: user,
+        }));
+        setActiveContactId(initialContactId);
+        initialContactAppliedRef.current = true;
+      });
       return;
     }
 
