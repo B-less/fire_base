@@ -4,7 +4,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Contact, Message, PublicUser } from '@/lib/types';
-import { addContact, removeContact } from '@/ai/flows/contact-management-flow';
 import { ContactList } from '@/components/contact-list';
 import { ChatPanel } from '@/components/chat-panel';
 import { generateSmartReplies, SmartReplyOutput } from '@/ai/flows/smart-reply-suggestions';
@@ -12,7 +11,7 @@ import { generateChatResponse } from '@/ai/flows/conversational-ai-flow';
 import { sendPushNotification } from '@/ai/flows/push-notification-flow';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-import { db, auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { normalizeContactIds } from '@/lib/contacts';
 import { subscribeToPublicUser } from '@/lib/public-user';
 import { ref, onValue, set, push, get, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
@@ -297,26 +296,44 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     }
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        throw new Error('Your session expired. Please sign in again.');
+      const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
+      const otherUserContactsRef = ref(db, `users/${user.phoneNumber}/contacts`);
+
+      const [currentUserSnapshot, otherUserSnapshot] = await Promise.all([
+        get(currentUserContactsRef),
+        get(otherUserContactsRef),
+      ]);
+
+      const nextCurrentUserContacts = normalizeContactIds(currentUserSnapshot.val());
+      const nextOtherUserContacts = normalizeContactIds(otherUserSnapshot.val());
+
+      if (!nextCurrentUserContacts.includes(user.phoneNumber)) {
+        nextCurrentUserContacts.push(user.phoneNumber);
       }
 
-      const result = await addContact({
-        idToken,
-        contactPhoneNumber: user.phoneNumber,
+      if (!nextOtherUserContacts.includes(currentUser.phoneNumber)) {
+        nextOtherUserContacts.push(currentUser.phoneNumber);
+      }
+
+      await update(ref(db), {
+        [`users/${currentUser.phoneNumber}/contacts`]: nextCurrentUserContacts,
+        [`users/${user.phoneNumber}/contacts`]: nextOtherUserContacts,
       });
 
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-
+      setCurrentUserContacts((prev) =>
+        prev.includes(user.phoneNumber) ? prev : [...prev, user.phoneNumber]
+      );
       handleSelectContact(user.phoneNumber);
+      toast({
+        title: 'Contact added',
+        description: `${user.name} is now in your chats.`,
+      });
     } catch (error) {
       console.error('Error adding contact:', error);
       toast({
         title: 'Could Not Add Contact',
-        description: error instanceof Error ? error.message : 'Please try again.',
+        description:
+          error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
     }
@@ -334,19 +351,29 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     if (!currentUser) return;
     
     try {
-        const idToken = await auth.currentUser?.getIdToken();
-        if (!idToken) {
-          throw new Error('Your session expired. Please sign in again.');
-        }
+        const currentUserContactsRef = ref(db, `users/${currentUser.phoneNumber}/contacts`);
+        const otherUserContactsRef = ref(db, `users/${contactId}/contacts`);
 
-        const result = await removeContact({
-          idToken,
-          contactPhoneNumber: contactId,
+        const [currentUserSnapshot, otherUserSnapshot] = await Promise.all([
+          get(currentUserContactsRef),
+          get(otherUserContactsRef),
+        ]);
+
+        const nextCurrentUserContacts = normalizeContactIds(currentUserSnapshot.val()).filter(
+          (id) => id !== contactId
+        );
+        const nextOtherUserContacts = normalizeContactIds(otherUserSnapshot.val()).filter(
+          (id) => id !== currentUser.phoneNumber
+        );
+
+        await update(ref(db), {
+          [`users/${currentUser.phoneNumber}/contacts`]:
+            nextCurrentUserContacts.length > 0 ? nextCurrentUserContacts : null,
+          [`users/${contactId}/contacts`]:
+            nextOtherUserContacts.length > 0 ? nextOtherUserContacts : null,
         });
 
-        if (!result.success) {
-          throw new Error(result.message);
-        }
+        setCurrentUserContacts((prev) => prev.filter((id) => id !== contactId));
 
         if (activeContactId === contactId) {
             setActiveContactId(null);
