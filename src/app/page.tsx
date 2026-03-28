@@ -24,6 +24,7 @@ function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showSettings = searchParams.get('page') === 'settings';
+  const initialContactId = searchParams.get('contact');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -45,7 +46,7 @@ function HomePageContent() {
         {showSettings ? (
             <SettingsPage onBack={handleBackToChat} />
         ) : (
-            <ChatContainer />
+            <ChatContainer initialContactId={initialContactId} />
         )}
       </div>
     </main>

@@ -67,7 +67,7 @@ const getMessagePreview = (message?: Message) => {
   return '';
 };
 
-export function ChatContainer() {
+export function ChatContainer({ initialContactId }: { initialContactId?: string | null }) {
   const { user: currentUser } = useAuth();
   const router = useRouter();
   const [contactUsers, setContactUsers] = useState<Record<string, PublicUser>>({});
@@ -82,6 +82,7 @@ export function ChatContainer() {
   const [typingStatus, setTypingStatus] = useState<Record<string, boolean>>({});
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
+  const initialContactAppliedRef = useRef(false);
 
   useEffect(() => {
     messageCacheRef.current = messageCache;
@@ -489,6 +490,7 @@ export function ChatContainer() {
     if (!isGenerating && activeContactId !== AI_CONTACT_ID) {
       void sendPushNotification({
         recipientPhoneNumber: activeContactId,
+        senderPhoneNumber: currentUser.phoneNumber,
         senderName: currentUser.name,
         message: content,
       }).catch((error) => {
@@ -579,6 +581,20 @@ export function ChatContainer() {
       }
     }
   }, [currentChatMessages, getSmartReplies, contactUsers, activeContactUser]);
+
+  useEffect(() => {
+    if (initialContactAppliedRef.current || !initialContactId || !currentUser?.phoneNumber) {
+      return;
+    }
+
+    const availableIds = new Set([...currentUserContacts, AI_CONTACT_ID]);
+    if (!availableIds.has(initialContactId)) {
+      return;
+    }
+
+    setActiveContactId(initialContactId);
+    initialContactAppliedRef.current = true;
+  }, [initialContactId, currentUser?.phoneNumber, currentUserContacts]);
 
 
   const NoContactsView = () => (

@@ -8,12 +8,14 @@
 
 import { ai } from '@/ai/genkit';
 import { adminApp, adminDb } from '@/lib/firebase-admin';
+import { extractFcmTokens, getPushPreviewText } from '@/lib/push';
 import type { User } from '@/lib/types';
 import { getMessaging } from 'firebase-admin/messaging';
 import { z } from 'genkit';
 
 const PushNotificationInputSchema = z.object({
   recipientPhoneNumber: z.string().describe('The phone number of the recipient user.'),
+  senderPhoneNumber: z.string().describe('The phone number of the user sending the message.'),
   senderName: z.string().describe('The name of the user sending the message.'),
   message: z.string().describe('The content of the message.'),
 });
@@ -73,7 +75,7 @@ const sendPushNotificationFlow = ai.defineFlow(
     inputSchema: PushNotificationInputSchema,
     outputSchema: z.void(),
   },
-  async ({ recipientPhoneNumber, senderName, message }) => {
+  async ({ recipientPhoneNumber, senderPhoneNumber, senderName, message }) => {
     const recipientSnapshot = await adminDb.ref(`users/${recipientPhoneNumber}`).get();
     if (!recipientSnapshot.exists()) {
       console.log('Recipient user not found, skipping push notification.');
@@ -91,20 +93,53 @@ const sendPushNotificationFlow = ai.defineFlow(
       return;
     }
 
-    if (!recipient.fcmToken) {
+    const recipientTokens = extractFcmTokens(recipient);
+    if (recipientTokens.length === 0) {
       console.log('No FCM token available for recipient, skipping push notification.');
       return;
     }
 
     try {
-      await getMessaging(adminApp).send({
+      const response = await getMessaging(adminApp).sendEachForMulticast({
+        tokens: recipientTokens,
         notification: {
           title: `New message from ${senderName}`,
-          body: message || 'Sent you a media file.',
+          body: getPushPreviewText(message),
         },
-        token: recipient.fcmToken,
+        data: {
+          senderName,
+          senderPhoneNumber,
+          contactId: senderPhoneNumber,
+          message: getPushPreviewText(message),
+        },
+        android: {
+          priority: 'high',
+        },
       });
-      console.log('Push notification sent successfully to token:', recipient.fcmToken);
+
+      const invalidTokens: string[] = [];
+      response.responses.forEach((result, index) => {
+        const code = result.error?.code;
+        if (
+          code === 'messaging/registration-token-not-registered' ||
+          code === 'messaging/invalid-registration-token'
+        ) {
+          invalidTokens.push(recipientTokens[index]);
+        }
+      });
+
+      if (invalidTokens.length > 0) {
+        const cleanupUpdates: Record<string, null> = {};
+        invalidTokens.forEach((token) => {
+          cleanupUpdates[`users/${recipientPhoneNumber}/fcmTokens/${encodeURIComponent(token)}`] = null;
+          if (recipient.fcmToken === token) {
+            cleanupUpdates[`users/${recipientPhoneNumber}/fcmToken`] = null;
+          }
+        });
+        await adminDb.ref().update(cleanupUpdates);
+      }
+
+      console.log('Push notification sent successfully to tokens:', recipientTokens.length);
     } catch (error) {
       console.error('Error sending push notification:', error);
     }

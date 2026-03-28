@@ -1,6 +1,6 @@
 {
-  "appId": "com.firebasestudio.app",
-  "appName": "Firebase Studio",
+  "appId": "com.median.chripchat",
+  "appName": "ChirpChat",
   "webDir": "public",
   "bundledWebRuntime": false,
   "server": {

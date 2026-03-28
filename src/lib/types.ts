@@ -44,6 +44,11 @@ export type User = {
       account: UserAccountStatus;
     };
     fcmToken?: string;
+    fcmTokens?: Record<string, string | {
+      token?: string;
+      platform?: string;
+      updatedAt?: number | object;
+    }>;
     pushProvider?: 'fcm' | 'median-onesignal';
     oneSignalId?: string;
     oneSignalExternalId?: string;

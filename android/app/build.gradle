@@ -4,7 +4,7 @@ android {
     namespace = "com.firebasestudio.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.firebasestudio.app"
+        applicationId "com.median.chripchat"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
