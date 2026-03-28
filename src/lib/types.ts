@@ -65,14 +65,6 @@ export type PublicUser = {
     };
 }
 
-export type MatchedContact = {
-    id: string;
-    name: string;
-    phone: string;
-    profilePicture?: string;
-    localName?: string;
-}
-
 export type AIUsageLog = {
     id: string;
     feature: 'chat' | 'image' | 'video' | 'smart-reply';

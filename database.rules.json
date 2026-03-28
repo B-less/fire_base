@@ -74,18 +74,6 @@
         }
       }
     },
-    "publicUsers": {
-      "$phoneNumber": {
-        ".read": "auth != null",
-        ".write": "auth != null && auth.uid === $phoneNumber",
-        "name": {
-          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
-        },
-        "$other": {
-          ".validate": false
-        }
-      }
-    },
     "messages": {
       "$conversationKey": {
         ".read": "auth != null && ($conversationKey.beginsWith(auth.uid + '-') || $conversationKey.endsWith('-' + auth.uid))",

@@ -14,7 +14,7 @@ import { Plus } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { db, auth } from '@/lib/firebase';
 import { normalizeContactIds } from '@/lib/contacts';
-import { getPublicUser, subscribeToPublicUser } from '@/lib/public-user';
+import { subscribeToPublicUser } from '@/lib/public-user';
 import { ref, onValue, set, push, get, remove, query, limitToLast, off, update, type ThenableReference } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
 import { BroadcastBanner } from './broadcast-banner';
@@ -84,15 +84,6 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   const { toast } = useToast();
   const initialContactAppliedRef = useRef(false);
 
-  const openChat = useCallback(
-    (contactId: string) => {
-      setActiveContactId(contactId);
-      setSmartReplies([]);
-      router.push(`/?contact=${encodeURIComponent(contactId)}`);
-    },
-    [router]
-  );
-
   useEffect(() => {
     messageCacheRef.current = messageCache;
   }, [messageCache]);
@@ -118,12 +109,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   useEffect(() => {
     const uniqueContactIds = [...new Set(currentUserContacts)];
     setContactUsers((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).filter(
-          ([contactId]) =>
-            uniqueContactIds.includes(contactId) || contactId === activeContactId
-        )
-      )
+      Object.fromEntries(Object.entries(prev).filter(([contactId]) => uniqueContactIds.includes(contactId)))
     );
 
     const cleanups = uniqueContactIds.map((contactId) =>
@@ -143,7 +129,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
     return () => {
       cleanups.forEach((cleanup) => cleanup());
     };
-  }, [activeContactId, currentUserContacts]);
+  }, [currentUserContacts]);
 
   useEffect(() => {
     if (!currentUser?.phoneNumber) return;
@@ -222,22 +208,11 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   }, [currentUser, lastMessages, unreadCounts]);
 
   const userContacts: Contact[] = useMemo(() => {
-    if (!currentUser?.phoneNumber) {
+    if (!currentUser?.phoneNumber || currentUserContacts.length === 0) {
       return [];
     }
 
-    const visibleContactIds = [...currentUserContacts];
-    if (
-      activeContactId &&
-      activeContactId !== AI_CONTACT_ID &&
-      activeContactId !== currentUser.phoneNumber &&
-      !visibleContactIds.includes(activeContactId) &&
-      contactUsers[activeContactId]
-    ) {
-      visibleContactIds.unshift(activeContactId);
-    }
-
-    return visibleContactIds.flatMap((contactId) => {
+    return currentUserContacts.flatMap((contactId) => {
         const contactUser = contactUsers[contactId];
         if (!contactUser) return [];
 
@@ -256,7 +231,7 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
           isTyping: typingStatus[contactId] || false,
         }];
       });
-  }, [activeContactId, currentUser?.phoneNumber, currentUserContacts, contactUsers, lastMessages, typingStatus, unreadCounts]);
+  }, [currentUser?.phoneNumber, currentUserContacts, contactUsers, lastMessages, typingStatus, unreadCounts]);
 
 
   // Listen for messages and typing status for the active conversation
@@ -309,14 +284,15 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   }, [activeContactId, currentUser?.phoneNumber]);
 
   const handleSelectContact = (contactId: string) => {
-    openChat(contactId);
+    setActiveContactId(contactId);
+    setSmartReplies([]);
   };
 
   const handleAddContact = async (user: PublicUser) => {
     if (!currentUser) return;
     
     if(userContacts.some(c => c.id === user.phoneNumber)) {
-        openChat(user.phoneNumber);
+        handleSelectContact(user.phoneNumber);
         return;
     }
 
@@ -335,26 +311,12 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
         throw new Error(result.message);
       }
 
-      setContactUsers((prev) => ({
-        ...prev,
-        [user.phoneNumber]: user,
-      }));
-      setCurrentUserContacts((prev) =>
-        prev.includes(user.phoneNumber) ? prev : [...prev, user.phoneNumber]
-      );
-      openChat(user.phoneNumber);
-      toast({
-        title: 'Contact added',
-        description: `${user.name} is now in your chats.`,
-      });
+      handleSelectContact(user.phoneNumber);
     } catch (error) {
       console.error('Error adding contact:', error);
       toast({
-        title: 'Could not add contact',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Please try again in a moment.',
+        title: 'Could Not Add Contact',
+        description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
     }
@@ -362,7 +324,6 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
   
   const handleBackToContacts = () => {
     setActiveContactId(null);
-    router.push('/');
   };
 
   const handleShowSettings = () => {
@@ -389,7 +350,6 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
 
         if (activeContactId === contactId) {
             setActiveContactId(null);
-            router.push('/');
         }
 
         toast({ title: "Chat Deleted", description: "The chat has been successfully deleted." });
@@ -629,23 +589,6 @@ export function ChatContainer({ initialContactId }: { initialContactId?: string 
 
     const availableIds = new Set([...currentUserContacts, AI_CONTACT_ID]);
     if (!availableIds.has(initialContactId)) {
-      if (initialContactId === currentUser.phoneNumber) {
-        initialContactAppliedRef.current = true;
-        return;
-      }
-
-      void getPublicUser(initialContactId).then((user) => {
-        if (!user) {
-          return;
-        }
-
-        setContactUsers((prev) => ({
-          ...prev,
-          [initialContactId]: user,
-        }));
-        setActiveContactId(initialContactId);
-        initialContactAppliedRef.current = true;
-      });
       return;
     }
 
