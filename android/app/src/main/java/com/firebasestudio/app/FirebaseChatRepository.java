@@ -9,12 +9,12 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.FirebaseApp;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -52,17 +52,21 @@ public class FirebaseChatRepository {
     }
 
     private final FirebaseDatabase database;
+    private final NativeChatCache cache;
     private final SimpleDateFormat isoParser;
     private final SimpleDateFormat timeFormatter;
 
     public FirebaseChatRepository() {
         database = FirebaseDatabase.getInstance();
+        cache = new NativeChatCache(FirebaseApp.getInstance().getApplicationContext());
         isoParser = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US);
         isoParser.setTimeZone(TimeZone.getTimeZone("UTC"));
         timeFormatter = new SimpleDateFormat("h:mm a", Locale.US);
     }
 
     public Subscription observeChats(String currentUserPhone, ChatsListener listener) {
+        listener.onChatsUpdated(cache.getCachedChats(currentUserPhone));
+
         DatabaseReference contactsRef = database.getReference("users").child(currentUserPhone).child("contacts");
         Map<String, ContactListeners> contactListeners = new HashMap<>();
         Map<String, ChatDraft> chatDrafts = new LinkedHashMap<>();
@@ -106,7 +110,7 @@ public class FirebaseChatRepository {
                             draft.name = (name == null || name.trim().isEmpty()) ? contactId : name;
                             draft.avatarUrl = profilePicture;
                             draft.online = online != null && online;
-                            listener.onChatsUpdated(sortedChats(chatDrafts));
+                            publishChats(currentUserPhone, chatDrafts, listener);
                         }
 
                         @Override
@@ -153,7 +157,7 @@ public class FirebaseChatRepository {
                             draft.time = previewTime;
                             draft.unreadCount = unreadCount;
                             draft.timeSortKey = sortKey;
-                            listener.onChatsUpdated(sortedChats(chatDrafts));
+                            publishChats(currentUserPhone, chatDrafts, listener);
                         }
 
                         @Override
@@ -167,7 +171,7 @@ public class FirebaseChatRepository {
                     contactListeners.put(contactId, new ContactListeners(profileRef, profileListener, lastMessageQuery, lastMessageListener));
                 }
 
-                listener.onChatsUpdated(sortedChats(chatDrafts));
+                publishChats(currentUserPhone, chatDrafts, listener);
             }
 
             @Override
@@ -187,6 +191,8 @@ public class FirebaseChatRepository {
     }
 
     public Subscription observeConversation(String currentUserPhone, String otherPhone, MessagesListener listener) {
+        listener.onMessagesUpdated(cache.getCachedMessages(currentUserPhone, otherPhone));
+
         DatabaseReference conversationRef = database.getReference("messages").child(conversationKey(currentUserPhone, otherPhone));
 
         ValueEventListener messagesListener = new ValueEventListener() {
@@ -214,6 +220,7 @@ public class FirebaseChatRepository {
                     ));
                 }
 
+                cache.putCachedMessages(currentUserPhone, otherPhone, messages);
                 listener.onMessagesUpdated(messages);
                 markMessagesRead(snapshot, conversationRef, currentUserPhone, otherPhone);
             }
@@ -229,13 +236,14 @@ public class FirebaseChatRepository {
     }
 
     public void sendMessage(String currentUserPhone, String currentUserName, String otherPhone, String text) {
+        String optimisticTimestamp = isoNow();
         DatabaseReference conversationRef = database.getReference("messages").child(conversationKey(currentUserPhone, otherPhone));
         DatabaseReference newMessageRef = conversationRef.push();
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("id", System.currentTimeMillis());
         payload.put("content", text);
-        payload.put("timestamp", isoNow());
+        payload.put("timestamp", optimisticTimestamp);
         payload.put("sender", currentUserPhone);
         payload.put("status", "sent");
         payload.put("db_key", newMessageRef.getKey());
@@ -243,6 +251,17 @@ public class FirebaseChatRepository {
 
         DatabaseReference currentUserRef = database.getReference("users").child(currentUserPhone);
         currentUserRef.child("name").setValue(currentUserName);
+
+        List<MessageUiModel> cachedMessages = new ArrayList<>(cache.getCachedMessages(currentUserPhone, otherPhone));
+        cachedMessages.add(new MessageUiModel(
+                text,
+                formatMessageMeta(optimisticTimestamp, "sent", true),
+                true,
+                null,
+                null,
+                null
+        ));
+        cache.putCachedMessages(currentUserPhone, otherPhone, cachedMessages);
     }
 
     public void lookupUserByPhone(String phoneNumber, ContactLookupListener listener) {
@@ -312,6 +331,13 @@ public class FirebaseChatRepository {
                 .addOnFailureListener(error -> listener.onError(error.getMessage() == null ? "Could not read contacts." : error.getMessage()));
     }
 
+    public void clearCachedDataForUser(String currentUserPhone) {
+        if (currentUserPhone == null || currentUserPhone.trim().isEmpty()) {
+            return;
+        }
+        cache.clearUser(currentUserPhone);
+    }
+
     private void markMessagesRead(DataSnapshot snapshot, DatabaseReference conversationRef, String currentUserPhone, String otherPhone) {
         Map<String, Object> updates = new HashMap<>();
         for (DataSnapshot child : snapshot.getChildren()) {
@@ -370,6 +396,12 @@ public class FirebaseChatRepository {
         }
         chats.sort(Comparator.comparingLong(ChatPreview::getTimeSortKey).reversed());
         return chats;
+    }
+
+    private void publishChats(String currentUserPhone, Map<String, ChatDraft> chatDrafts, ChatsListener listener) {
+        List<ChatPreview> chats = sortedChats(chatDrafts);
+        cache.putCachedChats(currentUserPhone, chats);
+        listener.onChatsUpdated(chats);
     }
 
     private String conversationKey(String first, String second) {

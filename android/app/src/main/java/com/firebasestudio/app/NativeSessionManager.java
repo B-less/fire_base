@@ -10,12 +10,18 @@ public class NativeSessionManager {
     private static final String KEY_NAME = "name";
 
     private final SharedPreferences preferences;
+    private final NativeChatCache cache;
 
     public NativeSessionManager(Context context) {
         preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        cache = new NativeChatCache(context.getApplicationContext());
     }
 
     public void saveSession(String phoneNumber, String name) {
+        String previousPhone = preferences.getString(KEY_PHONE, null);
+        if (previousPhone != null && !previousPhone.trim().isEmpty() && !previousPhone.equals(phoneNumber)) {
+            cache.clearUser(previousPhone);
+        }
         preferences.edit()
                 .putString(KEY_PHONE, phoneNumber)
                 .putString(KEY_NAME, name)
@@ -32,6 +38,10 @@ public class NativeSessionManager {
     }
 
     public void clearSession() {
+        String phone = preferences.getString(KEY_PHONE, null);
+        if (phone != null && !phone.trim().isEmpty()) {
+            cache.clearUser(phone);
+        }
         preferences.edit().clear().apply();
     }
 
