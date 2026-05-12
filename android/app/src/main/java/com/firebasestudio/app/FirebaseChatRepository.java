@@ -8,6 +8,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
+import com.google.android.gms.tasks.Tasks;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -32,6 +33,17 @@ public class FirebaseChatRepository {
 
     public interface MessagesListener {
         void onMessagesUpdated(List<MessageUiModel> messages);
+        void onError(String message);
+    }
+
+    public interface ContactLookupListener {
+        void onFound(ChatPreview contact);
+        void onNotFound();
+        void onError(String message);
+    }
+
+    public interface OperationListener {
+        void onSuccess();
         void onError(String message);
     }
 
@@ -187,21 +199,19 @@ public class FirebaseChatRepository {
                     String timestamp = child.child("timestamp").getValue(String.class);
                     String sender = child.child("sender").getValue(String.class);
                     String status = child.child("status").getValue(String.class);
+                    String image = child.child("image").getValue(String.class);
+                    String video = child.child("video").getValue(String.class);
+                    String audio = child.child("audio").getValue(String.class);
                     boolean sentByMe = currentUserPhone.equals(sender);
 
-                    if (text == null || text.trim().isEmpty()) {
-                        if (child.hasChild("image")) {
-                            text = "\uD83D\uDCF7 Photo";
-                        } else if (child.hasChild("video")) {
-                            text = "\uD83C\uDFA5 Video";
-                        } else if (child.hasChild("audio")) {
-                            text = "\uD83C\uDFA4 Voice note";
-                        } else {
-                            text = "";
-                        }
-                    }
-
-                    messages.add(new MessageUiModel(text, formatMessageMeta(timestamp, status, sentByMe), sentByMe));
+                    messages.add(new MessageUiModel(
+                            text == null ? "" : text,
+                            formatMessageMeta(timestamp, status, sentByMe),
+                            sentByMe,
+                            image,
+                            video,
+                            audio
+                    ));
                 }
 
                 listener.onMessagesUpdated(messages);
@@ -233,6 +243,64 @@ public class FirebaseChatRepository {
 
         DatabaseReference currentUserRef = database.getReference("users").child(currentUserPhone);
         currentUserRef.child("name").setValue(currentUserName);
+    }
+
+    public void lookupUserByPhone(String phoneNumber, ContactLookupListener listener) {
+        if (!isPhoneNumber(phoneNumber)) {
+            listener.onError("Use a full international phone number like +233501234567.");
+            return;
+        }
+
+        DatabaseReference profileRef = database.getReference("users").child(phoneNumber);
+        profileRef.get().addOnSuccessListener(snapshot -> {
+            String name = snapshot.child("name").getValue(String.class);
+            if (name == null || name.trim().isEmpty()) {
+                listener.onNotFound();
+                return;
+            }
+            String profilePicture = snapshot.child("profilePicture").getValue(String.class);
+            Boolean online = snapshot.child("status").child("online").getValue(Boolean.class);
+            listener.onFound(new ChatPreview(
+                    phoneNumber,
+                    name,
+                    "Start a conversation",
+                    "",
+                    0,
+                    online != null && online,
+                    profilePicture,
+                    0L
+            ));
+        }).addOnFailureListener(error -> listener.onError(error.getMessage() == null ? "Could not find that user." : error.getMessage()));
+    }
+
+    public void addMutualContact(String currentUserPhone, String otherPhone, OperationListener listener) {
+        DatabaseReference currentContactsRef = database.getReference("users").child(currentUserPhone).child("contacts");
+        DatabaseReference otherContactsRef = database.getReference("users").child(otherPhone).child("contacts");
+
+        Tasks.whenAllSuccess(currentContactsRef.get(), otherContactsRef.get())
+                .addOnSuccessListener(results -> {
+                    DataSnapshot currentSnapshot = (DataSnapshot) results.get(0);
+                    DataSnapshot otherSnapshot = (DataSnapshot) results.get(1);
+
+                    List<String> currentContacts = extractContactIds(currentSnapshot);
+                    List<String> otherContacts = extractContactIds(otherSnapshot);
+
+                    if (!currentContacts.contains(otherPhone)) {
+                        currentContacts.add(otherPhone);
+                    }
+                    if (!otherContacts.contains(currentUserPhone)) {
+                        otherContacts.add(currentUserPhone);
+                    }
+
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("users/" + currentUserPhone + "/contacts", currentContacts);
+                    updates.put("users/" + otherPhone + "/contacts", otherContacts);
+
+                    database.getReference().updateChildren(updates)
+                            .addOnSuccessListener(unused -> listener.onSuccess())
+                            .addOnFailureListener(error -> listener.onError(error.getMessage() == null ? "Could not add contact." : error.getMessage()));
+                })
+                .addOnFailureListener(error -> listener.onError(error.getMessage() == null ? "Could not read contacts." : error.getMessage()));
     }
 
     private void markMessagesRead(DataSnapshot snapshot, DatabaseReference conversationRef, String currentUserPhone, String otherPhone) {

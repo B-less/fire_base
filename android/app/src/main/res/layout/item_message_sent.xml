@@ -7,6 +7,73 @@
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
+    <ImageView
+        android:id="@+id/messageImage"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="88dp"
+        android:adjustViewBounds="true"
+        android:background="@drawable/bg_message_sent"
+        android:cropToPadding="true"
+        android:maxHeight="280dp"
+        android:padding="6dp"
+        android:scaleType="centerCrop"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/messageVideoCard"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="88dp"
+        android:background="@drawable/bg_media_card"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_media_play" />
+
+        <TextView
+            android:id="@+id/messageVideoLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="@string/media_label_video"
+            android:textColor="@color/chirp_text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/messageAudioCard"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="88dp"
+        android:background="@drawable/bg_media_card"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_btn_speak_now" />
+
+        <TextView
+            android:id="@+id/messageAudioLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="@string/media_label_voice_note"
+            android:textColor="@color/chirp_text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/messageText"
         android:layout_width="wrap_content"
@@ -18,7 +85,8 @@
         android:paddingEnd="14dp"
         android:paddingBottom="10dp"
         android:textColor="@color/chirp_text_primary"
-        android:textSize="16sp" />
+        android:textSize="16sp"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/messageMeta"

@@ -1,5 +1,6 @@
 package com.firebasestudio.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -31,6 +32,11 @@ public class NativeHomeActivity extends AppCompatActivity {
 
         sessionManager = new NativeSessionManager(this);
         currentSession = sessionManager.getSession();
+        if (currentSession == null) {
+            startActivity(new Intent(this, NativeLoginActivity.class));
+            finish();
+            return;
+        }
 
         MaterialToolbar toolbar = findViewById(R.id.homeToolbar);
         toolbar.setTitle(getString(R.string.home_title));
@@ -41,7 +47,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         FloatingActionButton newChatFab = findViewById(R.id.newChatFab);
 
         if (savedInstanceState == null) {
-            showFragment(new ChatsFragment());
+            showFragment(createFragmentForMenu(R.id.nav_chats));
         }
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
@@ -50,7 +56,7 @@ public class NativeHomeActivity extends AppCompatActivity {
         });
 
         newChatFab.setOnClickListener(view ->
-                Toast.makeText(this, "Next step: native contact picker and new chat composer.", Toast.LENGTH_SHORT).show()
+                startActivity(new Intent(this, ContactsActivity.class))
         );
 
         searchInput.addTextChangedListener(new TextWatcher() {
@@ -71,11 +77,7 @@ public class NativeHomeActivity extends AppCompatActivity {
             }
         });
 
-        if (currentSession == null) {
-            showSessionDialog(true);
-        } else {
-            propagateSession(currentSession);
-        }
+        propagateSession(currentSession);
     }
 
     private Fragment createFragmentForMenu(@IdRes int itemId) {
@@ -138,7 +140,8 @@ public class NativeHomeActivity extends AppCompatActivity {
             builder.setNeutralButton("Clear", (dialogInterface, which) -> {
                 sessionManager.clearSession();
                 currentSession = null;
-                propagateSession(null);
+                startActivity(new Intent(this, NativeLoginActivity.class));
+                finish();
             });
         }
 
