@@ -274,6 +274,15 @@ public class FirebaseChatRepository {
     }
 
     public void addMutualContact(String currentUserPhone, String otherPhone, OperationListener listener) {
+        if (currentUserPhone == null || otherPhone == null || currentUserPhone.trim().isEmpty() || otherPhone.trim().isEmpty()) {
+            listener.onError("Both phone numbers are required.");
+            return;
+        }
+        if (currentUserPhone.equals(otherPhone)) {
+            listener.onError("You cannot add yourself.");
+            return;
+        }
+
         DatabaseReference currentContactsRef = database.getReference("users").child(currentUserPhone).child("contacts");
         DatabaseReference otherContactsRef = database.getReference("users").child(otherPhone).child("contacts");
 

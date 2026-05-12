@@ -18,6 +18,7 @@ import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -148,6 +149,8 @@ public class NativeAuthApi {
         connection.setRequestMethod("POST");
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(20000);
+        connection.setInstanceFollowRedirects(true);
+        connection.setUseCaches(false);
         connection.setDoInput(true);
         connection.setDoOutput(true);
         connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
@@ -178,11 +181,38 @@ public class NativeAuthApi {
             connection.disconnect();
         }
 
-        JSONObject response = new JSONObject(responseBuilder.toString());
+        String rawResponse = responseBuilder.toString().trim();
+
+        if (rawResponse.isEmpty()) {
+            throw new IllegalStateException("The auth server returned an empty response.");
+        }
+
+        if (!looksLikeJsonObject(rawResponse)) {
+            throw new IllegalStateException(buildUnexpectedResponseMessage(statusCode, rawResponse));
+        }
+
+        JSONObject response = new JSONObject(rawResponse);
         if (statusCode < 200 || statusCode >= 300) {
             throw new IllegalStateException(response.optString("message", "Server request failed."));
         }
         return response;
+    }
+
+    private boolean looksLikeJsonObject(String response) {
+        return response.startsWith("{");
+    }
+
+    private String buildUnexpectedResponseMessage(int statusCode, String rawResponse) {
+        String trimmed = rawResponse.trim();
+        String lower = trimmed.toLowerCase(Locale.US);
+        if (statusCode == HttpURLConnection.HTTP_NOT_FOUND || lower.startsWith("<!doctype") || lower.startsWith("<html")) {
+            return "Native login service is unavailable right now. Please update Chirp Chat or redeploy the backend auth routes.";
+        }
+
+        if (trimmed.length() > 180) {
+            trimmed = trimmed.substring(0, 180) + "...";
+        }
+        return "Unexpected server response (" + statusCode + "): " + trimmed;
     }
 
     private <T> void postSuccess(Callback<T> callback, T result) {

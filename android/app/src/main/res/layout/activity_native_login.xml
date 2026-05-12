@@ -113,6 +113,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="24dp"
                         android:text="@string/native_login_send_code"
+                        android:textColor="@android:color/white"
                         app:backgroundTint="@color/chirp_green"
                         app:cornerRadius="20dp" />
                 </LinearLayout>
@@ -161,6 +162,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="24dp"
                         android:text="@string/native_login_verify"
+                        android:textColor="@android:color/white"
                         app:backgroundTint="@color/chirp_green"
                         app:cornerRadius="20dp" />
 

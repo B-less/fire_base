@@ -30,6 +30,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await verifyOtp({ phoneNumber, otp });
-  return NextResponse.json(result, { status: result.success ? 200 : 400 });
+  try {
+    const result = await verifyOtp({ phoneNumber, otp });
+    return NextResponse.json(result, { status: result.success ? 200 : 400 });
+  } catch (error) {
+    console.error('Native verify OTP route failed', error);
+    return NextResponse.json(
+      { success: false, message: 'Could not verify the code right now. Please try again.' },
+      { status: 500 }
+    );
+  }
 }

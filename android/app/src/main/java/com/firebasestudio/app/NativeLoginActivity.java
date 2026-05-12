@@ -190,6 +190,10 @@ public class NativeLoginActivity extends AppCompatActivity {
         }
 
         String digits = localNumber.replaceAll("[^0-9]", "");
+        String countryDigits = countryCode.replaceAll("[^0-9]", "");
+        if (!countryDigits.isEmpty() && digits.startsWith(countryDigits)) {
+            digits = digits.substring(countryDigits.length());
+        }
         if (digits.startsWith("0")) {
             digits = digits.substring(1);
         }

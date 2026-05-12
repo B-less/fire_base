@@ -125,9 +125,17 @@ public class ContactsActivity extends AppCompatActivity {
                 .create();
 
         dialog.setOnShowListener(ignored -> dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String phoneNumber = String.valueOf(phoneInput.getText()).trim();
+            String phoneNumber = normalizeInternationalPhone(String.valueOf(phoneInput.getText()).trim());
             if (phoneNumber.isEmpty()) {
                 phoneInput.setError("Phone number is required");
+                return;
+            }
+            if (session.getPhoneNumber().equals(phoneNumber)) {
+                phoneInput.setError("You cannot add yourself.");
+                return;
+            }
+            if (!phoneNumber.matches("^\\+[1-9][0-9]{6,14}$")) {
+                phoneInput.setError("Use a full international phone number like +233501234567");
                 return;
             }
 
@@ -168,5 +176,19 @@ public class ContactsActivity extends AppCompatActivity {
         }));
 
         dialog.show();
+    }
+
+    private String normalizeInternationalPhone(String rawPhoneNumber) {
+        if (rawPhoneNumber == null) {
+            return "";
+        }
+        String trimmed = rawPhoneNumber.trim().replaceAll("[\\s()-]", "");
+        if (trimmed.startsWith("00")) {
+            trimmed = "+" + trimmed.substring(2);
+        }
+        if (!trimmed.startsWith("+")) {
+            trimmed = "+" + trimmed.replaceAll("[^0-9]", "");
+        }
+        return trimmed;
     }
 }
