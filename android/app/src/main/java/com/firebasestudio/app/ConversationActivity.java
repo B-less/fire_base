@@ -20,14 +20,31 @@ public class ConversationActivity extends AppCompatActivity {
     public static final String EXTRA_CHAT_ID = "chat_id";
     public static final String EXTRA_CHAT_NAME = "chat_name";
 
+    private final FirebaseChatRepository repository = new FirebaseChatRepository();
+    private FirebaseChatRepository.Subscription messageSubscription;
+    private NativeSessionManager.NativeUserSession session;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_conversation);
 
+        NativeSessionManager sessionManager = new NativeSessionManager(this);
+        session = sessionManager.getSession();
+        if (session == null) {
+            Toast.makeText(this, "Set up your native session first from the Chats screen.", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+
+        String chatId = getIntent().getStringExtra(EXTRA_CHAT_ID);
         String chatName = getIntent().getStringExtra(EXTRA_CHAT_NAME);
+        if (chatId == null || chatId.trim().isEmpty()) {
+            finish();
+            return;
+        }
         if (chatName == null || chatName.trim().isEmpty()) {
-            chatName = "Chirp Chat";
+            chatName = chatId;
         }
 
         MaterialToolbar toolbar = findViewById(R.id.conversationToolbar);
@@ -37,7 +54,28 @@ public class ConversationActivity extends AppCompatActivity {
 
         RecyclerView recyclerView = findViewById(R.id.messageRecyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(new MessageAdapter(createMockMessages(chatName)));
+        MessageAdapter adapter = new MessageAdapter(new ArrayList<>());
+        recyclerView.setAdapter(adapter);
+
+        String finalChatId = chatId;
+        messageSubscription = repository.observeConversation(session.getPhoneNumber(), finalChatId, new FirebaseChatRepository.MessagesListener() {
+            @Override
+            public void onMessagesUpdated(List<MessageUiModel> messages) {
+                runOnUiThread(() -> {
+                    adapter.replaceMessages(messages);
+                    if (!messages.isEmpty()) {
+                        recyclerView.scrollToPosition(messages.size() - 1);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() ->
+                        Toast.makeText(ConversationActivity.this, "Could not load messages: " + message, Toast.LENGTH_SHORT).show()
+                );
+            }
+        });
 
         EditText messageInput = findViewById(R.id.messageInput);
         FloatingActionButton sendButton = findViewById(R.id.sendButton);
@@ -48,17 +86,18 @@ public class ConversationActivity extends AppCompatActivity {
                 Toast.makeText(this, "Type a message first.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(this, "Next step: send \"" + draft + "\" to " + finalChatName, Toast.LENGTH_SHORT).show();
+            repository.sendMessage(session.getPhoneNumber(), session.getDisplayName(), finalChatId, draft);
             messageInput.setText("");
+            Toast.makeText(this, "Sent to " + finalChatName, Toast.LENGTH_SHORT).show();
         });
     }
 
-    private List<MessageUiModel> createMockMessages(String chatName) {
-        List<MessageUiModel> messages = new ArrayList<>();
-        messages.add(new MessageUiModel("Hey " + chatName + ", I’ve started the native Android rewrite.", "3:32 PM", true));
-        messages.add(new MessageUiModel("Nice. Can we make it feel close to WhatsApp?", "3:34 PM", false));
-        messages.add(new MessageUiModel("Yes — compact bubbles, strong hierarchy, and faster navigation.", "3:36 PM", true));
-        messages.add(new MessageUiModel("Perfect. Let’s keep the flow familiar and smooth.", "3:37 PM", false));
-        return messages;
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (messageSubscription != null) {
+            messageSubscription.dispose();
+            messageSubscription = null;
+        }
     }
 }

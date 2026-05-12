@@ -7,14 +7,18 @@ public class ChatPreview {
     private final String time;
     private final int unreadCount;
     private final boolean online;
+    private final String avatarUrl;
+    private final long timeSortKey;
 
-    public ChatPreview(String id, String name, String preview, String time, int unreadCount, boolean online) {
+    public ChatPreview(String id, String name, String preview, String time, int unreadCount, boolean online, String avatarUrl, long timeSortKey) {
         this.id = id;
         this.name = name;
         this.preview = preview;
         this.time = time;
         this.unreadCount = unreadCount;
         this.online = online;
+        this.avatarUrl = avatarUrl;
+        this.timeSortKey = timeSortKey;
     }
 
     public String getId() {
@@ -39,5 +43,13 @@ public class ChatPreview {
 
     public boolean isOnline() {
         return online;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public long getTimeSortKey() {
+        return timeSortKey;
     }
 }

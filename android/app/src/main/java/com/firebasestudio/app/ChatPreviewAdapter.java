@@ -11,16 +11,20 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.ChatViewHolder> {
 
     private final Context context;
-    private final List<ChatPreview> chats;
+    private final List<ChatPreview> sourceChats;
+    private final List<ChatPreview> visibleChats;
 
     public ChatPreviewAdapter(Context context, List<ChatPreview> chats) {
         this.context = context;
-        this.chats = chats;
+        this.sourceChats = new ArrayList<>(chats);
+        this.visibleChats = new ArrayList<>(chats);
     }
 
     @NonNull
@@ -32,7 +36,7 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
 
     @Override
     public void onBindViewHolder(@NonNull ChatViewHolder holder, int position) {
-        ChatPreview chat = chats.get(position);
+        ChatPreview chat = visibleChats.get(position);
         holder.name.setText(chat.getName());
         holder.preview.setText(chat.getPreview());
         holder.time.setText(chat.getTime());
@@ -50,7 +54,32 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
 
     @Override
     public int getItemCount() {
-        return chats.size();
+        return visibleChats.size();
+    }
+
+    public void replaceChats(List<ChatPreview> chats) {
+        sourceChats.clear();
+        sourceChats.addAll(chats);
+        visibleChats.clear();
+        visibleChats.addAll(chats);
+        notifyDataSetChanged();
+    }
+
+    public void filter(String query) {
+        String normalized = query == null ? "" : query.trim().toLowerCase(Locale.US);
+        visibleChats.clear();
+        if (normalized.isEmpty()) {
+            visibleChats.addAll(sourceChats);
+        } else {
+            for (ChatPreview chat : sourceChats) {
+                if (chat.getName().toLowerCase(Locale.US).contains(normalized)
+                        || chat.getPreview().toLowerCase(Locale.US).contains(normalized)
+                        || chat.getId().toLowerCase(Locale.US).contains(normalized)) {
+                    visibleChats.add(chat);
+                }
+            }
+        }
+        notifyDataSetChanged();
     }
 
     static class ChatViewHolder extends RecyclerView.ViewHolder {

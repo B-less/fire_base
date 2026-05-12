@@ -8,6 +8,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
@@ -18,7 +19,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     private final List<MessageUiModel> messages;
 
     public MessageAdapter(List<MessageUiModel> messages) {
-        this.messages = messages;
+        this.messages = new ArrayList<>(messages);
     }
 
     @Override
@@ -44,6 +45,12 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     @Override
     public int getItemCount() {
         return messages.size();
+    }
+
+    public void replaceMessages(List<MessageUiModel> nextMessages) {
+        messages.clear();
+        messages.addAll(nextMessages);
+        notifyDataSetChanged();
     }
 
     static class MessageViewHolder extends RecyclerView.ViewHolder {
