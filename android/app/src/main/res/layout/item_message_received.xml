@@ -10,9 +10,9 @@
 
     <ImageView
         android:id="@+id/messageImage"
-        android:layout_width="220dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="88dp"
+        android:layout_marginEnd="64dp"
         android:adjustViewBounds="true"
         android:background="@drawable/bg_message_received"
         android:cropToPadding="true"
@@ -23,9 +23,10 @@
 
     <LinearLayout
         android:id="@+id/messageVideoCard"
-        android:layout_width="220dp"
+        android:layout_width="wrap_content"
+        android:minWidth="220dp"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="88dp"
+        android:layout_marginEnd="64dp"
         android:background="@drawable/bg_message_received"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -50,9 +51,10 @@
 
     <LinearLayout
         android:id="@+id/messageAudioCard"
-        android:layout_width="220dp"
+        android:layout_width="wrap_content"
+        android:minWidth="220dp"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="88dp"
+        android:layout_marginEnd="64dp"
         android:background="@drawable/bg_message_received"
         android:orientation="vertical"
         android:padding="12dp"
