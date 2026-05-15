@@ -1,19 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#0B141A</color>
-    <color name="colorPrimaryDark">#081015</color>
-    <color name="colorAccent">#25D366</color>
-    <color name="chirp_surface">#F7F9FB</color>
-    <color name="chirp_surface_variant">#FFFFFF</color>
-    <color name="chirp_border">#D5DFE8</color>
-    <color name="chirp_text_primary">#0B141A</color>
-    <color name="chirp_text_secondary">#55738C</color>
+    <!-- Brand Colors -->
+    <color name="chirp_blue">#1DA1F2</color>
+    <color name="chirp_blue_dark">#0C85D0</color>
+    <color name="chirp_blue_light">#E8F5FE</color>
+    
     <color name="chirp_green">#25D366</color>
     <color name="chirp_green_dark">#1DAA61</color>
-    <color name="chirp_blue">#53BDEB</color>
-    <color name="chirp_sent_bubble">#DCF8C6</color>
+    <color name="chirp_green_light">#E9F9F0</color>
+
+    <!-- Theme Colors -->
+    <color name="colorPrimary">@color/chirp_blue</color>
+    <color name="colorPrimaryDark">@color/chirp_blue_dark</color>
+    <color name="colorAccent">@color/chirp_green</color>
+
+    <!-- Surface & Backgrounds -->
+    <color name="chirp_surface">#F4F7F9</color>
+    <color name="chirp_surface_variant">#FFFFFF</color>
+    <color name="chirp_border">#E1E8ED</color>
+    <color name="chirp_scaffold">#F4F7F9</color>
+    
+    <!-- Text Colors -->
+    <color name="chirp_text_primary">#14171A</color>
+    <color name="chirp_text_secondary">#657786</color>
+    <color name="chirp_text_inverse">#FFFFFF</color>
+
+    <!-- Message Bubbles -->
+    <color name="chirp_sent_bubble">@color/chirp_blue</color>
+    <color name="chirp_sent_text">#FFFFFF</color>
     <color name="chirp_received_bubble">#FFFFFF</color>
-    <color name="chirp_scaffold">#ECE5DD</color>
-    <color name="chirp_nav_selected">#0B141A</color>
-    <color name="chirp_nav_unselected">#6B7C8B</color>
+    <color name="chirp_received_text">#14171A</color>
+
+    <!-- Navigation -->
+    <color name="chirp_nav_selected">@color/chirp_blue</color>
+    <color name="chirp_nav_unselected">#AAB8C2</color>
+
+    <!-- Miscellaneous -->
+    <color name="chirp_error">#E0245E</color>
+    <color name="transparent">#00000000</color>
 </resources>

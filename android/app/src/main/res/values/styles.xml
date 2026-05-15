@@ -25,10 +25,11 @@
         <item name="android:background">@drawable/splash</item>
     </style>
 
-    <style name="Theme.ChirpChat.Native" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/chirp_green</item>
-        <item name="colorPrimaryContainer">@color/chirp_green_dark</item>
-        <item name="colorSecondary">@color/chirp_blue</item>
+    <style name="Theme.ChirpChat.Native" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/chirp_blue</item>
+        <item name="colorPrimaryContainer">@color/chirp_blue_dark</item>
+        <item name="colorSecondary">@color/chirp_green</item>
+        <item name="colorSecondaryContainer">@color/chirp_green_dark</item>
         <item name="colorSurface">@color/chirp_surface_variant</item>
         <item name="colorSurfaceContainer">@color/chirp_surface</item>
         <item name="android:windowBackground">@color/chirp_surface</item>
@@ -36,6 +37,17 @@
         <item name="android:navigationBarColor">@color/chirp_surface_variant</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+        <item name="bottomNavigationStyle">@style/Widget.ChirpChat.BottomNavigationView</item>
+    </style>
+
+    <style name="Widget.ChirpChat.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemIconTint">@color/bottom_nav_color_selector</item>
+        <item name="itemTextColor">@color/bottom_nav_color_selector</item>
+        <item name="itemActiveIndicatorStyle">@style/Widget.ChirpChat.BottomNavigationView.ActiveIndicator</item>
+    </style>
+
+    <style name="Widget.ChirpChat.BottomNavigationView.ActiveIndicator" parent="">
+        <item name="android:color">@color/chirp_blue_light</item>
     </style>
 
     <style name="ShapeAppearanceOverlay.App.CornerSize50Percent" parent="">

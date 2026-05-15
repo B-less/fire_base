@@ -66,10 +66,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@color/chirp_surface_variant"
-            app:itemActiveIndicatorStyle="@style/Widget.Material3.BottomNavigationView.ActiveIndicator"
-            app:itemIconTint="@color/bottom_nav_item_tint"
+            app:itemIconTint="@color/bottom_nav_color_selector"
             app:itemRippleColor="@color/chirp_surface"
-            app:itemTextColor="@color/bottom_nav_item_tint"
+            app:itemTextColor="@color/bottom_nav_color_selector"
             app:labelVisibilityMode="labeled"
             app:menu="@menu/native_bottom_nav" />
 
@@ -82,7 +81,7 @@
             android:layout_marginBottom="56dp"
             android:contentDescription="@string/fab_new_chat"
             android:src="@android:drawable/ic_input_add"
-            app:backgroundTint="@color/chirp_green"
+            app:backgroundTint="@color/chirp_blue"
             app:tint="@android:color/white" />
     </FrameLayout>
 

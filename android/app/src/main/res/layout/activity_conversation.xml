@@ -19,31 +19,24 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <ImageView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:alpha="0.2"
-            android:src="@drawable/bg_chat_pattern" />
-
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/messageRecyclerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:padding="12dp" />
+            android:padding="16dp" />
     </FrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/chirp_surface_variant"
+        android:background="@android:color/transparent"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="12dp"
-        android:paddingTop="10dp"
+        android:paddingTop="8dp"
         android:paddingEnd="12dp"
-        android:paddingBottom="10dp">
+        android:paddingBottom="12dp">
 
         <FrameLayout
             android:layout_width="0dp"
@@ -123,12 +116,13 @@
             android:id="@+id/sendButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="8dp"
             android:contentDescription="@string/message_hint"
             android:src="@android:drawable/ic_btn_speak_now"
-            app:backgroundTint="@color/chirp_green"
-            app:fabCustomSize="54dp"
-            app:tint="@android:color/white" />
+            app:backgroundTint="@color/chirp_blue"
+            app:fabCustomSize="52dp"
+            app:tint="@android:color/white"
+            app:elevation="2dp" />
     </LinearLayout>
 
 </LinearLayout>
