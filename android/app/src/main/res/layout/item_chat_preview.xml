@@ -1,90 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@android:color/transparent"
-    android:gravity="center_vertical"
     android:minHeight="82dp"
-    android:orientation="horizontal"
     android:paddingStart="12dp"
     android:paddingTop="10dp"
     android:paddingEnd="12dp"
     android:paddingBottom="10dp">
 
-    <FrameLayout
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/chatAvatar"
         android:layout_width="56dp"
-        android:layout_height="56dp">
+        android:layout_height="56dp"
+        android:background="@drawable/bg_search_field"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher_round"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.CornerSize50Percent" />
 
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/chatAvatar"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:background="@drawable/bg_search_field"
-            android:scaleType="centerCrop"
-            android:src="@mipmap/ic_launcher_round"
-            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.CornerSize50Percent" />
+    <View
+        android:id="@+id/onlineIndicator"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:background="@drawable/bg_online_dot"
+        app:layout_constraintBottom_toBottomOf="@id/chatAvatar"
+        app:layout_constraintEnd_toEndOf="@id/chatAvatar" />
 
-        <View
-            android:id="@+id/onlineIndicator"
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:layout_gravity="bottom|end"
-            android:background="@drawable/bg_online_dot" />
-    </FrameLayout>
-
-    <LinearLayout
+    <TextView
+        android:id="@+id/chatName"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="14dp"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:layout_marginEnd="8dp"
+        android:textColor="@color/chirp_text_primary"
+        android:textSize="17sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/chatPreview"
+        app:layout_constraintEnd_toStartOf="@id/chatTime"
+        app:layout_constraintStart_toEndOf="@id/chatAvatar"
+        app:layout_constraintTop_toTopOf="@id/chatAvatar"
+        app:layout_constraintVertical_chainStyle="packed" />
 
-        <TextView
-            android:id="@+id/chatName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/chirp_text_primary"
-            android:textSize="17sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/chatPreview"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/chirp_text_secondary"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="@id/chatAvatar"
+        app:layout_constraintEnd_toStartOf="@id/chatBadge"
+        app:layout_constraintStart_toEndOf="@id/chatAvatar"
+        app:layout_constraintTop_toBottomOf="@id/chatName" />
 
-        <TextView
-            android:id="@+id/chatPreview"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/chirp_text_secondary"
-            android:textSize="14sp" />
-    </LinearLayout>
-
-    <LinearLayout
+    <TextView
+        android:id="@+id/chatTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="end"
-        android:orientation="vertical">
+        android:textColor="@color/chirp_text_secondary"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/chatName" />
 
-        <TextView
-            android:id="@+id/chatTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/chirp_text_secondary"
-            android:textSize="12sp" />
+    <TextView
+        android:id="@+id/chatBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_unread_badge"
+        android:gravity="center"
+        android:minWidth="22dp"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:textColor="@android:color/white"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@id/chatPreview"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/chatTime" />
 
-        <TextView
-            android:id="@+id/chatBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_unread_badge"
-            android:gravity="center"
-            android:minWidth="22dp"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
-            android:textColor="@android:color/white"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

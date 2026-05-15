@@ -1,49 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/messageRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="end"
-    android:orientation="vertical"
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
     <FrameLayout
-        android:layout_width="wrap_content"
+        android:id="@+id/messageImageContainer"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="end">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="wrap"
+        app:layout_constraintWidth_percent="0.8">
+
         <ImageView
             android:id="@+id/messageImage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="64dp"
+            android:layout_gravity="end"
             android:adjustViewBounds="true"
             android:background="@drawable/bg_message_sent"
             android:cropToPadding="true"
             android:maxHeight="280dp"
+            android:minWidth="220dp"
             android:padding="6dp"
             android:scaleType="centerCrop"
             android:visibility="gone" />
+
         <ProgressBar
             android:id="@+id/messageUploadProgress"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_gravity="center"
-            android:layout_marginStart="44dp"
             android:visibility="gone" />
     </FrameLayout>
 
     <LinearLayout
         android:id="@+id/messageVideoCard"
-        android:layout_width="wrap_content"
-        android:minWidth="220dp"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="64dp"
         android:background="@drawable/bg_message_sent"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:padding="14dp"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/messageImageContainer"
+        app:layout_constraintWidth_max="wrap"
+        app:layout_constraintWidth_percent="0.8">
 
         <ImageView
             android:layout_width="32dp"
@@ -63,14 +70,16 @@
 
     <LinearLayout
         android:id="@+id/messageAudioCard"
-        android:layout_width="wrap_content"
-        android:minWidth="220dp"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="64dp"
         android:background="@drawable/bg_message_sent"
         android:orientation="vertical"
         android:padding="12dp"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/messageVideoCard"
+        app:layout_constraintWidth_max="wrap"
+        app:layout_constraintWidth_percent="0.8">
 
         <TextView
             android:id="@+id/messageAudioTitle"
@@ -111,8 +120,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:minWidth="44dp"
                 android:gravity="end"
+                android:minWidth="44dp"
                 android:text="0:00"
                 android:textColor="@color/chirp_sent_text"
                 android:textSize="12sp" />
@@ -121,9 +130,8 @@
 
     <TextView
         android:id="@+id/messageText"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="64dp"
         android:background="@drawable/bg_message_sent"
         android:paddingStart="14dp"
         android:paddingTop="10dp"
@@ -131,7 +139,11 @@
         android:paddingBottom="10dp"
         android:textColor="@color/chirp_sent_text"
         android:textSize="16sp"
-        android:visibility="gone" />
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/messageAudioCard"
+        app:layout_constraintWidth_max="wrap"
+        app:layout_constraintWidth_percent="0.8" />
 
     <TextView
         android:id="@+id/messageMeta"
@@ -140,6 +152,8 @@
         android:layout_marginTop="4dp"
         android:layout_marginEnd="8dp"
         android:textColor="@color/chirp_text_secondary"
-        android:textSize="11sp" />
+        android:textSize="11sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/messageText" />
 
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
