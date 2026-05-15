@@ -53,12 +53,15 @@ public class NativeAuthApi {
         @Nullable
         private final NativeSessionManager.NativeUserSession session;
         private final boolean isNewUser;
+        @Nullable
+        private final String customToken;
 
-        public VerifyOtpResult(boolean success, String message, @Nullable NativeSessionManager.NativeUserSession session, boolean isNewUser) {
+        public VerifyOtpResult(boolean success, String message, @Nullable NativeSessionManager.NativeUserSession session, boolean isNewUser, @Nullable String customToken) {
             this.success = success;
             this.message = message;
             this.session = session;
             this.isNewUser = isNewUser;
+            this.customToken = customToken;
         }
 
         public boolean isSuccess() {
@@ -76,6 +79,11 @@ public class NativeAuthApi {
 
         public boolean isNewUser() {
             return isNewUser;
+        }
+
+        @Nullable
+        public String getCustomToken() {
+            return customToken;
         }
     }
 
@@ -130,8 +138,9 @@ public class NativeAuthApi {
                     String displayName = userObject.optString("name", verifiedPhone);
                     session = new NativeSessionManager.NativeUserSession(verifiedPhone, displayName);
                 }
+                String customToken = response.optString("customToken", null);
 
-                VerifyOtpResult result = new VerifyOtpResult(success, message, session, isNewUser);
+                VerifyOtpResult result = new VerifyOtpResult(success, message, session, isNewUser, customToken);
                 if (success) {
                     postSuccess(callback, result);
                 } else {

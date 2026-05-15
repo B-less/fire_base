@@ -1,6 +1,8 @@
 package com.firebasestudio.app;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -8,10 +10,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -26,11 +32,14 @@ import java.util.List;
 public class ContactsActivity extends AppCompatActivity {
 
     private final FirebaseChatRepository repository = new FirebaseChatRepository();
-    private FirebaseChatRepository.Subscription contactsSubscription;
     private NativeSessionManager.NativeUserSession session;
     private ChatPreviewAdapter adapter;
     private RecyclerView recyclerView;
     private LinearLayout emptyState;
+    private TextView emptySubtitle;
+    private String activeQuery = "";
+    private final List<ChatPreview> deviceContacts = new ArrayList<>();
+    private ActivityResultLauncher<String> requestContactsPermission;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -40,10 +49,18 @@ public class ContactsActivity extends AppCompatActivity {
         NativeSessionManager sessionManager = new NativeSessionManager(this);
         session = sessionManager.getSession();
         if (session == null) {
-            Toast.makeText(this, "Sign in natively first.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.contacts_sign_in_first, Toast.LENGTH_LONG).show();
             finish();
             return;
         }
+
+        requestContactsPermission = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+            if (granted) {
+                loadDeviceContacts();
+            } else {
+                showEmptyState(getString(R.string.contacts_permission_required_message));
+            }
+        });
 
         MaterialToolbar toolbar = findViewById(R.id.contactsToolbar);
         toolbar.setNavigationOnClickListener(v -> finish());
@@ -52,64 +69,109 @@ public class ContactsActivity extends AppCompatActivity {
         MaterialButton addByPhoneButton = findViewById(R.id.addByPhoneButton);
         recyclerView = findViewById(R.id.contactsRecyclerView);
         emptyState = findViewById(R.id.contactsEmptyState);
+        emptySubtitle = findViewById(R.id.contactsEmptySubtitle);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new ChatPreviewAdapter(this, new ArrayList<>());
+        adapter = new ChatPreviewAdapter(this, new ArrayList<>(), this::handleDeviceContactTap);
         recyclerView.setAdapter(adapter);
 
         searchInput.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                adapter.filter(s == null ? "" : s.toString());
-                updateEmptyState();
+                activeQuery = s == null ? "" : s.toString();
+                if (adapter != null) {
+                    adapter.filter(activeQuery);
+                }
+                updateEmptyStateForAdapter();
             }
 
-            @Override
-            public void afterTextChanged(Editable s) {
-            }
+            @Override public void afterTextChanged(Editable s) { }
         });
 
         addByPhoneButton.setOnClickListener(v -> showAddByPhoneDialog());
-        bindContacts();
+        ensureContactsAccess();
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (contactsSubscription != null) {
-            contactsSubscription.dispose();
-            contactsSubscription = null;
+    private void ensureContactsAccess() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            loadDeviceContacts();
+        } else {
+            requestContactsPermission.launch(Manifest.permission.READ_CONTACTS);
         }
     }
 
-    private void bindContacts() {
-        if (session == null) {
-            return;
-        }
-        contactsSubscription = repository.observeChats(session.getPhoneNumber(), new FirebaseChatRepository.ChatsListener() {
+    private void loadDeviceContacts() {
+        String defaultCountryCode = getString(R.string.login_default_country_code);
+        new Thread(() -> {
+            List<ChatPreview> loadedContacts = DeviceContactLoader.loadContacts(this, defaultCountryCode);
+            runOnUiThread(() -> {
+                deviceContacts.clear();
+                deviceContacts.addAll(loadedContacts);
+                adapter.replaceChats(deviceContacts);
+                if (adapter != null) {
+                    adapter.filter(activeQuery);
+                }
+                if (loadedContacts.isEmpty()) {
+                    showEmptyState(getString(R.string.contacts_empty_device_subtitle));
+                } else {
+                    updateEmptyStateForAdapter();
+                }
+            });
+        }).start();
+    }
+
+    private void handleDeviceContactTap(ChatPreview contactPreview) {
+        repository.lookupUserByPhone(contactPreview.getId(), new FirebaseChatRepository.ContactLookupListener() {
             @Override
-            public void onChatsUpdated(List<ChatPreview> chats) {
-                runOnUiThread(() -> {
-                    adapter.replaceChats(chats);
-                    updateEmptyState();
+            public void onFound(ChatPreview contact) {
+                repository.addMutualContact(session.getPhoneNumber(), contact.getId(), new FirebaseChatRepository.OperationListener() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(ContactsActivity.this, getString(R.string.contacts_added_toast, contact.getName()), Toast.LENGTH_SHORT).show();
+                            Intent intent = new Intent(ContactsActivity.this, ConversationActivity.class);
+                            intent.putExtra(ConversationActivity.EXTRA_CHAT_ID, contact.getId());
+                            intent.putExtra(ConversationActivity.EXTRA_CHAT_NAME, contact.getName());
+                            startActivity(intent);
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(ContactsActivity.this, message, Toast.LENGTH_LONG).show());
+                    }
                 });
             }
 
             @Override
+            public void onNotFound() {
+                runOnUiThread(() -> Toast.makeText(ContactsActivity.this, R.string.contacts_not_on_chirp_chat, Toast.LENGTH_LONG).show());
+            }
+
+            @Override
             public void onError(String message) {
-                runOnUiThread(() -> Toast.makeText(ContactsActivity.this, "Could not load contacts: " + message, Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(ContactsActivity.this, message, Toast.LENGTH_LONG).show());
             }
         });
     }
 
-    private void updateEmptyState() {
+    private void updateEmptyStateForAdapter() {
         boolean showEmpty = adapter == null || adapter.getItemCount() == 0;
         emptyState.setVisibility(showEmpty ? View.VISIBLE : View.GONE);
         recyclerView.setVisibility(showEmpty ? View.GONE : View.VISIBLE);
+        if (showEmpty) {
+            emptySubtitle.setText(activeQuery.trim().isEmpty()
+                    ? getString(R.string.contacts_empty_device_subtitle)
+                    : getString(R.string.contacts_empty_search_subtitle));
+        }
+    }
+
+    private void showEmptyState(String subtitle) {
+        emptySubtitle.setText(subtitle);
+        emptyState.setVisibility(View.VISIBLE);
+        recyclerView.setVisibility(View.GONE);
     }
 
     private void showAddByPhoneDialog() {
@@ -125,17 +187,20 @@ public class ContactsActivity extends AppCompatActivity {
                 .create();
 
         dialog.setOnShowListener(ignored -> dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String phoneNumber = normalizeInternationalPhone(String.valueOf(phoneInput.getText()).trim());
+            String phoneNumber = DeviceContactLoader.normalizeInternationalPhone(
+                    String.valueOf(phoneInput.getText()).trim(),
+                    getString(R.string.login_default_country_code)
+            );
             if (phoneNumber.isEmpty()) {
-                phoneInput.setError("Phone number is required");
+                phoneInput.setError(getString(R.string.contacts_phone_required));
                 return;
             }
             if (session.getPhoneNumber().equals(phoneNumber)) {
-                phoneInput.setError("You cannot add yourself.");
+                phoneInput.setError(getString(R.string.contacts_add_self_error));
                 return;
             }
             if (!phoneNumber.matches("^\\+[1-9][0-9]{6,14}$")) {
-                phoneInput.setError("Use a full international phone number like +233501234567");
+                phoneInput.setError(getString(R.string.contacts_invalid_phone_error));
                 return;
             }
 
@@ -146,9 +211,8 @@ public class ContactsActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess() {
                             runOnUiThread(() -> {
-                                Toast.makeText(ContactsActivity.this, contact.getName() + " is now in your contacts.", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(ContactsActivity.this, getString(R.string.contacts_added_toast, contact.getName()), Toast.LENGTH_SHORT).show();
                                 dialog.dismiss();
-                                adapter.filter("");
                                 Intent intent = new Intent(ContactsActivity.this, ConversationActivity.class);
                                 intent.putExtra(ConversationActivity.EXTRA_CHAT_ID, contact.getId());
                                 intent.putExtra(ConversationActivity.EXTRA_CHAT_NAME, contact.getName());
@@ -165,7 +229,7 @@ public class ContactsActivity extends AppCompatActivity {
 
                 @Override
                 public void onNotFound() {
-                    runOnUiThread(() -> phoneInput.setError("No Chirp Chat user found for that number"));
+                    runOnUiThread(() -> phoneInput.setError(getString(R.string.contacts_not_on_chirp_chat)));
                 }
 
                 @Override
@@ -176,19 +240,5 @@ public class ContactsActivity extends AppCompatActivity {
         }));
 
         dialog.show();
-    }
-
-    private String normalizeInternationalPhone(String rawPhoneNumber) {
-        if (rawPhoneNumber == null) {
-            return "";
-        }
-        String trimmed = rawPhoneNumber.trim().replaceAll("[\\s()-]", "");
-        if (trimmed.startsWith("00")) {
-            trimmed = "+" + trimmed.substring(2);
-        }
-        if (!trimmed.startsWith("+")) {
-            trimmed = "+" + trimmed.replaceAll("[^0-9]", "");
-        }
-        return trimmed;
     }
 }

@@ -93,7 +93,12 @@ public class NativeChatCache {
                     item.optBoolean("sentByMe", false),
                     emptyToNull(item.optString("imageUrl", null)),
                     emptyToNull(item.optString("videoUrl", null)),
-                    emptyToNull(item.optString("audioUrl", null))
+                    emptyToNull(item.optString("audioUrl", null)),
+                    emptyToNull(item.optString("messageKey", null)),
+                    emptyToNull(item.optString("clientMessageId", null)),
+                    emptyToNull(item.optString("timestampIso", null)),
+                    item.optString("status", "sent"),
+                    item.optLong("sortKey", 0L)
             ));
         }
         return messages;
@@ -112,12 +117,34 @@ public class NativeChatCache {
                 item.put("imageUrl", message.getImageUrl());
                 item.put("videoUrl", message.getVideoUrl());
                 item.put("audioUrl", message.getAudioUrl());
+                item.put("messageKey", message.getMessageKey());
+                item.put("clientMessageId", message.getClientMessageId());
+                item.put("timestampIso", message.getTimestampIso());
+                item.put("status", message.getStatus());
+                item.put("sortKey", message.getSortKey());
                 array.put(item);
             } catch (JSONException ignored) {
                 // Skip malformed items and keep the rest of the cache usable.
             }
         }
         writeArray(conversationFile(currentUserPhone, otherPhone), array);
+    }
+
+    public synchronized void upsertCachedChat(@NonNull String currentUserPhone, @NonNull ChatPreview chatPreview) {
+        List<ChatPreview> chats = getCachedChats(currentUserPhone);
+        boolean replaced = false;
+        for (int index = 0; index < chats.size(); index++) {
+            if (chatPreview.getId().equals(chats.get(index).getId())) {
+                chats.set(index, chatPreview);
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            chats.add(chatPreview);
+        }
+        chats.sort((left, right) -> Long.compare(right.getTimeSortKey(), left.getTimeSortKey()));
+        putCachedChats(currentUserPhone, chats);
     }
 
     public synchronized void clearUser(@NonNull String currentUserPhone) {

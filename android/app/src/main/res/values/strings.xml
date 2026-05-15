@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ChirpChat</string>
     <string name="title_activity_main">ChirpChat</string>
@@ -8,25 +8,20 @@
     <string name="package_name">com.median.chripchat</string>
     <string name="custom_url_scheme">com.median.chripchat</string>
     <string name="native_backend_base_url">https://chripchat-rho.vercel.app</string>
+
     <string name="home_title">Chirp Chat</string>
-    <string name="home_subtitle">Built natively with a WhatsApp-inspired layout</string>
-    <string name="search_hint">Ask Meta AI or search</string>
+    <string name="search_hint">Search chats or contacts</string>
     <string name="tab_chats">Chats</string>
-    <string name="tab_updates">Updates</string>
-    <string name="tab_calls">Calls</string>
+    <string name="tab_contacts">Contacts</string>
     <string name="tab_settings">Settings</string>
     <string name="fab_new_chat">New chat</string>
-    <string name="placeholder_updates_title">Updates</string>
-    <string name="placeholder_updates_subtitle">Status and channels will live here in the native rewrite.</string>
-    <string name="placeholder_calls_title">Calls</string>
-    <string name="placeholder_calls_subtitle">Voice and video history will land here next.</string>
-    <string name="placeholder_settings_title">Settings</string>
-    <string name="placeholder_settings_subtitle">Privacy, profile, notifications, and storage will move here.</string>
+
     <string name="conversation_online">online</string>
     <string name="message_hint">Message</string>
+
     <string name="native_login_subtitle">Use your phone number to sign in to the native Chirp Chat experience.</string>
     <string name="native_login_phone_title">Welcome back</string>
-    <string name="native_login_phone_description">Enter the same phone number you use in Chirp Chat and we’ll text you a secure verification code.</string>
+    <string name="native_login_phone_description">Enter the same phone number you use in Chirp Chat and we\'ll text you a secure verification code.</string>
     <string name="native_login_country_code">Country code</string>
     <string name="native_login_phone_number">Phone number</string>
     <string name="native_login_send_code">Send code</string>
@@ -36,18 +31,48 @@
     <string name="native_login_verify">Verify &amp; sign in</string>
     <string name="native_login_back">Back</string>
     <string name="login_default_country_code">+233</string>
+
     <string name="contacts_title">Select contact</string>
     <string name="contacts_subtitle">Start a new native chat or add someone by phone.</string>
     <string name="contacts_add_by_phone">Add by phone</string>
     <string name="contacts_empty_title">No contacts yet</string>
     <string name="contacts_empty_subtitle">Add someone by phone or wait for a contact to chat with you.</string>
+    <string name="contacts_empty_device_subtitle">Allow contacts access to load people stored on this device.</string>
+    <string name="contacts_empty_search_subtitle">No saved contact matched your search.</string>
     <string name="contacts_add_dialog_title">Add contact by phone</string>
     <string name="contacts_add_dialog_message">Enter the full international phone number for the Chirp Chat user you want to message.</string>
     <string name="contacts_add_dialog_phone_hint">+233501234567</string>
     <string name="contacts_add_dialog_confirm">Add &amp; chat</string>
     <string name="contacts_add_dialog_cancel">Cancel</string>
+    <string name="contacts_added_toast">%1$s is now in your contacts.</string>
+    <string name="contacts_not_on_chirp_chat">This contact is not on Chirp Chat yet.</string>
+    <string name="contacts_phone_required">Phone number is required</string>
+    <string name="contacts_invalid_phone_error">Use a full international phone number like +233501234567</string>
+    <string name="contacts_add_self_error">You cannot add yourself.</string>
+    <string name="contacts_permission_required_message">Allow contacts access to load people stored on this device.</string>
+    <string name="contacts_sign_in_first">Sign in natively first.</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_open_contacts">Open contacts</string>
+    <string name="settings_sign_out">Sign out</string>
+    <string name="session_dialog_title">Native session</string>
+    <string name="session_dialog_message">Use the same phone number you signed in with so the native app can load your conversations and cached data correctly.</string>
+    <string name="session_dialog_save">Save</string>
+    <string name="session_dialog_clear">Clear</string>
+    <string name="session_saved_toast">Native session saved for %1$s</string>
+
     <string name="media_label_photo">Photo</string>
     <string name="media_label_video">Video</string>
     <string name="media_label_voice_note">Voice note</string>
     <string name="media_open_failed">Could not open this media item.</string>
+    <string name="media_loading">Loading...</string>
+    <string name="media_audio_play">Play voice note</string>
+    <string name="media_audio_pause">Pause voice note</string>
+    <string name="media_audio_failed">Could not play this voice note.</string>
+    <string name="media_audio_recording">Recording voice note…</string>
+    <string name="media_audio_recording_failed">Could not start recording.</string>
+    <string name="media_audio_saved">Voice note saved.</string>
+    <string name="media_audio_open">Open voice note</string>
+    <string name="media_audio_fullscreen_title">Voice note</string>
+    <string name="media_audio_queueing">Queued for upload…</string>
 </resources>

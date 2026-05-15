@@ -17,14 +17,25 @@ import java.util.Locale;
 
 public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.ChatViewHolder> {
 
+    public interface OnChatClickListener {
+        void onChatClick(ChatPreview chatPreview);
+    }
+
     private final Context context;
     private final List<ChatPreview> sourceChats;
     private final List<ChatPreview> visibleChats;
+    private String activeQuery = "";
+    @NonNull private final OnChatClickListener clickListener;
 
     public ChatPreviewAdapter(Context context, List<ChatPreview> chats) {
+        this(context, chats, null);
+    }
+
+    public ChatPreviewAdapter(Context context, List<ChatPreview> chats, OnChatClickListener listener) {
         this.context = context;
         this.sourceChats = new ArrayList<>(chats);
         this.visibleChats = new ArrayList<>(chats);
+        this.clickListener = listener == null ? this::openConversation : listener;
     }
 
     @NonNull
@@ -43,13 +54,9 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
         holder.badge.setVisibility(chat.getUnreadCount() > 0 ? View.VISIBLE : View.GONE);
         holder.badge.setText(String.valueOf(chat.getUnreadCount()));
         holder.onlineIndicator.setVisibility(chat.isOnline() ? View.VISIBLE : View.GONE);
+        MediaUtils.loadImageInto(context, chat.getAvatarUrl(), holder.avatar, R.mipmap.ic_launcher_round);
 
-        holder.itemView.setOnClickListener(v -> {
-            Intent intent = new Intent(context, ConversationActivity.class);
-            intent.putExtra(ConversationActivity.EXTRA_CHAT_ID, chat.getId());
-            intent.putExtra(ConversationActivity.EXTRA_CHAT_NAME, chat.getName());
-            context.startActivity(intent);
-        });
+        holder.itemView.setOnClickListener(v -> clickListener.onChatClick(chat));
     }
 
     @Override
@@ -60,26 +67,35 @@ public class ChatPreviewAdapter extends RecyclerView.Adapter<ChatPreviewAdapter.
     public void replaceChats(List<ChatPreview> chats) {
         sourceChats.clear();
         sourceChats.addAll(chats);
-        visibleChats.clear();
-        visibleChats.addAll(chats);
-        notifyDataSetChanged();
+        applyFilter();
     }
 
     public void filter(String query) {
-        String normalized = query == null ? "" : query.trim().toLowerCase(Locale.US);
+        activeQuery = query == null ? "" : query.trim().toLowerCase(Locale.US);
+        applyFilter();
+    }
+
+    private void applyFilter() {
         visibleChats.clear();
-        if (normalized.isEmpty()) {
+        if (activeQuery.isEmpty()) {
             visibleChats.addAll(sourceChats);
         } else {
             for (ChatPreview chat : sourceChats) {
-                if (chat.getName().toLowerCase(Locale.US).contains(normalized)
-                        || chat.getPreview().toLowerCase(Locale.US).contains(normalized)
-                        || chat.getId().toLowerCase(Locale.US).contains(normalized)) {
+                if (chat.getName().toLowerCase(Locale.US).contains(activeQuery)
+                        || chat.getPreview().toLowerCase(Locale.US).contains(activeQuery)
+                        || chat.getId().toLowerCase(Locale.US).contains(activeQuery)) {
                     visibleChats.add(chat);
                 }
             }
         }
         notifyDataSetChanged();
+    }
+
+    private void openConversation(@NonNull ChatPreview chat) {
+        Intent intent = new Intent(context, ConversationActivity.class);
+        intent.putExtra(ConversationActivity.EXTRA_CHAT_ID, chat.getId());
+        intent.putExtra(ConversationActivity.EXTRA_CHAT_NAME, chat.getName());
+        context.startActivity(intent);
     }
 
     static class ChatViewHolder extends RecyclerView.ViewHolder {

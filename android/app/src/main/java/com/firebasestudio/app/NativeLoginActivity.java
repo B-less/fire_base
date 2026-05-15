@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
@@ -131,12 +132,31 @@ public class NativeLoginActivity extends AppCompatActivity {
                 }
 
                 sessionManager.saveSession(verifiedSession.getPhoneNumber(), verifiedSession.getDisplayName());
-                Toast.makeText(
-                        NativeLoginActivity.this,
-                        result.isNewUser() ? "Welcome to Chirp Chat. Let’s start chatting." : "Signed in successfully.",
-                        Toast.LENGTH_SHORT
-                ).show();
-                launchHome();
+                
+                String customToken = result.getCustomToken();
+                if (customToken != null && !customToken.isEmpty()) {
+                    FirebaseAuth.getInstance().signInWithCustomToken(customToken)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Toast.makeText(
+                                            NativeLoginActivity.this,
+                                            result.isNewUser() ? "Welcome to Chirp Chat. Let’s start chatting." : "Signed in successfully.",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    launchHome();
+                                } else {
+                                    Toast.makeText(NativeLoginActivity.this, "Firebase Auth failed.", Toast.LENGTH_SHORT).show();
+                                    setLoading(false);
+                                }
+                            });
+                } else {
+                    Toast.makeText(
+                            NativeLoginActivity.this,
+                            result.isNewUser() ? "Welcome to Chirp Chat. Let’s start chatting." : "Signed in successfully.",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    launchHome();
+                }
             }
 
             @Override

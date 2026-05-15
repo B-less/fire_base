@@ -33,19 +33,11 @@
             android:textSize="28sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/home_subtitle"
-            android:textColor="@color/chirp_text_secondary"
-            android:textSize="14sp" />
-
         <EditText
             android:id="@+id/searchInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_search_field"
             android:drawablePadding="10dp"
             android:hint="@string/search_hint"

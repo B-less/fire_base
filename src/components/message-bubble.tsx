@@ -669,7 +669,7 @@ export function MessageBubble({
   const visualMediaWidthClass = hasVisualMedia
     ? isVideo
       ? isMyMessage
-        ? 'w-[min(15.5rem,calc(100vw-7.5rem))] max-w-[78vw] sm:w-[17rem] md:w-[18rem]'
+        ? 'w-[15rem] sm:w-[16.5rem] md:w-[17.5rem]'
         : 'w-[min(16.5rem,calc(100vw-6.5rem))] max-w-[82vw] sm:w-[18rem] md:w-[19rem]'
       : imageOrientation === 'portrait'
         ? isMyMessage

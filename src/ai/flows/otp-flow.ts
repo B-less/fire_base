@@ -16,6 +16,8 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import AfricasTalking from 'africastalking';
 import type { User } from '@/lib/types';
+import { getAuth } from 'firebase-admin/auth';
+import { adminApp } from '@/lib/firebase-admin';
 
 const SendOtpInputSchema = z.object({
   phoneNumber: z.string().describe('The phone number to send the OTP to, in international format.'),
@@ -123,6 +125,7 @@ const VerifyOtpOutputSchema = z.object({
   message: z.string(),
   user: z.any().optional(),
   isNewUser: z.boolean().optional(),
+  customToken: z.string().optional(),
 });
 export type VerifyOtpOutput = z.infer<typeof VerifyOtpOutputSchema>;
 
@@ -201,8 +204,15 @@ const verifyOtpFlow = ai.defineFlow({
     }
     
     const user = { ...userData, phoneNumber };
+    
+    let customToken: string | undefined;
+    try {
+        customToken = await getAuth(adminApp).createCustomToken(phoneNumber);
+    } catch (e) {
+        console.error('Failed to create custom token', e);
+    }
 
-    return { success: true, message: 'Phone number verified successfully.', user, isNewUser };
+    return { success: true, message: 'Phone number verified successfully.', user, isNewUser, customToken };
 });
 
 // Optional: A flow to clean up expired OTPs (can be scheduled to run periodically)
