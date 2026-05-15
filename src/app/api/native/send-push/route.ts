@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getFirebaseAdminApp } from "@/lib/firebase-admin";
+import { adminApp } from "@/lib/firebase-admin";
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const app = await getFirebaseAdminApp();
+    const app = adminApp;
     const db = app.database();
     
     // Fetch the receiver's FCM token from Realtime Database

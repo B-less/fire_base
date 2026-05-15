@@ -19,10 +19,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     return NextResponse.json({ url: blob.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Vercel Blob upload error:", error);
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     );
   }
