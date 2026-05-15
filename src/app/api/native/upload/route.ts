@@ -16,6 +16,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const blob = await put(`chat_media/${file.name}`, file, {
       access: 'public',
       addRandomSuffix: true,
+      token: process.env.B1_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     return NextResponse.json({ url: blob.url });
