@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark Mode Theme Overrides -->
+    <style name="Theme.ChirpChat.Native" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/chirp_blue</item>
+        <item name="colorPrimaryContainer">@color/chirp_blue_dark</item>
+        <item name="colorSecondary">@color/chirp_green</item>
+        <item name="colorSecondaryContainer">@color/chirp_green_dark</item>
+        <item name="colorSurface">@color/chirp_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/chirp_surface</item>
+        <item name="android:windowBackground">@color/chirp_surface</item>
+        <item name="android:statusBarColor">@color/chirp_surface_variant</item>
+        <item name="android:navigationBarColor">@color/chirp_surface_variant</item>
+        
+        <!-- FIX: In Dark Mode, we want WHITE status bar text/icons, so this must be false -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        
+        <item name="bottomNavigationStyle">@style/Widget.ChirpChat.BottomNavigationView</item>
+    </style>
+</resources>
