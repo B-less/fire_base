@@ -559,7 +559,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     }
 
     static class MessageViewHolder extends RecyclerView.ViewHolder {
-        final LinearLayout messageRoot;
+        final View messageRoot;
         final TextView messageText;
         final TextView messageMeta;
         final ImageView messageImage;
