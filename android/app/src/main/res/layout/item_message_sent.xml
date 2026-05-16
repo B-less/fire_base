@@ -9,9 +9,12 @@
 
     <FrameLayout
         android:id="@+id/messageImageContainer"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        app:layout_constrainedWidth="true"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintWidth_max="wrap"
         app:layout_constraintWidth_percent="0.8">
@@ -40,14 +43,17 @@
 
     <LinearLayout
         android:id="@+id/messageVideoCard"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_message_sent"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:padding="14dp"
         android:visibility="gone"
+        app:layout_constrainedWidth="true"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/messageImageContainer"
         app:layout_constraintWidth_max="wrap"
         app:layout_constraintWidth_percent="0.8">
@@ -70,13 +76,16 @@
 
     <LinearLayout
         android:id="@+id/messageAudioCard"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_message_sent"
         android:orientation="vertical"
         android:padding="12dp"
         android:visibility="gone"
+        app:layout_constrainedWidth="true"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/messageVideoCard"
         app:layout_constraintWidth_max="wrap"
         app:layout_constraintWidth_percent="0.8">
@@ -130,7 +139,7 @@
 
     <TextView
         android:id="@+id/messageText"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_message_sent"
         android:paddingStart="14dp"
@@ -140,7 +149,10 @@
         android:textColor="@color/chirp_sent_text"
         android:textSize="16sp"
         android:visibility="gone"
+        app:layout_constrainedWidth="true"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/messageAudioCard"
         app:layout_constraintWidth_max="wrap"
         app:layout_constraintWidth_percent="0.8" />

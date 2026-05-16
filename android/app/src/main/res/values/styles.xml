@@ -25,7 +25,7 @@
         <item name="android:background">@drawable/splash</item>
     </style>
 
-    <style name="Theme.ChirpChat.Native" parent="Theme.Material3.Light.NoActionBar">
+    <style name="Theme.ChirpChat.Native" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/chirp_blue</item>
         <item name="colorPrimaryContainer">@color/chirp_blue_dark</item>
         <item name="colorSecondary">@color/chirp_green</item>
