@@ -24,21 +24,23 @@ jobs:
       run: chmod +x android/gradlew
     
     - name: Build Debug APK with Gradle
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --info
       working-directory: android
     
     - name: Build Release APK with Gradle
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease --info
       working-directory: android
     
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
+      if: success()
       with:
         name: debug-apk
         path: android/app/build/outputs/apk/debug/app-debug.apk
     
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
+      if: success()
       with:
         name: release-apk
         path: android/app/build/outputs/apk/release/app-release.apk
