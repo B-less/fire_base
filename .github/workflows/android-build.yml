@@ -12,7 +12,26 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
-    
+
+    # 1. Setup Node.js
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' 
+        cache: 'npm'
+
+    # 2. Install your JavaScript dependencies
+    - name: Install npm dependencies
+      run: npm ci
+
+    # 3. Build your web app (Angular/React/Vue)
+    - name: Build Web Assets
+      run: npm run build
+
+    # 4. Sync Capacitor (This fixes the "No matching variant" error)
+    - name: Sync Capacitor to Android
+      run: npx cap sync android
+
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
