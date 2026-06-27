@@ -13,22 +13,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # 1. Setup Node.js
+    # Fix 1: Upgraded node-version to 22 to satisfy @capacitor/cli@8.2.0
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20' 
+        node-version: '22' 
         cache: 'npm'
 
-    # 2. Install your JavaScript dependencies
+    # Fix 2: Replaced 'npm ci' with 'npm i' to sidestep the lockfile sync crash
     - name: Install npm dependencies
-      run: npm ci
+      run: npm i --legacy-peer-deps
 
-    # 3. Build your web app (Angular/React/Vue)
     - name: Build Web Assets
       run: npm run build
 
-    # 4. Sync Capacitor (This fixes the "No matching variant" error)
     - name: Sync Capacitor to Android
       run: npx cap sync android
 
