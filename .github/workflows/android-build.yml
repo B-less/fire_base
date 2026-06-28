@@ -12,6 +12,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        lfs: true
 
     # Fix 1: Upgraded node-version to 22 to satisfy @capacitor/cli@8.2.0
     - name: Set up Node.js
@@ -36,6 +38,7 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: gradle
+       
     
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
