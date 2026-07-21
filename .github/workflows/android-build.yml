@@ -6,11 +6,13 @@ on:
     paths:
       - 'android/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/android-build.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'android/**'
+      - 'package.json'
 
 jobs:
   build:
@@ -23,7 +25,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
 
     - name: Setup Java 17
@@ -41,7 +43,7 @@ jobs:
         arch: x86_64
 
     - name: Install npm dependencies
-      run: npm ci
+      run: npm ci --verbose
 
     - name: Sync Capacitor to Android
       run: npx cap sync android
