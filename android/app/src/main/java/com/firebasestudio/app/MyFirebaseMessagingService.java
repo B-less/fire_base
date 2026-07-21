@@ -10,6 +10,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.RemoteInput;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
@@ -18,6 +19,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "FCMService";
     private static final String CHANNEL_ID = "chirp_chat_notifications";
+    private static final String REPLY_KEY = "reply_key";
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
@@ -52,46 +54,139 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     @Override
     public void onNewToken(@NonNull String token) {
         Log.d(TAG, "Refreshed token: " + token);
-        NativeSessionManager sessionManager = new NativeSessionManager(this);
-        NativeSessionManager.NativeUserSession session = sessionManager.getSession();
-        if (session != null) {
-            new FirebaseChatRepository().updateFcmToken(session.getPhoneNumber(), token);
+        try {
+            NativeSessionManager sessionManager = new NativeSessionManager(this);
+            NativeSessionManager.NativeUserSession session = sessionManager.getSession();
+            if (session != null && session.getPhoneNumber() != null) {
+                new FirebaseChatRepository().updateFcmToken(session.getPhoneNumber(), token);
+            } else {
+                Log.w(TAG, "Session or phone number is null, skipping FCM token update");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating FCM token", e);
         }
     }
 
     private void sendNotification(String title, String messageBody, String chatId) {
-        Intent intent;
+        try {
+            Intent intent;
+            if (chatId != null && !chatId.isEmpty()) {
+                intent = new Intent(this, ConversationActivity.class);
+                intent.putExtra(ConversationActivity.EXTRA_CHAT_ID, chatId);
+                intent.putExtra(ConversationActivity.EXTRA_CHAT_NAME, title);
+            } else {
+                intent = new Intent(this, NativeHomeActivity.class);
+            }
+            
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            
+            // Use unique notification ID to prevent overwrites
+            int notificationId = generateNotificationId(chatId);
+            
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                    this, 
+                    notificationId,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            NotificationManager notificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            
+            if (notificationManager == null) {
+                Log.e(TAG, "NotificationManager is null");
+                return;
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "Chat Notifications",
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                channel.setDescription("Notifications for new chat messages");
+                notificationManager.createNotificationChannel(channel);
+            }
+
+            NotificationCompat.Builder notificationBuilder =
+                    new NotificationCompat.Builder(this, CHANNEL_ID)
+                            .setSmallIcon(R.mipmap.ic_launcher_round)
+                            .setContentTitle(title)
+                            .setContentText(messageBody)
+                            .setAutoCancel(true)
+                            .setContentIntent(pendingIntent)
+                            .setPriority(NotificationCompat.PRIORITY_HIGH);
+            
+            // Add notification actions (reply and mark-as-read)
+            addNotificationActions(notificationBuilder, chatId, notificationId);
+
+            notificationManager.notify(notificationId, notificationBuilder.build());
+            Log.d(TAG, "Notification sent with ID: " + notificationId);
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending notification", e);
+        }
+    }
+    
+    /**
+     * Generate unique notification ID based on chat ID
+     */
+    private int generateNotificationId(String chatId) {
         if (chatId != null && !chatId.isEmpty()) {
-            intent = new Intent(this, ConversationActivity.class);
-            intent.putExtra(ConversationActivity.EXTRA_CHAT_ID, chatId);
-            intent.putExtra(ConversationActivity.EXTRA_CHAT_NAME, title);
-        } else {
-            intent = new Intent(this, NativeHomeActivity.class);
+            return Math.abs(chatId.hashCode());
         }
-        
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent,
-                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
-
-        NotificationManager notificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                    "Chat Notifications",
-                    NotificationManager.IMPORTANCE_HIGH);
-            notificationManager.createNotificationChannel(channel);
+        return (int) System.currentTimeMillis() % Integer.MAX_VALUE;
+    }
+    
+    /**
+     * Add quick action buttons to notification (reply and mark-as-read)
+     */
+    private void addNotificationActions(
+            NotificationCompat.Builder builder,
+            String chatId,
+            int notificationId
+    ) {
+        try {
+            // Reply action
+            RemoteInput remoteInput = new RemoteInput.Builder(REPLY_KEY)
+                    .setLabel("Reply")
+                    .build();
+            
+            Intent replyIntent = new Intent(this, NotificationReplyReceiver.class);
+            replyIntent.putExtra("chatId", chatId);
+            replyIntent.putExtra("notificationId", notificationId);
+            
+            PendingIntent replyPendingIntent = PendingIntent.getBroadcast(
+                    this,
+                    notificationId,
+                    replyIntent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+            
+            NotificationCompat.Action replyAction = new NotificationCompat.Action.Builder(
+                    0,
+                    "Reply",
+                    replyPendingIntent
+            ).addRemoteInput(remoteInput).build();
+            
+            builder.addAction(replyAction);
+            
+            // Mark-as-read action
+            Intent markReadIntent = new Intent(this, NotificationActionReceiver.class);
+            markReadIntent.setAction("MARK_AS_READ");
+            markReadIntent.putExtra("chatId", chatId);
+            markReadIntent.putExtra("notificationId", notificationId);
+            
+            PendingIntent markReadPendingIntent = PendingIntent.getBroadcast(
+                    this,
+                    notificationId + 1,
+                    markReadIntent,
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+            );
+            
+            builder.addAction(0, "Mark as Read", markReadPendingIntent);
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Error adding notification actions", e);
         }
-
-        NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(R.mipmap.ic_launcher_round)
-                        .setContentTitle(title)
-                        .setContentText(messageBody)
-                        .setAutoCancel(true)
-                        .setContentIntent(pendingIntent)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH);
-
-        notificationManager.notify(0 /* ID of notification */, notificationBuilder.build());
     }
 }

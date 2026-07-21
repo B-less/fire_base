@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
+import android.util.LruCache;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
@@ -19,6 +20,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -26,11 +28,21 @@ import java.security.MessageDigest;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import android.util.Log;
 
 public final class MediaUtils {
 
+    private static final String TAG = "MediaUtils";
     private static final ExecutorService MEDIA_EXECUTOR = Executors.newFixedThreadPool(3);
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
+    
+    // LRU Cache for bitmap memory optimization
+    private static final LruCache<String, Bitmap> BITMAP_CACHE = new LruCache<>(5);
+    
+    // Retry configuration
+    private static final int MAX_RETRIES = 3;
+    private static final int INITIAL_RETRY_DELAY_MS = 1000;
 
     public interface BitmapCallback {
         void onResult(@Nullable Bitmap bitmap);
@@ -43,6 +55,25 @@ public final class MediaUtils {
     private MediaUtils() {
     }
 
+    /**
+     * Shutdown the executor service gracefully
+     */
+    public static void shutdown() {
+        if (!MEDIA_EXECUTOR.isShutdown()) {
+            MEDIA_EXECUTOR.shutdown();
+            try {
+                if (!MEDIA_EXECUTOR.awaitTermination(5, TimeUnit.SECONDS)) {
+                    MEDIA_EXECUTOR.shutdownNow();
+                    Log.w(TAG, "MediaUtils executor did not terminate gracefully");
+                }
+            } catch (InterruptedException e) {
+                MEDIA_EXECUTOR.shutdownNow();
+                Log.e(TAG, "Error shutting down executor", e);
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     public static boolean isDataUrl(@Nullable String value) {
         return value != null && value.startsWith("data:");
     }
@@ -50,19 +81,38 @@ public final class MediaUtils {
     @Nullable
     public static Bitmap decodeImage(@NonNull Context context, @Nullable String mediaUrl) {
         try {
-            if (mediaUrl != null && (mediaUrl.startsWith("content://") || mediaUrl.startsWith("file://"))) {
+            if (mediaUrl == null || mediaUrl.trim().isEmpty()) {
+                return null;
+            }
+            
+            // Check cache first
+            String cacheKey = hashFor(mediaUrl);
+            Bitmap cached = BITMAP_CACHE.get(cacheKey);
+            if (cached != null) {
+                Log.d(TAG, "Bitmap cache hit for: " + mediaUrl);
+                return cached;
+            }
+            
+            if (mediaUrl.startsWith("content://") || mediaUrl.startsWith("file://")) {
                 try (InputStream inputStream = context.getContentResolver().openInputStream(Uri.parse(mediaUrl))) {
                     return BitmapFactory.decodeStream(inputStream);
                 }
             }
+            
             File cachedFile = ensureCachedFile(context, mediaUrl, "image");
             if (cachedFile == null || !cachedFile.exists()) {
                 return null;
             }
+            
             try (FileInputStream inputStream = new FileInputStream(cachedFile)) {
-                return BitmapFactory.decodeStream(inputStream);
+                Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                if (bitmap != null) {
+                    BITMAP_CACHE.put(cacheKey, bitmap);
+                }
+                return bitmap;
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            Log.e(TAG, "Error decoding image: " + mediaUrl, e);
             return null;
         }
     }
@@ -83,14 +133,25 @@ public final class MediaUtils {
         }
 
         MEDIA_EXECUTOR.execute(() -> {
-            Bitmap bitmap = decodeImage(context, mediaUrl);
-            MAIN_HANDLER.post(() -> {
-                Object currentTag = imageView.getTag();
-                if (!(currentTag instanceof String) || !mediaUrl.equals(currentTag) || bitmap == null) {
-                    return;
-                }
-                imageView.setImageBitmap(bitmap);
-            });
+            try {
+                Bitmap bitmap = decodeImage(context, mediaUrl);
+                // Use WeakReference to prevent memory leaks
+                WeakReference<ImageView> viewRef = new WeakReference<>(imageView);
+                MAIN_HANDLER.post(() -> {
+                    ImageView view = viewRef.get();
+                    if (view == null) {
+                        Log.w(TAG, "ImageView was garbage collected");
+                        return;
+                    }
+                    Object currentTag = view.getTag();
+                    if (!(currentTag instanceof String) || !mediaUrl.equals(currentTag) || bitmap == null) {
+                        return;
+                    }
+                    view.setImageBitmap(bitmap);
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading image into ImageView", e);
+            }
         });
     }
 
@@ -104,15 +165,21 @@ public final class MediaUtils {
     @Nullable
     public static Uri writeToCache(Context context, @Nullable String mediaUrl, String prefix) {
         try {
-            if (mediaUrl != null && (mediaUrl.startsWith("content://") || mediaUrl.startsWith("file://"))) {
+            if (mediaUrl == null || mediaUrl.trim().isEmpty()) {
+                return null;
+            }
+            
+            if (mediaUrl.startsWith("content://") || mediaUrl.startsWith("file://")) {
                 return Uri.parse(mediaUrl);
             }
+            
             File cachedFile = ensureCachedFile(context, mediaUrl, prefix);
             if (cachedFile == null) {
                 return mediaUrl != null ? Uri.parse(mediaUrl) : null;
             }
             return Uri.fromFile(cachedFile);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            Log.e(TAG, "Error writing to cache", e);
             return mediaUrl != null ? Uri.parse(mediaUrl) : null;
         }
     }
@@ -125,8 +192,9 @@ public final class MediaUtils {
 
         File mediaDirectory = new File(context.getCacheDir(), "chirp-media");
         if (!mediaDirectory.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            mediaDirectory.mkdirs();
+            if (!mediaDirectory.mkdirs()) {
+                Log.w(TAG, "Failed to create media cache directory");
+            }
         }
 
         String extension = detectExtension(mediaUrl);
@@ -156,6 +224,7 @@ public final class MediaUtils {
         if (isDataUrl(mediaUrl)) {
             int commaIndex = mediaUrl.indexOf(',');
             if (commaIndex < 0) {
+                Log.w(TAG, "Invalid data URL format");
                 return null;
             }
             String base64 = mediaUrl.substring(commaIndex + 1);
@@ -163,11 +232,44 @@ public final class MediaUtils {
         }
 
         if (mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://")) {
+            return extractBytesWithRetry(mediaUrl, 0);
+        }
+
+        if (mediaUrl.startsWith("content://") || mediaUrl.startsWith("file://")) {
+            Uri uri = Uri.parse(mediaUrl);
+            try (InputStream stream = context.getContentResolver().openInputStream(uri)) {
+                if (stream == null) {
+                    Log.w(TAG, "Could not open input stream for URI: " + uri);
+                    return null;
+                }
+                ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                byte[] chunk = new byte[8192];
+                int read;
+                while ((read = stream.read(chunk)) != -1) {
+                    buffer.write(chunk, 0, read);
+                }
+                return buffer.toByteArray();
+            } catch (Exception e) {
+                Log.e(TAG, "Error reading from URI", e);
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract bytes with exponential backoff retry logic
+     */
+    @Nullable
+    private static byte[] extractBytesWithRetry(@NonNull String mediaUrl, int attempt) throws Exception {
+        try {
             HttpURLConnection connection = (HttpURLConnection) new URL(mediaUrl).openConnection();
             connection.setConnectTimeout(10000);
             connection.setReadTimeout(20000);
             connection.setInstanceFollowRedirects(true);
             connection.setUseCaches(true);
+            
             try (InputStream stream = new BufferedInputStream(connection.getInputStream())) {
                 ByteArrayOutputStream buffer = new ByteArrayOutputStream();
                 byte[] chunk = new byte[8192];
@@ -179,25 +281,17 @@ public final class MediaUtils {
             } finally {
                 connection.disconnect();
             }
-        }
-
-        if (mediaUrl.startsWith("content://") || mediaUrl.startsWith("file://")) {
-            Uri uri = Uri.parse(mediaUrl);
-            try (InputStream stream = context.getContentResolver().openInputStream(uri)) {
-                if (stream == null) {
-                    return null;
-                }
-                ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                byte[] chunk = new byte[8192];
-                int read;
-                while ((read = stream.read(chunk)) != -1) {
-                    buffer.write(chunk, 0, read);
-                }
-                return buffer.toByteArray();
+        } catch (Exception e) {
+            if (attempt < MAX_RETRIES) {
+                long delay = INITIAL_RETRY_DELAY_MS * (long) Math.pow(2, attempt);
+                Log.d(TAG, "Retrying request after " + delay + "ms (attempt " + (attempt + 1) + "/" + MAX_RETRIES + ")");
+                Thread.sleep(delay);
+                return extractBytesWithRetry(mediaUrl, attempt + 1);
+            } else {
+                Log.e(TAG, "Failed to extract bytes after " + MAX_RETRIES + " retries", e);
+                throw e;
             }
         }
-
-        return null;
     }
 
     @NonNull
@@ -218,7 +312,8 @@ public final class MediaUtils {
                     return sanitizeExtension(path.substring(dotIndex + 1));
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            Log.w(TAG, "Error detecting extension", e);
         }
         return "bin";
     }
@@ -243,6 +338,7 @@ public final class MediaUtils {
             }
             return builder.toString();
         } catch (Exception exception) {
+            Log.w(TAG, "Error hashing value, using fallback", exception);
             return Integer.toHexString(value.hashCode());
         }
     }
