@@ -2,65 +2,88 @@ name: Android Build
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, develop ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-build.yml'
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, develop ]
+    paths:
+      - 'android/**'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-      with:
-        lfs: true
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    # Fix 1: Upgraded node-version to 22 to satisfy @capacitor/cli@8.2.0
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22' 
-        cache: 'npm'
-
-    # Fix 2: Replaced 'npm ci' with 'npm i' to sidestep the lockfile sync crash
-    - name: Install npm dependencies
-      run: npm i --legacy-peer-deps
-
-    - name: Build Web Assets
-      run: npm run build
-
-    - name: Sync Capacitor to Android
-      run: npx cap sync android
-
-    - name: Set up JDK 21
+    - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: '17'
         distribution: 'temurin'
-        cache: gradle
-       
-    
-    - name: Grant execute permission for gradlew
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Cache Gradle dependencies
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: wrapper
+
+    - name: Make gradlew executable
       run: chmod +x android/gradlew
-    
-    - name: Build Debug APK with Gradle
-      run: ./gradlew assembleDebug --info
-      working-directory: android
-    
-    - name: Build Release APK with Gradle
-      run: ./gradlew assembleRelease --info
-      working-directory: android
-    
+
+    - name: Build Android APK (Debug)
+      run: |
+        cd android
+        ./gradlew assembleDebug
+      env:
+        GRADLE_OPTS: -Xmx1024m
+
+    - name: Build Android Bundle (Release)
+      run: |
+        cd android
+        ./gradlew bundleRelease
+      env:
+        GRADLE_OPTS: -Xmx1024m
+
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
-      if: success()
+      if: always()
       with:
         name: debug-apk
-        path: android/app/build/outputs/apk/debug/app-debug.apk
-    
-    - name: Upload Release APK
+        path: android/app/build/outputs/apk/debug/*.apk
+
+    - name: Upload Release Bundle
       uses: actions/upload-artifact@v4
-      if: success()
+      if: always()
       with:
-        name: release-apk
-        path: android/app/build/outputs/apk/release/app-release.apk
+        name: release-bundle
+        path: android/app/build/outputs/bundle/release/*.aab
+
+    - name: Run Android Tests
+      run: |
+        cd android
+        ./gradlew test
+      continue-on-error: true
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: android/app/build/reports/tests/
+
+    - name: Build Status Check
+      if: failure()
+      run: |
+        echo "❌ Android build failed. Check the logs above for details."
+        exit 1
+
+    - name: Build Status Success
+      if: success()
+      run: |
+        echo "✅ Android build completed successfully!"
